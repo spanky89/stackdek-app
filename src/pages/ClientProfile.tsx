@@ -76,9 +76,23 @@ export default function ClientProfilePage() {
 
   function statusBadge(status: string) {
     const s = status.toLowerCase()
-    const bg = s === 'paid' ? 'bg-neutral-800' : s === 'pending' ? 'bg-neutral-400' : s === 'past_due' || s === 'overdue' ? 'bg-neutral-900' : 'bg-neutral-500'
-    const label = s === 'past_due' ? 'Past Due' : s.charAt(0).toUpperCase() + s.slice(1)
-    return <span className={`px-2 py-0.5 ${bg} text-white text-xs rounded-full`}>{label}</span>
+    let bg = 'bg-neutral-400 text-neutral-800'
+    let label = s.charAt(0).toUpperCase() + s.slice(1)
+    
+    if (s === 'paid') {
+      bg = 'bg-neutral-800 text-white'
+    } else if (s === 'pending') {
+      bg = 'bg-neutral-300 text-neutral-800'
+    } else if (s === 'past_due' || s === 'overdue') {
+      bg = 'bg-red-600 text-white'
+      label = 'Past Due'
+    } else if (s === 'scheduled') {
+      bg = 'bg-blue-500 text-white'
+    } else if (s === 'completed' || s === 'done') {
+      bg = 'bg-green-600 text-white'
+    }
+    
+    return <span className={`px-2 py-0.5 ${bg} text-xs rounded-full font-medium`}>{label}</span>
   }
 
   if (loading) return <div className="min-h-screen bg-neutral-100 flex items-center justify-center"><p className="text-neutral-600">Loading…</p></div>
@@ -102,13 +116,13 @@ export default function ClientProfilePage() {
             >Edit</button>
           </div>
         </div>
-        {/* Client Header with Avatar + Actions */}
+        {/* Client Header with Logo + Actions */}
         <div className="bg-white p-4 border-b border-neutral-200">
           <div className="flex items-center space-x-3 mb-4">
             <img
-              src={`https://api.dicebear.com/7.x/notionists/svg?scale=200&seed=${client.id}`}
-              className="w-16 h-16 rounded-full bg-neutral-100"
-              alt={client.name}
+              src="/logo-symbol.png"
+              className="w-16 h-16 rounded-lg bg-neutral-100 p-2"
+              alt="StackDek"
             />
             <div>
               <h1 className="text-lg font-semibold">{client.name}</h1>
