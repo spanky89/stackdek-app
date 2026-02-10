@@ -3,25 +3,22 @@ import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 
-type RecentJob = { id: string; title: string; date_scheduled: string; status: string }
-type RecentQuote = { id: string; title: string; amount: number; status: string }
-type RecentInvoice = { id: string; invoice_number: string; total_amount: number; status: string }
+type Job = { id: string; title: string; date_scheduled: string; status: string; estimate_amount: number; clients: { name: string } | null }
+type Quote = { id: string; title: string; amount: number; status: string; clients: { name: string } | null }
+type Reminder = { id: string; title: string; due_date: string }
 
 export default function HomePage() {
   const nav = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Stats
-  const [totalJobs, setTotalJobs] = useState(0)
-  const [totalInvoiced, setTotalInvoiced] = useState(0)
-  const [pendingQuotes, setPendingQuotes] = useState(0)
+  const [upcomingJobs, setUpcomingJobs] = useState<Job[]>([])
+  const [pendingQuotes, setPendingQuotes] = useState<Quote[]>([])
+  const [newRequests, setNewRequests] = useState(0)
   const [monthlyRevenue, setMonthlyRevenue] = useState(0)
+  const [reminders, setReminders] = useState<Reminder[]>([])
 
-  // Recent activity
-  const [recentJobs, setRecentJobs] = useState<RecentJob[]>([])
-  const [recentQuotes, setRecentQuotes] = useState<RecentQuote[]>([])
-  const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([])
+  const REVENUE_GOAL = 100000 // $100k monthly goal
 
   useEffect(() => {
     ;(async () => {
@@ -48,33 +45,45 @@ export default function HomePage() {
         const cid = company.id
         const now = new Date()
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+        const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
-        // Run all queries in parallel
-        const [jobsRes, invoicesRes, pendingRes, monthlyRes, rJobsRes, rQuotesRes, rInvoicesRes] =
-          await Promise.all([
-            // Total jobs count
-            supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('company_id', cid),
-            // Total invoiced
-            supabase.from('invoices').select('total_amount').eq('company_id', cid),
-            // Pending quotes count
-            supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'pending'),
-            // Monthly revenue
-            supabase.from('invoices').select('total_amount').eq('company_id', cid).gte('created_at', monthStart),
-            // Recent 3 jobs
-            supabase.from('jobs').select('id, title, date_scheduled, status').eq('company_id', cid).order('created_at', { ascending: false }).limit(3),
-            // Recent 3 quotes
-            supabase.from('quotes').select('id, title, amount, status').eq('company_id', cid).order('created_at', { ascending: false }).limit(3),
-            // Recent 3 invoices
-            supabase.from('invoices').select('id, invoice_number, total_amount, status').eq('company_id', cid).order('created_at', { ascending: false }).limit(3),
-          ])
+        // Fetch all data in parallel
+        const [jobsRes, quotesRes, newReqRes, monthlyRes] = await Promise.all([
+          // Upcoming jobs (next 30 days)
+          supabase
+            .from('jobs')
+            .select('id, title, date_scheduled, status, estimate_amount, clients(name)')
+            .eq('company_id', cid)
+            .gte('date_scheduled', now.toISOString().split('T')[0])
+            .lte('date_scheduled', next30days.split('T')[0])
+            .order('date_scheduled', { ascending: true })
+            .limit(5),
+          // Pending quotes
+          supabase
+            .from('quotes')
+            .select('id, title, amount, status, clients(name)')
+            .eq('company_id', cid)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(5),
+          // New requests count (pending quotes)
+          supabase
+            .from('quotes')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', cid)
+            .eq('status', 'pending'),
+          // Monthly revenue
+          supabase
+            .from('invoices')
+            .select('total_amount')
+            .eq('company_id', cid)
+            .gte('created_at', monthStart),
+        ])
 
-        setTotalJobs(jobsRes.count ?? 0)
-        setTotalInvoiced(invoicesRes.data?.reduce((s, r) => s + (r.total_amount || 0), 0) ?? 0)
-        setPendingQuotes(pendingRes.count ?? 0)
-        setMonthlyRevenue(monthlyRes.data?.reduce((s, r) => s + (r.total_amount || 0), 0) ?? 0)
-        setRecentJobs((rJobsRes.data as any) ?? [])
-        setRecentQuotes((rQuotesRes.data as any) ?? [])
-        setRecentInvoices((rInvoicesRes.data as any) ?? [])
+        setUpcomingJobs((jobsRes.data as any) || [])
+        setPendingQuotes((quotesRes.data as any) || [])
+        setNewRequests(newReqRes.count ?? 0)
+        setMonthlyRevenue(monthlyRes.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) ?? 0)
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load dashboard')
       } finally {
@@ -83,126 +92,153 @@ export default function HomePage() {
     })()
   }, [])
 
-  async function signOut() {
-    await supabase.auth.signOut()
-    nav('/login', { replace: true })
-  }
-
   if (loading) return <div className="p-6 text-neutral-600">Loading…</div>
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>
 
   const fmt = (n: number) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const revenuePct = Math.min(100, Math.round((monthlyRevenue / REVENUE_GOAL) * 100))
 
-  const statusDot = (s: string) => {
+  const statusColor = (status: string) => {
     const colors: Record<string, string> = {
-      completed: 'bg-green-500', paid: 'bg-green-500',
-      pending: 'bg-yellow-500', scheduled: 'bg-blue-500',
-      'in-progress': 'bg-blue-500', sent: 'bg-blue-500',
-      draft: 'bg-neutral-400', overdue: 'bg-red-500', cancelled: 'bg-red-400',
+      paid: 'bg-neutral-800 text-white',
+      pending: 'bg-neutral-300 text-neutral-800',
+      'past-due': 'bg-red-500 text-white',
+      scheduled: 'bg-blue-500 text-white',
+      completed: 'bg-green-600 text-white',
+      'in-progress': 'bg-blue-500 text-white',
     }
-    return <span className={`inline-block w-2 h-2 rounded-full ${colors[s] ?? 'bg-neutral-400'} mr-1.5`} />
+    return colors[status] || 'bg-neutral-200 text-neutral-800'
   }
-
-  // Monthly revenue as % of total invoiced (for progress bar)
-  const revPct = totalInvoiced > 0 ? Math.min(100, Math.round((monthlyRevenue / totalInvoiced) * 100)) : 0
 
   return (
     <AppLayout>
       <>
-
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <StatCard label="Total Jobs" value={String(totalJobs)} accent="bg-neutral-900" />
-          <StatCard label="Total Invoiced" value={fmt(totalInvoiced)} accent="bg-blue-600" />
-          <StatCard label="Pending Quotes" value={String(pendingQuotes)} accent="bg-yellow-500" />
-          <StatCard label="Monthly Revenue" value={fmt(monthlyRevenue)} accent="bg-green-600" />
+        {/* Revenue Goal */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
+          <h2 className="text-sm font-semibold text-neutral-700 mb-3">Revenue Goal</h2>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-neutral-600">Monthly Goal: {fmt(REVENUE_GOAL)}</span>
+            <span className="text-sm font-semibold">{fmt(monthlyRevenue)}</span>
+          </div>
+          <div className="w-full bg-neutral-100 rounded-full h-3 overflow-hidden">
+            <div
+              className="bg-neutral-900 h-full rounded-full transition-all duration-300"
+              style={{ width: `${revenuePct}%` }}
+            />
+          </div>
         </div>
 
-        {/* Monthly vs Total progress */}
-        {totalInvoiced > 0 && (
+        {/* New Requests */}
+        {newRequests > 0 && (
           <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-            <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">This month vs total</span>
-              <span className="font-medium">{revPct}%</span>
-            </div>
-            <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
-              <div className="h-full bg-neutral-900 rounded-full transition-all" style={{ width: `${revPct}%` }} />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📧</span>
+                <div>
+                  <h3 className="text-sm font-semibold">New Requests</h3>
+                  <p className="text-xs text-neutral-600">{newRequests} pending quote{newRequests !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => nav('/quotes')}
+                className="text-neutral-900 hover:text-neutral-700 font-medium text-sm"
+              >
+                →
+              </button>
             </div>
           </div>
         )}
 
-        {/* Recent Activity */}
-        <div className="space-y-3 mb-6">
-          {recentJobs.length > 0 && (
-            <ActivitySection title="Recent Jobs">
-              {recentJobs.map(j => (
-                <button key={j.id} onClick={() => nav(`/job/${j.id}`)} className="flex items-center justify-between w-full text-left py-2 border-b border-neutral-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{j.title}</p>
-                    <p className="text-xs text-neutral-600">{new Date(j.date_scheduled).toLocaleDateString()}</p>
-                  </div>
-                  <span className="flex items-center text-xs capitalize">{statusDot(j.status)}{j.status}</span>
-                </button>
-              ))}
-            </ActivitySection>
-          )}
-
-          {recentQuotes.length > 0 && (
-            <ActivitySection title="Recent Quotes">
-              {recentQuotes.map(q => (
-                <button key={q.id} onClick={() => nav(`/quote/${q.id}`)} className="flex items-center justify-between w-full text-left py-2 border-b border-neutral-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{q.title}</p>
-                    <p className="text-xs text-neutral-600">{fmt(q.amount)}</p>
-                  </div>
-                  <span className="flex items-center text-xs capitalize">{statusDot(q.status)}{q.status}</span>
-                </button>
-              ))}
-            </ActivitySection>
-          )}
-
-          {recentInvoices.length > 0 && (
-            <ActivitySection title="Recent Invoices">
-              {recentInvoices.map(inv => (
-                <button key={inv.id} onClick={() => nav(`/invoices`)} className="flex items-center justify-between w-full text-left py-2 border-b border-neutral-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">#{inv.invoice_number}</p>
-                    <p className="text-xs text-neutral-600">{fmt(inv.total_amount)}</p>
-                  </div>
-                  <span className="flex items-center text-xs capitalize">{statusDot(inv.status)}{inv.status}</span>
-                </button>
-              ))}
-            </ActivitySection>
-          )}
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button
+            onClick={() => nav('/quotes')}
+            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition"
+          >
+            <span className="text-2xl mb-2 block">📝</span>
+            <p className="text-xs font-semibold">New Quote</p>
+          </button>
+          <button
+            onClick={() => nav('/jobs')}
+            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition"
+          >
+            <span className="text-2xl mb-2 block">📅</span>
+            <p className="text-xs font-semibold">Schedule Job</p>
+          </button>
         </div>
 
-        {/* Quick Nav */}
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => nav('/jobs')} className="bg-neutral-900 text-white p-4 rounded-lg font-semibold">Jobs</button>
-          <button onClick={() => nav('/clients')} className="bg-neutral-900 text-white p-4 rounded-lg font-semibold">Clients</button>
-          <button onClick={() => nav('/quotes')} className="bg-neutral-900 text-white p-4 rounded-lg font-semibold">Quotes</button>
-          <button onClick={() => nav('/invoices')} className="bg-neutral-900 text-white p-4 rounded-lg font-semibold">Invoices</button>
-        </div>
+        {/* Upcoming Jobs */}
+        {upcomingJobs.length > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Upcoming Jobs</h3>
+              <button
+                onClick={() => nav('/jobs')}
+                className="text-neutral-500 hover:text-neutral-700 text-xs font-medium"
+              >
+                View all
+              </button>
+            </div>
+            <div className="space-y-3">
+              {upcomingJobs.map(job => (
+                <button
+                  key={job.id}
+                  onClick={() => nav(`/job/${job.id}`)}
+                  className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium">{job.clients?.name || 'Unknown'}</p>
+                      <p className="text-xs text-neutral-600">{job.title}</p>
+                    </div>
+                    <span className="text-sm font-semibold">{fmt(job.estimate_amount || 0)}</span>
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-1">{new Date(job.date_scheduled).toLocaleDateString()}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending Quotes */}
+        {pendingQuotes.length > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Pending Quotes</h3>
+              <button
+                onClick={() => nav('/quotes')}
+                className="text-neutral-500 hover:text-neutral-700 text-xs font-medium"
+              >
+                View all
+              </button>
+            </div>
+            <div className="space-y-2">
+              {pendingQuotes.map(quote => (
+                <button
+                  key={quote.id}
+                  onClick={() => nav(`/quote/${quote.id}`)}
+                  className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium">{quote.clients?.name || 'Unknown'}</p>
+                      <p className="text-xs text-neutral-600">{quote.title}</p>
+                    </div>
+                    <span className="text-sm font-semibold">{fmt(quote.amount)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {upcomingJobs.length === 0 && pendingQuotes.length === 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center">
+            <p className="text-neutral-600 text-sm">No jobs or quotes yet. Create one to get started.</p>
+          </div>
+        )}
       </>
     </AppLayout>
-  )
-}
-
-function StatCard({ label, value, accent }: { label: string; value: string; accent: string }) {
-  return (
-    <div className="bg-white rounded-lg border border-neutral-200 p-4">
-      <div className={`w-8 h-1 ${accent} rounded mb-2`} />
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-xs text-neutral-600 mt-0.5">{label}</p>
-    </div>
-  )
-}
-
-function ActivitySection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-lg border border-neutral-200 p-4">
-      <h3 className="text-sm font-semibold text-neutral-700 mb-2">{title}</h3>
-      {children}
-    </div>
   )
 }
