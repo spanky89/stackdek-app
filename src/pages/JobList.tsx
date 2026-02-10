@@ -5,7 +5,6 @@ import AppLayout from '../components/AppLayout'
 import CreateJobForm from '../components/CreateJobForm'
 import ListToolbar from '../components/ListToolbar'
 import { useListFilter } from '../hooks/useListFilter'
-import AppLayout from '../components/AppLayout'
 
 type Job = {
   id: string; title: string; status: string; estimate_amount: number

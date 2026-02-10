@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
+import AppLayout from '../components/AppLayout'
 
 type ClientOption = { id: string; name: string }
 
@@ -63,8 +64,8 @@ export default function QuoteEditPage() {
   if (loading) return <div className="p-6">Loading…</div>
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-xl mx-auto">
+    <AppLayout>
+      <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Edit Quote</h1>
           <button onClick={() => nav(`/quote/${id}`)} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Back</button>
@@ -113,7 +114,7 @@ export default function QuoteEditPage() {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }

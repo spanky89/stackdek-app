@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
+import AppLayout from '../components/AppLayout'
 
 interface Company {
   id: string; name: string; phone: string; email: string
@@ -150,18 +151,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
-      {/* Fixed Header */}
-      <nav className="fixed top-0 w-full bg-white border-b border-neutral-200 z-50">
-        <div className="flex items-center justify-between px-4 h-14">
-          <div className="flex items-center space-x-4">
-            <button onClick={() => nav('/home')} className="text-neutral-700">☰</button>
-            <span className="font-medium">Settings</span>
-          </div>
-        </div>
-      </nav>
-
-      <main className="pt-16 pb-20 px-4 max-w-2xl mx-auto">
+    <AppLayout>
+      <div>
         {/* Menu */}
         {view === 'menu' && (
           <div className="space-y-4">
@@ -403,32 +394,7 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-      </main>
-
-      {/* Fixed Bottom Nav */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-neutral-200 z-50">
-        <div className="flex justify-around items-center h-16">
-          <button onClick={() => nav('/home')} className="flex flex-col items-center">
-            <span className="text-neutral-500">🏠</span>
-            <span className="text-xs mt-1 text-neutral-500">Home</span>
-          </button>
-          <button onClick={() => nav('/jobs')} className="flex flex-col items-center">
-            <span className="text-neutral-500">📋</span>
-            <span className="text-xs mt-1 text-neutral-500">Jobs</span>
-          </button>
-          <button onClick={() => nav('/invoices/create')} className="flex flex-col items-center">
-            <span className="bg-neutral-900 text-white p-3 rounded-full -mt-6 text-sm">＋</span>
-          </button>
-          <button onClick={() => nav('/clients')} className="flex flex-col items-center">
-            <span className="text-neutral-500">👤</span>
-            <span className="text-xs mt-1 text-neutral-500">Clients</span>
-          </button>
-          <button className="flex flex-col items-center">
-            <span className="text-neutral-900">⚙️</span>
-            <span className="text-xs mt-1 text-neutral-900">Settings</span>
-          </button>
-        </div>
-      </nav>
-    </div>
+      </div>
+    </AppLayout>
   )
 }

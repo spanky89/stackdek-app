@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
+import AppLayout from '../components/AppLayout'
 
 type Job = {
   id: string; title: string; description: string | null; date_scheduled: string
@@ -72,8 +73,8 @@ export default function JobDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
+    <AppLayout>
+      <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Job Detail</h1>
           <button onClick={() => nav('/jobs')} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Back</button>
@@ -135,7 +136,7 @@ export default function JobDetailPage() {
             </>
           )}
         </div>
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }

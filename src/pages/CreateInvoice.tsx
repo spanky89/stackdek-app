@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
+import AppLayout from '../components/AppLayout'
 
 type Job = { id: string; title: string; estimate_amount: number; description: string | null; client_id: string | null; clients: { id: string; name: string } | null }
 type LineItem = { description: string; quantity: number; unit_price: number }
@@ -107,8 +108,8 @@ export default function CreateInvoicePage() {
   if (loading) return <div className="p-6">Loading…</div>
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
+    <AppLayout>
+      <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Create Invoice</h1>
           <button onClick={() => nav('/invoices')} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Back</button>
@@ -150,7 +151,7 @@ export default function CreateInvoicePage() {
             {busy ? 'Creating…' : 'Create Invoice (Draft)'}
           </button>
         </form>
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }

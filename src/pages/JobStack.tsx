@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import AppLayout from '../components/AppLayout'
 
 type Job = {
   id: string
@@ -56,8 +57,8 @@ export default function JobStackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
+    <AppLayout>
+      <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Job Stack</h1>
           <button
@@ -113,7 +114,7 @@ export default function JobStackPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }
