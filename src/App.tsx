@@ -172,6 +172,14 @@ export default function App() {
           }
         />
         <Route
+          path="/client/:id/profile"
+          element={
+            <ProtectedRoute>
+              <ClientProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/client/:id/edit"
           element={
             <ProtectedRoute>
