@@ -29,8 +29,20 @@ export default function SettingsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('companies').select('*').eq('owner_id', user.id).single()
-      setCompany(data)
+      
+      let { data: company } = await supabase.from('companies').select('*').eq('owner_id', user.id).single()
+      
+      // Auto-create company if it doesn't exist
+      if (!company) {
+        const { data: newCompany } = await supabase
+          .from('companies')
+          .insert({ owner_id: user.id, name: 'My Company' })
+          .select()
+          .single()
+        company = newCompany
+      }
+      
+      setCompany(company)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
