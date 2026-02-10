@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import Header from '../components/Header'
+import AppLayout from '../components/AppLayout'
 
 type RecentJob = { id: string; title: string; date_scheduled: string; status: string }
 type RecentQuote = { id: string; title: string; amount: number; status: string }
@@ -107,10 +107,8 @@ export default function HomePage() {
   const revPct = totalInvoiced > 0 ? Math.min(100, Math.round((monthlyRevenue / totalInvoiced) * 100)) : 0
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <Header />
+    <AppLayout>
+      <>
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -185,8 +183,8 @@ export default function HomePage() {
           <button onClick={() => nav('/quotes')} className="bg-neutral-900 text-white p-4 rounded-lg font-semibold">Quotes</button>
           <button onClick={() => nav('/invoices')} className="bg-neutral-900 text-white p-4 rounded-lg font-semibold">Invoices</button>
         </div>
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }
 

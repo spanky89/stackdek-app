@@ -84,12 +84,13 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-100 p-6">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow border border-neutral-200 p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <img src="/logo-symbol.png" alt="StackDek" className="h-8 w-auto" />
-          <h1 className="text-2xl font-bold">StackDek</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-100 p-6">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow border border-neutral-200 p-8">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <img src="/logo-symbol.png" alt="StackDek" className="h-10 w-auto" />
+          <h1 className="text-3xl font-bold">StackDek</h1>
         </div>
+        <p className="text-center text-sm font-semibold text-neutral-700 mb-6">Built by Contractors, For Contractors</p>
         <p className="text-sm text-neutral-600 mb-6">Sign in to your account</p>
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
