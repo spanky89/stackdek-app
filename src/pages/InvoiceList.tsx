@@ -3,6 +3,7 @@ import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import ListToolbar from '../components/ListToolbar'
 import { useListFilter } from '../hooks/useListFilter'
+import AppLayout from '../components/AppLayout'
 
 type Invoice = {
   id: string; invoice_number: string; status: string; total_amount: number
@@ -57,8 +58,8 @@ export default function InvoiceListPage() {
   if (loading) return <div className="p-6">Loading…</div>
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
+    <AppLayout>
+      <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Invoices</h1>
           <div className="flex gap-2">
@@ -106,7 +107,7 @@ export default function InvoiceListPage() {
             </table>
           </div>
         )}
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }

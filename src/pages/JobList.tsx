@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import AppLayout from '../components/AppLayout'
 import CreateJobForm from '../components/CreateJobForm'
 import ListToolbar from '../components/ListToolbar'
 import { useListFilter } from '../hooks/useListFilter'
+import AppLayout from '../components/AppLayout'
 
 type Job = {
   id: string; title: string; status: string; estimate_amount: number
@@ -55,8 +57,8 @@ export default function JobListPage() {
   if (loading) return <div className="p-6">Loading…</div>
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4 pb-24">
-      <div className="max-w-3xl mx-auto">
+    <AppLayout>
+      <>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Jobs</h1>
           <div className="flex gap-2">
@@ -116,7 +118,7 @@ export default function JobListPage() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </>
+    </AppLayout>
   )
 }
