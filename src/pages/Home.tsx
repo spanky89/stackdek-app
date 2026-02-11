@@ -18,8 +18,10 @@ export default function HomePage() {
   const [newRequests, setNewRequests] = useState(0)
   const [monthlyRevenue, setMonthlyRevenue] = useState(0)
   const [reminders, setReminders] = useState<Reminder[]>([])
-
-  const REVENUE_GOAL = 100000 // $100k monthly goal
+  const [revenueGoal, setRevenueGoal] = useState(100000)
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [goalInput, setGoalInput] = useState('100000')
+  const [savingGoal, setSavingGoal] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -45,11 +47,24 @@ export default function HomePage() {
 
         const cid = company.id
         const now = new Date()
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
         const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
+        // Fetch company details first (for revenue goal)
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('revenue_goal')
+          .eq('id', cid)
+          .single()
+        
+        if (companyData?.revenue_goal) {
+          setRevenueGoal(companyData.revenue_goal)
+          setGoalInput(String(companyData.revenue_goal))
+        }
+
         // Fetch all data in parallel
-        const [jobsRes, quotesRes, newReqRes, monthlyRes, remindersRes] = await Promise.all([
+        const [jobsRes, quotesRes, newReqRes, completedJobsRes, remindersRes] = await Promise.all([
           // Upcoming jobs (next 30 days)
           supabase
             .from('jobs')
@@ -73,12 +88,14 @@ export default function HomePage() {
             .select('id', { count: 'exact', head: true })
             .eq('company_id', cid)
             .eq('status', 'pending'),
-          // Monthly revenue
+          // Completed jobs this month (for revenue)
           supabase
-            .from('invoices')
-            .select('total_amount')
+            .from('jobs')
+            .select('estimate_amount')
             .eq('company_id', cid)
-            .gte('created_at', monthStart),
+            .eq('status', 'completed')
+            .gte('date_scheduled', monthStart)
+            .lte('date_scheduled', monthEnd),
           // Task reminders
           supabase
             .from('reminders')
@@ -92,7 +109,7 @@ export default function HomePage() {
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
         setNewRequests(newReqRes.count ?? 0)
-        setMonthlyRevenue(monthlyRes.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) ?? 0)
+        setMonthlyRevenue(completedJobsRes.data?.reduce((sum, job) => sum + (job.estimate_amount || 0), 0) ?? 0)
         setReminders((remindersRes.data as any) || [])
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load dashboard')
@@ -105,8 +122,32 @@ export default function HomePage() {
   if (loading) return <div className="p-6 text-neutral-600">Loading…</div>
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>
 
+  async function saveRevenueGoal() {
+    const parsed = parseInt(goalInput, 10)
+    if (isNaN(parsed) || parsed < 0) return
+
+    setSavingGoal(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error: err } = await supabase
+        .from('companies')
+        .update({ revenue_goal: parsed })
+        .eq('owner_id', user.id)
+
+      if (err) throw err
+      setRevenueGoal(parsed)
+      setShowGoalModal(false)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingGoal(false)
+    }
+  }
+
   const fmt = (n: number) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const revenuePct = Math.min(100, Math.round((monthlyRevenue / REVENUE_GOAL) * 100))
+  const revenuePct = Math.min(100, Math.round((monthlyRevenue / revenueGoal) * 100))
 
   const statusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -124,10 +165,13 @@ export default function HomePage() {
     <AppLayout>
       <>
         {/* Revenue Goal */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
+        <button
+          onClick={() => { setShowGoalModal(true); setGoalInput(String(revenueGoal)) }}
+          className="w-full bg-white rounded-lg border border-neutral-200 p-4 mb-4 hover:bg-neutral-50 transition text-left"
+        >
           <h2 className="text-sm font-semibold text-neutral-700 mb-3">Revenue Goal</h2>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs text-neutral-600">Monthly Goal: {fmt(REVENUE_GOAL)}</span>
+            <span className="text-xs text-neutral-600">Monthly Goal: {fmt(revenueGoal)}</span>
             <span className="text-sm font-semibold">{fmt(monthlyRevenue)}</span>
           </div>
           <div className="w-full bg-neutral-100 rounded-full h-3 overflow-hidden">
@@ -136,7 +180,8 @@ export default function HomePage() {
               style={{ width: `${revenuePct}%` }}
             />
           </div>
-        </div>
+          <p className="text-xs text-neutral-500 mt-2">Click to edit goal</p>
+        </button>
 
         {/* New Requests */}
         {newRequests > 0 && (
@@ -278,6 +323,37 @@ export default function HomePage() {
         {upcomingJobs.length === 0 && pendingQuotes.length === 0 && reminders.length === 0 && (
           <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center">
             <p className="text-neutral-600 text-sm">No jobs, quotes, or reminders yet. Create one to get started.</p>
+          </div>
+        )}
+
+        {/* Revenue Goal Modal */}
+        {showGoalModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowGoalModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+              <h2 className="text-lg font-bold mb-4">Set Monthly Revenue Goal</h2>
+              <input
+                type="number"
+                value={goalInput}
+                onChange={e => setGoalInput(e.target.value)}
+                className="w-full px-4 py-2 border border-neutral-200 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                placeholder="100000"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowGoalModal(false)}
+                  className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg font-medium hover:bg-neutral-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveRevenueGoal}
+                  disabled={savingGoal}
+                  className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
+                >
+                  {savingGoal ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </>
