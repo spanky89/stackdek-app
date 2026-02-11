@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import { DocumentIcon, BriefcaseIcon } from '../components/Icons'
 
 type Job = { id: string; title: string; date_scheduled: string; status: string; estimate_amount: number; clients: { name: string } | null }
 type Quote = { id: string; title: string; amount: number; status: string; clients: { name: string } | null }
@@ -153,16 +154,16 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-3 mb-4">
           <button
             onClick={() => nav('/quotes')}
-            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition"
+            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition flex flex-col items-center"
           >
-            <span className="text-2xl mb-2 block">📝</span>
+            <div className="text-neutral-900 mb-2"><DocumentIcon /></div>
             <p className="text-xs font-semibold">New Quote</p>
           </button>
           <button
             onClick={() => nav('/jobs')}
-            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition"
+            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition flex flex-col items-center"
           >
-            <span className="text-2xl mb-2 block">📅</span>
+            <div className="text-neutral-900 mb-2"><BriefcaseIcon /></div>
             <p className="text-xs font-semibold">Schedule Job</p>
           </button>
         </div>
