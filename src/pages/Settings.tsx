@@ -5,7 +5,7 @@ import AppLayout from '../components/AppLayout'
 
 interface Company {
   id: string; name: string; phone: string; email: string
-  logo_url?: string; website?: string; address?: string; invoice_notes?: string
+  logo_url?: string; website?: string; street_address?: string; city?: string; state?: string; zip?: string; invoice_notes?: string
 }
 interface Service { id: string; name: string; price: number; description?: string }
 interface Product { id: string; name: string; price: number; description?: string }
@@ -80,7 +80,8 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase.from('companies').update({
         name: company.name, email: company.email, phone: company.phone,
-        logo_url: company.logo_url, website: company.website, address: company.address,
+        logo_url: company.logo_url, website: company.website, 
+        street_address: company.street_address, city: company.city, state: company.state, zip: company.zip,
         invoice_notes: company.invoice_notes,
       }).eq('id', company.id)
       if (error) throw error
@@ -227,11 +228,34 @@ export default function SettingsPage() {
                   className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Address</label>
-                <input type="text" value={company.address || ''}
-                  onChange={e => setCompany({ ...company, address: e.target.value })}
-                  placeholder="123 Main St, City, State 12345"
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Street Address</label>
+                <input type="text" value={company.street_address || ''}
+                  onChange={e => setCompany({ ...company, street_address: e.target.value })}
+                  placeholder="123 Main St"
                   className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">City</label>
+                  <input type="text" value={company.city || ''}
+                    onChange={e => setCompany({ ...company, city: e.target.value })}
+                    placeholder="New York"
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">State</label>
+                  <input type="text" value={company.state || ''}
+                    onChange={e => setCompany({ ...company, state: e.target.value })}
+                    placeholder="NY"
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">ZIP Code</label>
+                  <input type="text" value={company.zip || ''}
+                    onChange={e => setCompany({ ...company, zip: e.target.value })}
+                    placeholder="10001"
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
+                </div>
               </div>
               {saveBtn}
             </div>
