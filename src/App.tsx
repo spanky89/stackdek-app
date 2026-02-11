@@ -7,6 +7,7 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
+import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
 import HomePage from "./pages/Home";
 import JobStackPage from "./pages/JobStack";
@@ -137,7 +138,7 @@ function LoginPage() {
   );
 }
 
-/** Route guard */
+/** Route guard with CompanyProvider */
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { loading, session } = useSupabaseSession();
   if (loading) {
@@ -147,7 +148,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
       </div>
     );
   }
-  return session ? children : <Navigate to="/login" replace />;
+  return session ? <CompanyProvider>{children}</CompanyProvider> : <Navigate to="/login" replace />;
 }
 
 export default function App() {

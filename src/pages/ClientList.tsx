@@ -5,7 +5,7 @@ import CreateClientForm from '../components/CreateClientForm'
 import ListToolbar from '../components/ListToolbar'
 import { useListFilter } from '../hooks/useListFilter'
 import AppLayout from '../components/AppLayout'
-import { useEnsureCompany } from '../hooks/useEnsureCompany'
+import { useCompany } from '../context/CompanyContext'
 
 type Client = {
   id: string
@@ -30,7 +30,7 @@ const SORT_OPTIONS = [
 
 export default function ClientListPage() {
   const nav = useNavigate()
-  const { companyId } = useEnsureCompany()
+  const { companyId } = useCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

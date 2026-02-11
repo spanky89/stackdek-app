@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../api/supabaseClient'
-import { useEnsureCompany } from '../hooks/useEnsureCompany'
+import { useCompany } from '../context/CompanyContext'
 
 export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void }) {
-  const { companyId, error: companyError, loading: companyLoading } = useEnsureCompany()
+  const { companyId, error: companyError, loading: companyLoading } = useCompany()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')

@@ -3,6 +3,7 @@ import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import { DocumentIcon, BriefcaseIcon } from '../components/Icons'
+import { useCompany } from '../context/CompanyContext'
 
 type Job = { id: string; title: string; date_scheduled: string; status: string; estimate_amount: number; clients: { name: string } | null }
 type Quote = { id: string; title: string; amount: number; status: string; clients: { name: string } | null }
@@ -10,6 +11,7 @@ type Reminder = { id: string; title: string; due_date: string }
 
 export default function HomePage() {
   const nav = useNavigate()
+  const { companyId } = useCompany()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,28 +26,11 @@ export default function HomePage() {
   const [savingGoal, setSavingGoal] = useState(false)
 
   useEffect(() => {
+    if (!companyId) { setLoading(false); return }
+
     ;(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        const { data: company } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('owner_id', user.id)
-          .single()
-
-        if (!company) {
-          await supabase
-            .from('companies')
-            .insert({ owner_id: user.id, name: 'My Company' })
-            .select()
-            .single()
-          setLoading(false)
-          return
-        }
-
-        const cid = company.id
+        const cid = companyId
         const now = new Date()
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
@@ -117,7 +102,7 @@ export default function HomePage() {
         setLoading(false)
       }
     })()
-  }, [])
+  }, [companyId])
 
   if (loading) return <div className="p-6 text-neutral-600">Loading…</div>
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>
