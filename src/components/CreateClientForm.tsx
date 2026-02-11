@@ -24,22 +24,30 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
 
     setBusy(true)
     try {
+      console.log('Creating client with company_id:', companyId)
 
-      const { error: insertErr } = await supabase.from('clients').insert({
+      const { data, error: insertErr } = await supabase.from('clients').insert({
         company_id: companyId,
         name: name.trim(),
         email: email.trim() || null,
         phone: phone.trim() || null,
         address: address.trim() || null,
         vip,
-      })
+      }).select()
 
-      if (insertErr) { setError(insertErr.message); return }
+      console.log('Insert response:', { data, insertErr })
+
+      if (insertErr) { 
+        console.error('Insert error:', insertErr)
+        setError(`Error: ${insertErr.message}`)
+        return 
+      }
 
       setSuccess(true)
       setName(''); setEmail(''); setPhone(''); setAddress(''); setVip(false)
-      onSuccess?.()
+      setTimeout(() => onSuccess?.(), 500)
     } catch (e: any) {
+      console.error('Exception:', e)
       setError(e?.message ?? 'Unknown error')
     } finally {
       setBusy(false)

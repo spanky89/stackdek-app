@@ -5,6 +5,7 @@ import CreateClientForm from '../components/CreateClientForm'
 import ListToolbar from '../components/ListToolbar'
 import { useListFilter } from '../hooks/useListFilter'
 import AppLayout from '../components/AppLayout'
+import { useEnsureCompany } from '../hooks/useEnsureCompany'
 
 type Client = {
   id: string
@@ -29,6 +30,7 @@ const SORT_OPTIONS = [
 
 export default function ClientListPage() {
   const nav = useNavigate()
+  const { companyId } = useEnsureCompany()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,22 +44,31 @@ export default function ClientListPage() {
   })
 
   useEffect(() => {
+    if (!companyId) { setLoading(false); return }
+
     ;(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        const { data: company } = await supabase
-          .from('companies').select('id').eq('owner_id', user.id).single()
-        if (!company) return
+        console.log('Fetching clients for company:', companyId)
         const { data, error: fetchErr } = await supabase
           .from('clients').select('id, name, email, phone, vip, created_at')
-          .eq('company_id', company.id).order('name')
-        if (fetchErr) { setError(fetchErr.message); return }
+          .eq('company_id', companyId).order('name')
+        
+        console.log('Clients response:', { data, fetchErr })
+        
+        if (fetchErr) { 
+          console.error('Fetch error:', fetchErr)
+          setError(fetchErr.message)
+          return 
+        }
         setClients(data || [])
-      } catch (e: any) { setError(e?.message ?? 'Unknown error') }
+        setError(null)
+      } catch (e: any) { 
+        console.error('Exception:', e)
+        setError(e?.message ?? 'Unknown error') 
+      }
       finally { setLoading(false) }
     })()
-  }, [refreshKey])
+  }, [refreshKey, companyId])
 
   if (loading) return <div className="p-6">Loading…</div>
 
