@@ -5,7 +5,7 @@ import AppLayout from '../components/AppLayout'
 
 interface Company {
   id: string; name: string; phone: string; email: string
-  logo_url?: string; tax_id?: string; invoice_notes?: string
+  logo_url?: string; website?: string; address?: string; invoice_notes?: string
 }
 interface Service { id: string; name: string; price: number; description?: string }
 interface Product { id: string; name: string; price: number; description?: string }
@@ -80,7 +80,8 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase.from('companies').update({
         name: company.name, email: company.email, phone: company.phone,
-        logo_url: company.logo_url, tax_id: company.tax_id, invoice_notes: company.invoice_notes,
+        logo_url: company.logo_url, website: company.website, address: company.address,
+        invoice_notes: company.invoice_notes,
       }).eq('id', company.id)
       if (error) throw error
       setMessage('✅ Saved successfully')
@@ -219,10 +220,17 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Tax ID / EIN</label>
-                <input type="text" value={company.tax_id || ''}
-                  onChange={e => setCompany({ ...company, tax_id: e.target.value })}
-                  placeholder="XX-XXXXXXX"
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Website</label>
+                <input type="url" value={company.website || ''}
+                  onChange={e => setCompany({ ...company, website: e.target.value })}
+                  placeholder="https://yourwebsite.com"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Address</label>
+                <input type="text" value={company.address || ''}
+                  onChange={e => setCompany({ ...company, address: e.target.value })}
+                  placeholder="123 Main St, City, State 12345"
                   className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
               </div>
               {saveBtn}
