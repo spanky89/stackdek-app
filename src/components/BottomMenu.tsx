@@ -1,8 +1,70 @@
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  )
+}
+
+function BriefcaseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </svg>
+  )
+}
+
+function FileTextIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  )
+}
+
+function UsersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+function DollarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  )
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  )
+}
 
 export default function BottomMenu() {
   const nav = useNavigate()
   const loc = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const isActive = (path: string) => {
     if (path === '/home') return loc.pathname === '/home'
@@ -13,32 +75,83 @@ export default function BottomMenu() {
     return loc.pathname === path
   }
 
-  const menuItems = [
-    { icon: '🏠', label: 'Home', path: '/home' },
-    { icon: '📋', label: 'Jobs', path: '/jobs' },
-    { icon: '📝', label: 'Quotes', path: '/quotes' },
-    { icon: '👥', label: 'Clients', path: '/clients' },
-    { icon: '📊', label: 'Invoices', path: '/invoices' },
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpen])
+
+  const leftItems = [
+    { Icon: HomeIcon, label: 'Home', path: '/home' },
+    { Icon: BriefcaseIcon, label: 'Jobs', path: '/jobs' },
   ]
+
+  const rightItems = [
+    { Icon: UsersIcon, label: 'Clients', path: '/clients' },
+    { Icon: DollarIcon, label: 'Invoices', path: '/invoices' },
+  ]
+
+  const quickActions = [
+    { label: 'Add Client', path: '/clients?create=1' },
+    { label: 'New Quote', path: '/quotes?create=1' },
+    { label: 'New Task', path: '/jobs?create=1' },
+  ]
+
+  const renderItem = ({ Icon, label, path }: { Icon: React.FC<{ className?: string }>; label: string; path: string }) => (
+    <button
+      key={path}
+      onClick={() => nav(path)}
+      className={`flex flex-col items-center justify-center gap-0.5 py-2 px-3 transition-colors ${
+        isActive(path) ? 'text-neutral-900' : 'text-neutral-400 hover:text-neutral-600'
+      }`}
+      title={label}
+    >
+      <Icon className="w-5 h-5" />
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  )
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 z-40">
-      <div className="flex justify-around items-center h-16 max-w-full px-4">
-        {menuItems.map((item) => (
+      <div className="flex justify-around items-center h-16 max-w-md mx-auto px-2">
+        {leftItems.map(renderItem)}
+
+        {/* Center + button */}
+        <div className="relative" ref={menuRef}>
+          {menuOpen && (
+            <div className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg border border-neutral-200 py-2 w-40 animate-in">
+              {quickActions.map((action) => (
+                <button
+                  key={action.path}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    nav(action.path)
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
           <button
-            key={item.path}
-            onClick={() => nav(item.path)}
-            className={`flex flex-col items-center justify-center gap-1 py-2 px-4 transition ${
-              isActive(item.path)
-                ? 'text-neutral-900'
-                : 'text-neutral-500 hover:text-neutral-700'
+            onClick={() => setMenuOpen((v) => !v)}
+            className={`flex items-center justify-center w-12 h-12 rounded-full transition-all ${
+              menuOpen
+                ? 'bg-neutral-900 text-white rotate-45'
+                : 'bg-neutral-900 text-white'
             }`}
-            title={item.label}
+            title="Quick Actions"
           >
-            <span className="text-xl">{item.icon}</span>
-            <span className="text-xs font-medium">{item.label}</span>
+            <PlusIcon className="w-6 h-6" />
           </button>
-        ))}
+        </div>
+
+        {rightItems.map(renderItem)}
       </div>
     </nav>
   )
