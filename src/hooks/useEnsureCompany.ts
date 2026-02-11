@@ -7,24 +7,42 @@ export function useEnsureCompany() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
+
     ;(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
-          setError('Not authenticated')
-          setLoading(false)
+          if (isMounted) {
+            setError('Not authenticated')
+            setLoading(false)
+          }
           return
         }
 
-        // Try to get existing company
-        let { data: company, error: selectErr } = await supabase
+        // Get or create company
+        const { data: companies, error: fetchErr } = await supabase
           .from('companies')
           .select('id')
           .eq('owner_id', user.id)
-          .single()
+          .order('created_at', { ascending: true })
+          .limit(1)
 
-        // If company doesn't exist, create it
-        if (!company && selectErr?.code === 'PGRST116') {
+        if (fetchErr && fetchErr.code !== 'PGRST116') {
+          if (isMounted) {
+            setError(fetchErr.message)
+            setLoading(false)
+          }
+          return
+        }
+
+        let companyId: string | null = null
+
+        if (companies && companies.length > 0) {
+          companyId = companies[0].id
+          console.log('Using existing company:', companyId)
+        } else {
+          // Create company only if none exists
           const { data: newCompany, error: insertErr } = await supabase
             .from('companies')
             .insert({ owner_id: user.id, name: 'My Company' })
@@ -32,24 +50,34 @@ export function useEnsureCompany() {
             .single()
 
           if (insertErr) {
-            setError(insertErr.message)
-            setLoading(false)
+            if (isMounted) {
+              setError(insertErr.message)
+              setLoading(false)
+            }
             return
           }
-          company = newCompany
-        } else if (selectErr) {
-          setError(selectErr.message)
-          setLoading(false)
-          return
+          companyId = newCompany?.id ?? null
+          console.log('Created new company:', companyId)
         }
 
-        setCompanyId(company?.id ?? null)
+        if (isMounted) {
+          setCompanyId(companyId)
+          setError(null)
+        }
       } catch (e: any) {
-        setError(e?.message ?? 'Unknown error')
+        if (isMounted) {
+          setError(e?.message ?? 'Unknown error')
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     })()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   return { companyId, error, loading }
