@@ -117,8 +117,8 @@ export default function BottomMenu() {
   ]
 
   const quickActions = [
-    { label: 'Add Client', path: '/clients?create=1', Icon: UserPlusIcon },
-    { label: 'New Quote', path: '/quotes?create=1', Icon: FileTextIcon },
+    { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
+    { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
     { label: 'New Task', path: '/jobs?create=1', Icon: ClipboardIcon },
   ]
 
