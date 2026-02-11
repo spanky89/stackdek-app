@@ -9,7 +9,11 @@ type Client = {
 }
 type Invoice = {
   id: string; title: string; invoice_number: string; status: string
-  total: number; created_at: string
+  total_amount: number; created_at: string
+}
+type Job = {
+  id: string; title: string; status: string
+  estimate_amount: number; date_scheduled: string; created_at: string
 }
 type Note = { id: string; content: string; created_at: string }
 type TabKey = 'overview' | 'history' | 'notes'
@@ -19,7 +23,7 @@ export default function ClientProfilePage() {
   const nav = useNavigate()
   const [client, setClient] = useState<Client | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [jobs, setJobs] = useState<any[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [tab, setTab] = useState<TabKey>('overview')
   const [loading, setLoading] = useState(true)
@@ -33,7 +37,7 @@ export default function ClientProfilePage() {
         if (c) setClient(c)
 
         const [invRes, jobRes] = await Promise.all([
-          supabase.from('invoices').select('id, title, invoice_number, status, total, created_at')
+          supabase.from('invoices').select('id, title, invoice_number, status, total_amount, created_at')
             .eq('client_id', id).order('created_at', { ascending: false }).limit(10),
           supabase.from('jobs').select('id, title, status, estimate_amount, date_scheduled, created_at')
             .eq('client_id', id).order('created_at', { ascending: false }).limit(20),
@@ -41,12 +45,11 @@ export default function ClientProfilePage() {
         setInvoices(invRes.data || [])
         setJobs(jobRes.data || [])
 
-        // Notes - try fetching, gracefully handle if table doesn't exist
         try {
           const { data: nData } = await supabase.from('client_notes')
             .select('*').eq('client_id', id).order('created_at', { ascending: false })
           setNotes(nData || [])
-        } catch { /* table may not exist yet */ }
+        } catch { }
       } catch (e) { console.error(e) }
       finally { setLoading(false) }
     })()
@@ -64,7 +67,7 @@ export default function ClientProfilePage() {
         setNotes([data, ...notes])
         setNewNote('')
       }
-    } catch { /* ignore */ }
+    } catch { }
     finally { setSavingNote(false) }
   }
 
@@ -83,7 +86,7 @@ export default function ClientProfilePage() {
       bg = 'bg-neutral-800 text-white'
     } else if (s === 'pending') {
       bg = 'bg-neutral-300 text-neutral-800'
-    } else if (s === 'past_due' || s === 'overdue') {
+    } else if (s === 'past_due' || s === 'past-due' || s === 'overdue') {
       bg = 'bg-red-600 text-white'
       label = 'Past Due'
     } else if (s === 'scheduled') {
@@ -101,198 +104,191 @@ export default function ClientProfilePage() {
   return (
     <AppLayout>
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4">
-            <button onClick={() => nav(-1)} className="text-neutral-700 text-lg">←</button>
-            <span className="font-medium">Client Profile</span>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => nav(-1)} className="text-neutral-700 text-2xl leading-none">←</button>
+            <span className="font-semibold text-lg">Client Profile</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             {client.vip && (
-              <span className="text-xs px-2 py-1 bg-neutral-100 rounded-full font-medium">VIP Client</span>
+              <span className="text-xs px-3 py-1.5 bg-neutral-800 text-white rounded-lg font-medium">VIP Client</span>
             )}
             <button
               onClick={() => nav(`/client/${id}/edit`)}
-              className="px-3 py-1.5 bg-neutral-900 text-white rounded-md text-sm"
+              className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium"
             >Edit</button>
           </div>
         </div>
-        {/* Client Header with Logo + Actions */}
-        <div className="bg-white p-4 border-b border-neutral-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <img
-              src="/logo-symbol.png"
-              className="w-16 h-16 rounded-lg bg-neutral-100 p-2"
-              alt="StackDek"
-            />
-            <div>
-              <h1 className="text-lg font-semibold">{client.name}</h1>
-              <p className="text-sm text-neutral-500">{clientSince()}</p>
-            </div>
+
+        {/* Client Info Section */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
+          {/* Name & Subtitle */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold mb-1">{client.name}</h1>
+            <p className="text-sm text-neutral-600">{clientSince()}</p>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
             <a
               href={client.phone ? `tel:${client.phone}` : '#'}
-              className="py-2 bg-neutral-900 text-white rounded-md text-sm text-center"
+              className="py-3 bg-neutral-900 text-white rounded-lg text-sm text-center font-medium hover:bg-neutral-800 transition"
             >
-              <span className="block text-base">📞</span>
-              <span className="block text-xs">Call</span>
+              Call
             </a>
             <a
               href={client.phone ? `sms:${client.phone}` : client.email ? `mailto:${client.email}` : '#'}
-              className="py-2 bg-neutral-800 text-white rounded-md text-sm text-center"
+              className="py-3 bg-neutral-900 text-white rounded-lg text-sm text-center font-medium hover:bg-neutral-800 transition"
             >
-              <span className="block text-base">💬</span>
-              <span className="block text-xs">Message</span>
+              Message
             </a>
             <a
               href={client.address ? `https://maps.google.com/?q=${encodeURIComponent(client.address)}` : '#'}
               target="_blank"
               rel="noreferrer"
-              className="py-2 bg-neutral-700 text-white rounded-md text-sm text-center"
+              className="py-3 bg-neutral-900 text-white rounded-lg text-sm text-center font-medium hover:bg-neutral-800 transition"
             >
-              <span className="block text-base">📍</span>
-              <span className="block text-xs">Navigate</span>
+              Navigate
             </a>
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="bg-white border-b border-neutral-200">
-          <div className="flex">
+          {/* Tabs */}
+          <div className="flex border-b border-neutral-200">
             {(['overview', 'history', 'notes'] as TabKey[]).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex-1 px-4 py-3 text-sm capitalize ${tab === t ? 'border-b-2 border-neutral-900 font-medium' : 'text-neutral-500'}`}
-              >{t}</button>
+                className={`px-6 py-3 text-sm font-medium transition ${
+                  tab === t
+                    ? 'text-neutral-900 border-b-2 border-neutral-900'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
             ))}
           </div>
-        </div>
 
-        {/* Tab Content */}
-        {tab === 'overview' && (
-          <>
-            {/* Contact Details */}
-            <div className="bg-white border-b border-neutral-200">
-              <div className="p-4 border-b border-neutral-200">
+          {/* Tab Content */}
+          {tab === 'overview' && (
+            <div className="mt-6">
+              {/* Contact Info */}
+              <div className="space-y-4 pb-6 border-b border-neutral-200">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-neutral-500">Email</span>
-                  <span className="text-sm">{client.email || '—'}</span>
+                  <span className="text-sm text-neutral-600">Email</span>
+                  <span className="text-sm font-medium">{client.email || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-neutral-600">Phone</span>
+                  <span className="text-sm font-medium">{client.phone || '—'}</span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <span className="text-sm text-neutral-600">Address</span>
+                  <span className="text-sm font-medium text-right max-w-[60%]">{client.address || '—'}</span>
                 </div>
               </div>
-              <div className="p-4 border-b border-neutral-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-neutral-500">Phone</span>
-                  <span className="text-sm">{client.phone || '—'}</span>
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-neutral-500">Address</span>
-                  <span className="text-sm text-right max-w-[60%]">{client.address || '—'}</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Recent Activity */}
-            <div className="mt-4">
-              <div className="px-4 py-3 bg-white border-y border-neutral-200">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-base font-medium">Recent Activity</h2>
+              {/* Recent Activity */}
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-base font-semibold">Recent Activity</h2>
                   <button
                     onClick={() => nav('/invoices')}
-                    className="text-sm text-neutral-500"
+                    className="text-sm text-neutral-600 hover:text-neutral-900"
                   >View All</button>
                 </div>
-              </div>
-              <div className="bg-white">
                 {invoices.length === 0 ? (
-                  <div className="p-4 text-center text-neutral-500 text-sm">No invoices yet.</div>
-                ) : invoices.slice(0, 5).map((inv, i) => (
-                  <div key={inv.id} className={`p-4 ${i < Math.min(invoices.length, 5) - 1 ? 'border-b border-neutral-200' : ''}`}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{inv.title || 'Invoice'}</h3>
-                        <p className="text-sm text-neutral-500">Invoice #{inv.invoice_number || inv.id.slice(0, 4)}</p>
-                        <div className="flex items-center space-x-2 mt-1">
-                          {statusBadge(inv.status)}
-                          <span className="text-sm text-neutral-500">
-                            {new Date(inv.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </span>
+                  <p className="text-sm text-neutral-500 text-center py-4">No invoices yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {invoices.slice(0, 5).map(inv => (
+                      <div key={inv.id} className="flex justify-between items-start p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition">
+                        <div>
+                          <p className="text-sm font-medium">{inv.title || 'Invoice'}</p>
+                          <p className="text-xs text-neutral-600">Invoice #{inv.invoice_number || inv.id.slice(0, 4)}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            {statusBadge(inv.status)}
+                            <span className="text-xs text-neutral-600">
+                              {new Date(inv.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
                         </div>
+                        <span className="text-sm font-semibold">${inv.total_amount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '0'}</span>
                       </div>
-                      <span className="text-sm font-medium">${inv.total?.toLocaleString() ?? '0'}</span>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          </>
-        )}
+          )}
 
-        {tab === 'history' && (
-          <div className="mt-4">
-            <div className="px-4 py-3 bg-white border-y border-neutral-200">
-              <h2 className="text-base font-medium">Job History</h2>
-            </div>
-            <div className="bg-white">
+          {tab === 'history' && (
+            <div className="mt-6">
+              <h2 className="text-base font-semibold mb-4">Job History</h2>
               {jobs.length === 0 ? (
-                <div className="p-4 text-center text-neutral-500 text-sm">No jobs yet.</div>
-              ) : jobs.map((job, i) => (
-                <div
-                  key={job.id}
-                  onClick={() => nav(`/job/${job.id}`)}
-                  className={`p-4 cursor-pointer hover:bg-neutral-50 ${i < jobs.length - 1 ? 'border-b border-neutral-200' : ''}`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">{job.title}</h3>
-                      <div className="flex items-center space-x-2 mt-1">
-                        {statusBadge(job.status)}
-                        <span className="text-sm text-neutral-500">
-                          {new Date(job.date_scheduled || job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
+                <p className="text-sm text-neutral-500 text-center py-4">No jobs yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {jobs.map(job => (
+                    <button
+                      key={job.id}
+                      onClick={() => nav(`/job/${job.id}`)}
+                      className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-medium">{job.title}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            {statusBadge(job.status)}
+                            <span className="text-xs text-neutral-600">
+                              {new Date(job.date_scheduled || job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-semibold">${job.estimate_amount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '0'}</span>
                       </div>
-                    </div>
-                    <span className="text-sm font-medium">${job.estimate_amount?.toLocaleString() ?? '0'}</span>
-                  </div>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {tab === 'notes' && (
-          <div className="mt-4">
-            {/* Add Note */}
-            <div className="bg-white border-y border-neutral-200 p-4">
+          {tab === 'notes' && (
+            <div className="mt-6">
               <textarea
                 value={newNote}
                 onChange={e => setNewNote(e.target.value)}
                 placeholder="Add a note about this client..."
                 rows={3}
-                className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                className="w-full px-4 py-3 border border-neutral-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 mb-3"
               />
               <button
                 onClick={addNote}
                 disabled={savingNote || !newNote.trim()}
-                className="mt-2 px-4 py-2 bg-neutral-900 text-white rounded-md text-sm disabled:opacity-50"
+                className="w-full px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium disabled:opacity-50"
               >{savingNote ? 'Saving…' : 'Add Note'}</button>
+
+              <div className="mt-6">
+                {notes.length === 0 ? (
+                  <p className="text-sm text-neutral-500 text-center py-4">No notes yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {notes.map(note => (
+                      <div key={note.id} className="p-3 bg-neutral-50 rounded-lg">
+                        <p className="text-sm">{note.content}</p>
+                        <p className="text-xs text-neutral-500 mt-2">
+                          {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="bg-white mt-1">
-              {notes.length === 0 ? (
-                <div className="p-4 text-center text-neutral-500 text-sm">No notes yet.</div>
-              ) : notes.map((note, i) => (
-                <div key={note.id} className={`p-4 ${i < notes.length - 1 ? 'border-b border-neutral-200' : ''}`}>
-                  <p className="text-sm">{note.content}</p>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </AppLayout>
   )
