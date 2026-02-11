@@ -45,7 +45,10 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
 
       setSuccess(true)
       setName(''); setEmail(''); setPhone(''); setAddress(''); setVip(false)
-      setTimeout(() => onSuccess?.(), 500)
+      setTimeout(() => {
+        console.log('Calling onSuccess callback')
+        onSuccess?.()
+      }, 800)
     } catch (e: any) {
       console.error('Exception:', e)
       setError(e?.message ?? 'Unknown error')

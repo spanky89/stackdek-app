@@ -130,7 +130,11 @@ export default function ClientListPage() {
                 <h2 className="text-lg font-bold">New Client</h2>
                 <button onClick={() => setShowCreate(false)} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
               </div>
-              <CreateClientForm onSuccess={() => { setShowCreate(false); setLoading(true); setRefreshKey(k => k + 1) }} />
+              <CreateClientForm onSuccess={() => { 
+                console.log('Client created, refreshing list')
+                setShowCreate(false)
+                setRefreshKey(k => k + 1)
+              }} />
             </div>
           </div>
         )}
