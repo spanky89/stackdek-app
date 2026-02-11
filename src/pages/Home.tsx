@@ -49,7 +49,7 @@ export default function HomePage() {
         const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
         // Fetch all data in parallel
-        const [jobsRes, quotesRes, newReqRes, monthlyRes] = await Promise.all([
+        const [jobsRes, quotesRes, newReqRes, monthlyRes, remindersRes] = await Promise.all([
           // Upcoming jobs (next 30 days)
           supabase
             .from('jobs')
@@ -79,12 +79,21 @@ export default function HomePage() {
             .select('total_amount')
             .eq('company_id', cid)
             .gte('created_at', monthStart),
+          // Task reminders
+          supabase
+            .from('reminders')
+            .select('id, title, due_date')
+            .eq('company_id', cid)
+            .gte('due_date', now.toISOString().split('T')[0])
+            .order('due_date', { ascending: true })
+            .limit(5),
         ])
 
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
         setNewRequests(newReqRes.count ?? 0)
         setMonthlyRevenue(monthlyRes.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) ?? 0)
+        setReminders((remindersRes.data as any) || [])
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load dashboard')
       } finally {
@@ -233,10 +242,42 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Task Reminders */}
+        {reminders.length > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Task Reminders</h3>
+              <button
+                onClick={() => nav('/reminders')}
+                className="text-neutral-500 hover:text-neutral-700 text-xs font-medium"
+              >
+                View all
+              </button>
+            </div>
+            <div className="space-y-2">
+              {reminders.map(reminder => (
+                <button
+                  key={reminder.id}
+                  onClick={() => nav(`/reminder/${reminder.id}`)}
+                  className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg">📋</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{reminder.title}</p>
+                      <p className="text-xs text-neutral-500">{new Date(reminder.due_date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Empty State */}
-        {upcomingJobs.length === 0 && pendingQuotes.length === 0 && (
+        {upcomingJobs.length === 0 && pendingQuotes.length === 0 && reminders.length === 0 && (
           <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center">
-            <p className="text-neutral-600 text-sm">No jobs or quotes yet. Create one to get started.</p>
+            <p className="text-neutral-600 text-sm">No jobs, quotes, or reminders yet. Create one to get started.</p>
           </div>
         )}
       </>
