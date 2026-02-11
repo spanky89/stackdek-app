@@ -25,6 +25,8 @@ import CreateInvoicePage from "./pages/CreateInvoice";
 import ClientEditPage from "./pages/ClientEditPage";
 import JobEditPage from "./pages/JobEditPage";
 import QuoteEditPage from "./pages/QuoteEditPage";
+import QuotePublicViewPage from "./pages/QuotePublicView";
+import AccountPage from "./pages/Account";
 import SettingsPage from "./pages/Settings";
 
 /** Minimal session hook (no external libs) */
@@ -264,6 +266,10 @@ export default function App() {
           }
         />
         <Route
+          path="/quotes/view/:id"
+          element={<QuotePublicViewPage />}
+        />
+        <Route
           path="/invoices"
           element={
             <ProtectedRoute>
@@ -276,6 +282,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CreateInvoicePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountPage />
             </ProtectedRoute>
           }
         />

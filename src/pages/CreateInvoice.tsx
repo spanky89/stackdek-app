@@ -16,6 +16,7 @@ export default function CreateInvoicePage() {
   const [clientName, setClientName] = useState('')
   const [clientId, setClientId] = useState<string | null>(null)
   const [lineItems, setLineItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }])
+  const [depositPercentage, setDepositPercentage] = useState('25')
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +65,7 @@ export default function CreateInvoicePage() {
   function removeLine(idx: number) { if (lineItems.length > 1) setLineItems(lineItems.filter((_, i) => i !== idx)) }
 
   const total = lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)
+  const depositAmount = Math.round(total * (parseFloat(depositPercentage) / 100) * 100) / 100
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -81,6 +83,7 @@ export default function CreateInvoicePage() {
         job_id: selectedJobId || null,
         invoice_number: invoiceNumber,
         total_amount: total,
+        deposit_percentage: parseFloat(depositPercentage) || 25,
         status: 'draft',
       }).select().single()
 
@@ -141,8 +144,30 @@ export default function CreateInvoicePage() {
             <button type="button" onClick={addLine} className="mt-2 text-sm text-blue-600">+ Add line item</button>
           </div>
 
-          <div className="text-right text-lg font-bold border-t border-neutral-200 pt-4">
-            Total: ${total.toFixed(2)}
+          <div className="space-y-3 border-t border-neutral-200 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Deposit %</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  max="100" 
+                  step="0.1"
+                  className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" 
+                  value={depositPercentage} 
+                  onChange={e => setDepositPercentage(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Deposit Amount</label>
+                <div className="px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-sm font-medium">
+                  ${depositAmount.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            <div className="text-right text-lg font-bold">
+              Total: ${total.toFixed(2)}
+            </div>
           </div>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}

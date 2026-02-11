@@ -16,6 +16,7 @@ export default function QuoteDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -35,6 +36,13 @@ export default function QuoteDetailPage() {
     setBusy(false)
     if (upErr) { setError(upErr.message); return }
     setQuote({ ...quote!, status: newStatus })
+  }
+
+  function copyShareableLink() {
+    const shareUrl = `${window.location.origin}/quotes/view/${id}`
+    navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   if (loading) return <div className="p-6">Loading…</div>
@@ -73,13 +81,37 @@ export default function QuoteDetailPage() {
             <p>Expiration: {quote.expiration_date ? new Date(quote.expiration_date).toLocaleDateString() : 'None'}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-6">
             <button onClick={() => updateStatus('accepted')} disabled={busy || quote.status === 'accepted'}
               className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-40">Accept Quote</button>
             <button onClick={() => updateStatus('declined')} disabled={busy || quote.status === 'declined'}
               className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm disabled:opacity-40">Decline Quote</button>
             <button onClick={() => updateStatus('expired')} disabled={busy || quote.status === 'expired'}
               className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm disabled:opacity-40">Mark Expired</button>
+          </div>
+
+          {/* Share Quote Section */}
+          <div className="border-t border-neutral-200 pt-6">
+            <h3 className="text-sm font-semibold mb-3">Share Quote</h3>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={`${window.location.origin}/quotes/view/${id}`}
+                readOnly
+                className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-600 bg-neutral-50"
+              />
+              <button 
+                onClick={copyShareableLink}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  copied 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                }`}
+              >
+                {copied ? '✓ Copied' : 'Copy Link'}
+              </button>
+            </div>
+            <p className="text-xs text-neutral-500 mt-2">Share this link with your client to view the quote</p>
           </div>
         </div>
       </>
