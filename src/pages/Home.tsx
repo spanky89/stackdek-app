@@ -88,14 +88,14 @@ export default function HomePage() {
             .select('id', { count: 'exact', head: true })
             .eq('company_id', cid)
             .eq('status', 'pending'),
-          // Completed jobs this month (for revenue)
+          // Paid invoices this month (for revenue)
           supabase
-            .from('jobs')
-            .select('estimate_amount')
+            .from('invoices')
+            .select('total_amount')
             .eq('company_id', cid)
-            .eq('status', 'completed')
-            .gte('date_scheduled', monthStart)
-            .lte('date_scheduled', monthEnd),
+            .eq('status', 'paid')
+            .gte('created_at', monthStart)
+            .lte('created_at', monthEnd),
           // Task reminders
           supabase
             .from('reminders')
@@ -109,7 +109,7 @@ export default function HomePage() {
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
         setNewRequests(newReqRes.count ?? 0)
-        setMonthlyRevenue(completedJobsRes.data?.reduce((sum, job) => sum + (job.estimate_amount || 0), 0) ?? 0)
+        setMonthlyRevenue(completedJobsRes.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) ?? 0)
         setReminders((remindersRes.data as any) || [])
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load dashboard')
