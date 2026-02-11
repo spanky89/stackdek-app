@@ -3,7 +3,7 @@ import { supabase } from '../api/supabaseClient'
 import { useEnsureCompany } from '../hooks/useEnsureCompany'
 
 export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void }) {
-  const { companyId, error: companyError } = useEnsureCompany()
+  const { companyId, error: companyError, loading: companyLoading } = useEnsureCompany()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -46,11 +46,20 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
     }
   }
 
+  if (companyLoading) {
+    return (
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <h2 className="text-lg font-semibold mb-4">Create New Client</h2>
+        <p className="text-neutral-600 text-sm">Initializing…</p>
+      </div>
+    )
+  }
+
   if (companyError) {
     return (
       <div className="bg-white rounded-lg border border-neutral-200 p-6">
         <h2 className="text-lg font-semibold mb-4">Create New Client</h2>
-        <p className="text-red-600 text-sm">{companyError}</p>
+        <p className="text-red-600 text-sm">Error: {companyError}</p>
       </div>
     )
   }
@@ -81,7 +90,7 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
         {success && <p className="text-green-600 text-sm">Client created!</p>}
-        <button className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60" disabled={busy} type="submit">
+        <button className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60" disabled={busy || companyLoading || !companyId} type="submit">
           {busy ? 'Creating…' : 'Create Client'}
         </button>
       </form>
