@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../api/supabaseClient'
+import { useEnsureCompany } from '../hooks/useEnsureCompany'
 
 export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void }) {
+  const { companyId, error: companyError } = useEnsureCompany()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -18,21 +20,13 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
 
     if (!name.trim()) { setError('Client name is required'); return }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Invalid email format'); return }
+    if (!companyId) { setError('Company not initialized'); return }
 
     setBusy(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setError('Not authenticated'); return }
-
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .single()
-      if (!company) { setError('No company found'); return }
 
       const { error: insertErr } = await supabase.from('clients').insert({
-        company_id: company.id,
+        company_id: companyId,
         name: name.trim(),
         email: email.trim() || null,
         phone: phone.trim() || null,
@@ -50,6 +44,15 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
     } finally {
       setBusy(false)
     }
+  }
+
+  if (companyError) {
+    return (
+      <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <h2 className="text-lg font-semibold mb-4">Create New Client</h2>
+        <p className="text-red-600 text-sm">{companyError}</p>
+      </div>
+    )
   }
 
   return (
