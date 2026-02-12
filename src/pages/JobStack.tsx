@@ -18,7 +18,7 @@ type Job = {
 
 export default function JobStackPage() {
   const nav = useNavigate()
-  const { companyId } = useCompany()
+  const { companyId, loading: companyLoading } = useCompany()
   const [jobs, setJobs] = useState<Job[]>([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -29,7 +29,10 @@ export default function JobStackPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        if (!companyId) return
+        if (!companyId || companyLoading) {
+          console.log('Waiting for company...', { companyId, companyLoading })
+          return
+        }
 
         const now = new Date()
         const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
@@ -84,7 +87,7 @@ export default function JobStackPage() {
     }
 
     loadData()
-  }, [filter, companyId])
+  }, [filter, companyId, companyLoading])
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -116,10 +119,10 @@ export default function JobStackPage() {
     return `${displayHour}:${minutes} ${ampm}`
   }
 
-  if (loading) {
+  if (loading || companyLoading) {
     return (
       <AppLayout>
-        <div className="p-6">Loading…</div>
+        <div className="p-6 text-center text-neutral-600">Loading jobs…</div>
       </AppLayout>
     )
   }
