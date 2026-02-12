@@ -101,9 +101,10 @@ function RequestIcon({ className }: { className?: string }) {
 
 interface BottomMenuProps {
   onNewTask?: () => void
+  onNewRequest?: () => void
 }
 
-export default function BottomMenu({ onNewTask }: BottomMenuProps) {
+export default function BottomMenu({ onNewTask, onNewRequest }: BottomMenuProps) {
   const nav = useNavigate()
   const loc = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -141,7 +142,7 @@ export default function BottomMenu({ onNewTask }: BottomMenuProps) {
   ]
 
   const quickActions = [
-    { label: 'New Request', path: '/quotes/create', Icon: RequestIcon },
+    { label: 'New Request', action: 'newRequest', Icon: RequestIcon },
     { label: 'New Invoice', path: '/invoices/create', Icon: CreditCardIcon },
     { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
     { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
@@ -178,6 +179,8 @@ export default function BottomMenu({ onNewTask }: BottomMenuProps) {
                     setMenuOpen(false)
                     if (action.action === 'newTask') {
                       onNewTask?.()
+                    } else if (action.action === 'newRequest') {
+                      onNewRequest?.()
                     } else {
                       nav(action.path)
                     }

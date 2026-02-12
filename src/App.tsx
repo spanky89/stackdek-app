@@ -11,6 +11,7 @@ import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
 import HomePage from "./pages/Home";
 import JobStackPage from "./pages/JobStack";
+import RequestListPage from "./pages/RequestList";
 import ClientProfilePage from "./pages/ClientProfile";
 import ClientListPage from "./pages/ClientList";
 import ClientDetailPage from "./pages/ClientDetail";
@@ -216,6 +217,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <JobStackPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/requests"
+          element={
+            <ProtectedRoute>
+              <RequestListPage />
             </ProtectedRoute>
           }
         />
