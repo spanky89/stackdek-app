@@ -6,11 +6,12 @@ import AppLayout from '../components/AppLayout'
 interface Company {
   id: string; name: string; phone: string; email: string
   logo_url?: string; website?: string; street_address?: string; city?: string; state?: string; zip?: string; invoice_notes?: string
+  stripe_publishable_key?: string; stripe_secret_key?: string; stripe_webhook_secret?: string
 }
 interface Service { id: string; name: string; price: number; description?: string }
 interface Product { id: string; name: string; price: number; description?: string }
 
-type SettingsView = 'menu' | 'business' | 'branding' | 'invoice' | 'services' | 'products' | 'request-form'
+type SettingsView = 'menu' | 'business' | 'branding' | 'invoice' | 'payment' | 'services' | 'products' | 'request-form'
 
 export default function SettingsPage() {
   const nav = useNavigate()
@@ -83,6 +84,9 @@ export default function SettingsPage() {
         logo_url: company.logo_url, website: company.website, 
         street_address: company.street_address, city: company.city, state: company.state, zip: company.zip,
         invoice_notes: company.invoice_notes,
+        stripe_publishable_key: company.stripe_publishable_key,
+        stripe_secret_key: company.stripe_secret_key,
+        stripe_webhook_secret: company.stripe_webhook_secret,
       }).eq('id', company.id)
       if (error) throw error
       setMessage('✅ Saved successfully')
@@ -176,6 +180,7 @@ export default function SettingsPage() {
                 {menuItem('🏢', 'Business Information', 'business')}
                 {menuItem('🖼️', 'Logo & Branding', 'branding')}
                 {menuItem('📄', 'Invoice Settings', 'invoice')}
+                {menuItem('💳', 'Payment Settings', 'payment')}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4">
@@ -307,6 +312,100 @@ export default function SettingsPage() {
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-sm text-neutral-600">💡 <strong>Tip:</strong> These notes appear at the bottom of every invoice.</p>
               </div>
+              {saveBtn}
+            </div>
+          </div>
+        )}
+
+        {/* Payment Settings */}
+        {view === 'payment' && (
+          <div>
+            {backBtn}
+            <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+              <h2 className="text-2xl font-bold text-neutral-900">Payment Settings</h2>
+              
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>🔐 Distributed Stripe Integration</strong><br />
+                  Each company uses their own Stripe account. Payments go directly to your Stripe account.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Stripe Publishable Key <span className="text-neutral-500">(starts with pk_)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={company.stripe_publishable_key || ''}
+                    onChange={e => setCompany({ ...company, stripe_publishable_key: e.target.value })}
+                    placeholder="pk_live_..."
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Stripe Secret Key <span className="text-neutral-500">(starts with sk_)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={company.stripe_secret_key || ''}
+                    onChange={e => setCompany({ ...company, stripe_secret_key: e.target.value })}
+                    placeholder="sk_live_..."
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Stripe Webhook Secret <span className="text-neutral-500">(starts with whsec_)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={company.stripe_webhook_secret || ''}
+                    onChange={e => setCompany({ ...company, stripe_webhook_secret: e.target.value })}
+                    placeholder="whsec_..."
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 font-mono text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200 space-y-3">
+                <p className="text-sm font-medium text-neutral-700">🔗 Webhook Endpoint for Stripe</p>
+                <div className="bg-white border border-neutral-200 rounded-lg p-3">
+                  <code className="text-xs text-neutral-600 break-all">
+                    {window.location.origin}/api/webhooks/stripe?companyId={company.id}
+                  </code>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/stripe?companyId=${company.id}`)
+                    setMessage('✅ Webhook URL copied to clipboard')
+                    setTimeout(() => setMessage(''), 2000)
+                  }}
+                  className="px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs"
+                >
+                  Copy Webhook URL
+                </button>
+              </div>
+
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  <strong>⚠️ Important:</strong> Store these keys securely. Never share them publicly.
+                </p>
+              </div>
+
+              <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                <p className="text-sm text-neutral-600">
+                  💡 <strong>Need help?</strong> Check the <button 
+                    onClick={() => window.open('/docs/stripe-setup', '_blank')}
+                    className="text-blue-600 hover:underline"
+                  >Stripe Setup Guide</button> for step-by-step instructions.
+                </p>
+              </div>
+
               {saveBtn}
             </div>
           </div>
