@@ -164,22 +164,46 @@ export default function QuoteDetailPage() {
   }
 
   async function markOfflinePayment() {
+    if (!quote) return
     setBusy(true)
-    const { error: upErr } = await supabase
-      .from('quotes')
-      .update({ 
-        deposit_paid: true,
-        deposit_paid_at: new Date().toISOString()
-      })
-      .eq('id', id)
     
-    setBusy(false)
-    if (upErr) { 
-      setError(upErr.message)
-      return 
+    try {
+      // 1. Mark deposit as paid
+      const { error: upErr } = await supabase
+        .from('quotes')
+        .update({ 
+          deposit_paid: true,
+          deposit_paid_at: new Date().toISOString()
+        })
+        .eq('id', id)
+      
+      if (upErr) throw upErr
+
+      // 2. Create job from quote
+      const { data: newJob, error: jobErr } = await supabase
+        .from('jobs')
+        .insert({
+          quote_id: quote.id,
+          title: quote.title,
+          client_id: quote.client_id,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (jobErr) throw jobErr
+
+      setQuote({ ...quote, deposit_paid: true })
+      setBusy(false)
+      
+      // Show success and navigate
+      alert(`✓ Deposit marked as paid. Job created: ${newJob.id}`)
+      nav('/jobs')
+    } catch (err: any) {
+      setError(err.message)
+      setBusy(false)
     }
-    
-    setQuote({ ...quote!, deposit_paid: true })
   }
 
   function copyShareableLink() {
