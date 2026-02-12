@@ -67,14 +67,15 @@ export default function InvoiceListPage() {
       ? invoices
       : invoices.filter(inv => {
           const s = inv.status.toLowerCase()
-          if (filter === 'pending') return ['pending', 'draft'].includes(s)
+          if (filter === 'awaiting_payment') return ['awaiting_payment', 'pending', 'draft', 'sent'].includes(s)
           if (filter === 'paid') return s === 'paid'
           return true
         })
 
   const statusColor = (status: string) => {
     const s = status.toLowerCase()
-    if (s === 'paid') return 'bg-neutral-800 text-white'
+    if (s === 'paid') return 'bg-green-600 text-white'
+    if (s === 'awaiting_payment' || s === 'sent') return 'bg-yellow-500 text-white'
     if (s === 'pending' || s === 'draft') return 'bg-neutral-300 text-neutral-800'
     if (s === 'overdue' || s === 'past_due') return 'bg-red-600 text-white'
     return 'bg-neutral-200 text-neutral-800'
@@ -83,8 +84,9 @@ export default function InvoiceListPage() {
   const statusLabel = (status: string) => {
     const s = status.toLowerCase()
     if (s === 'draft') return 'Draft'
+    if (s === 'awaiting_payment') return 'Awaiting Payment'
     if (s === 'overdue' || s === 'past_due') return 'Past Due'
-    return s.charAt(0).toUpperCase() + s.slice(1)
+    return s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')
   }
 
   if (loading)
@@ -124,17 +126,21 @@ export default function InvoiceListPage() {
 
         {/* Filter Buttons */}
         <div className="flex gap-2 mb-4">
-          {['all', 'pending', 'paid'].map(f => (
+          {[
+            { value: 'all', label: 'All' },
+            { value: 'awaiting_payment', label: 'Awaiting Payment' },
+            { value: 'paid', label: 'Paid' }
+          ].map(({ value, label }) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={value}
+              onClick={() => setFilter(value)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                filter === f
+                filter === value
                   ? 'bg-neutral-900 text-white'
                   : 'bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50'
               }`}
             >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {label}
             </button>
           ))}
         </div>
@@ -151,7 +157,7 @@ export default function InvoiceListPage() {
             {filtered.map(inv => (
               <button
                 key={inv.id}
-                onClick={() => nav(`/invoices`)} // Would navigate to detail page if it exists
+                onClick={() => nav(`/invoice/${inv.id}`)}
                 className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
               >
                 <div className="flex items-start gap-3">

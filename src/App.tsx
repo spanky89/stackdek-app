@@ -21,6 +21,7 @@ import QuoteListPage from "./pages/QuoteList";
 import QuoteDetailPage from "./pages/QuoteDetail";
 import CreateQuotePage from "./pages/CreateQuote";
 import InvoiceListPage from "./pages/InvoiceList";
+import InvoiceDetailPage from "./pages/InvoiceDetail";
 import CreateInvoicePage from "./pages/CreateInvoice";
 import ClientEditPage from "./pages/ClientEditPage";
 import JobEditPage from "./pages/JobEditPage";
@@ -275,6 +276,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <InvoiceListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/invoice/:id"
+          element={
+            <ProtectedRoute>
+              <InvoiceDetailPage />
             </ProtectedRoute>
           }
         />

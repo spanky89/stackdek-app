@@ -32,6 +32,11 @@ export default function JobDetailPage() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [invoiceLineItems, setInvoiceLineItems] = useState<InvoiceLineItem[]>([])
   const [generatingInvoice, setGeneratingInvoice] = useState(false)
+  const [invoiceTaxRate, setInvoiceTaxRate] = useState(0)
+  const [invoiceNotes, setInvoiceNotes] = useState('')
+  const [invoiceDueDate, setInvoiceDueDate] = useState(
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  )
 
   useEffect(() => {
     ;(async () => {
@@ -139,10 +144,18 @@ export default function JobDetailPage() {
     setInvoiceLineItems(items => items.filter(item => item.id !== id))
   }
 
-  function calculateTotal(): number {
+  function calculateSubtotal(): number {
     return invoiceLineItems.reduce((sum, item) => {
       return sum + (item.quantity * item.unit_price)
     }, 0)
+  }
+
+  function calculateTax(): number {
+    return calculateSubtotal() * (invoiceTaxRate / 100)
+  }
+
+  function calculateTotal(): number {
+    return calculateSubtotal() + calculateTax()
   }
 
   async function generateInvoice() {
@@ -184,7 +197,9 @@ export default function JobDetailPage() {
           amount: totalAmount,
           total_amount: totalAmount,
           status: 'awaiting_payment',
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+          due_date: invoiceDueDate,
+          notes: invoiceNotes || null,
+          tax_rate: invoiceTaxRate || 0,
         })
         .select()
         .single()
@@ -407,9 +422,67 @@ export default function JobDetailPage() {
                     </button>
                   </div>
 
-                  {/* Total */}
-                  <div className="border-t border-neutral-200 pt-4">
-                    <div className="flex justify-between items-center">
+                  {/* Client, Due Date, Tax, Notes */}
+                  <div className="border-t border-neutral-200 pt-4 space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-neutral-700 block mb-1">Client</label>
+                      <input
+                        type="text"
+                        value={job?.clients?.name || 'Unknown Client'}
+                        disabled
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 bg-neutral-50 text-sm"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium text-neutral-700 block mb-1">Due Date</label>
+                      <input
+                        type="date"
+                        value={invoiceDueDate}
+                        onChange={(e) => setInvoiceDueDate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-neutral-700 block mb-1">Tax Rate (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={invoiceTaxRate}
+                        onChange={(e) => setInvoiceTaxRate(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-neutral-700 block mb-1">Notes / Memo</label>
+                      <textarea
+                        value={invoiceNotes}
+                        onChange={(e) => setInvoiceNotes(e.target.value)}
+                        placeholder="Optional notes for this invoice"
+                        rows={3}
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Totals */}
+                  <div className="border-t border-neutral-200 pt-4 space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-neutral-600">Subtotal</span>
+                      <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                    </div>
+                    {invoiceTaxRate > 0 && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-neutral-600">Tax ({invoiceTaxRate}%)</span>
+                        <span className="font-medium">${calculateTax().toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-neutral-200">
                       <span className="text-lg font-semibold">Total</span>
                       <span className="text-2xl font-bold">${calculateTotal().toFixed(2)}</span>
                     </div>
