@@ -189,7 +189,7 @@ export default function JobStackPage() {
             {jobs.map(job => (
               <div
                 key={job.id}
-                onClick={() => nav(`/jobs/${job.id}`)}
+                onClick={() => nav(`/job/${job.id}`)}
                 className="bg-white rounded-lg border border-neutral-200 p-4 cursor-pointer hover:border-neutral-300 transition"
               >
                 {/* Title & Status */}
