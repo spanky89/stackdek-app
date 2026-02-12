@@ -11,7 +11,7 @@ interface Company {
 interface Service { id: string; name: string; price: number; description?: string }
 interface Product { id: string; name: string; price: number; description?: string }
 
-type SettingsView = 'menu' | 'business' | 'branding' | 'invoice' | 'services' | 'products' | 'request-form'
+type SettingsView = 'menu' | 'business' | 'branding' | 'invoice' | 'payment' | 'services' | 'products' | 'request-form'
 
 export default function SettingsPage() {
   const nav = useNavigate()
@@ -158,10 +158,10 @@ export default function SettingsPage() {
   function menuItem(icon: string, label: string, target: SettingsView) {
     return (
       <button key={label} onClick={() => goToView(target)}
-        className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 transition text-neutral-900">
+        className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 transition rounded border-b border-neutral-100 last:border-0">
         <div className="flex items-center gap-3">
-          <span className="text-neutral-600 text-lg">{icon}</span>
-          <span>{label}</span>
+          <span className="text-neutral-600">{icon}</span>
+          <span className="text-neutral-900">{label}</span>
         </div>
         <span className="text-neutral-400">›</span>
       </button>
@@ -174,32 +174,39 @@ export default function SettingsPage() {
         {/* Menu */}
         {view === 'menu' && (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg p-4">
-              <h2 className="text-base font-semibold mb-4 text-neutral-900">≡ Settings</h2>
-              <button onClick={() => nav('/settings/billing')}
-                className="w-full text-left text-sm text-blue-600 hover:text-blue-700">
-                → Subscription & Billing
-              </button>
-            </div>
-            <div className="bg-white rounded-lg p-4">
-              <h2 className="text-base font-semibold mb-4 text-neutral-900">Company Details</h2>
-              <div className="space-y-0">
-                {menuItem('⊞', 'Business Information', 'business')}
-                {menuItem('🖼', 'Logo & Branding', 'branding')}
-                {menuItem('📋', 'Invoice Settings', 'invoice')}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h2 className="text-lg font-semibold mb-4 text-neutral-900">Account</h2>
+              <div className="space-y-2">
+                <button onClick={() => nav('/settings/billing')}
+                  className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 transition rounded border-b border-neutral-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-neutral-600">💎</span>
+                    <span className="text-neutral-900">Billing & Subscription</span>
+                  </div>
+                  <span className="text-neutral-400">›</span>
+                </button>
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4">
-              <h2 className="text-base font-semibold mb-4 text-neutral-900">Services & Products</h2>
-              <div className="space-y-0">
-                {menuItem('≡', 'Manage Services', 'services')}
-                {menuItem('⊟', 'Manage Products', 'products')}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h2 className="text-lg font-semibold mb-4 text-neutral-900">Company Details</h2>
+              <div className="space-y-2">
+                {menuItem('🏢', 'Business Information', 'business')}
+                {menuItem('🖼️', 'Logo & Branding', 'branding')}
+                {menuItem('📄', 'Invoice Settings', 'invoice')}
+                {menuItem('💳', 'Payment Settings', 'payment')}
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4">
-              <h2 className="text-base font-semibold mb-4 text-neutral-900">Website Integration</h2>
-              <div className="space-y-0">
-                {menuItem('</', 'Request Form Settings', 'request-form')}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h2 className="text-lg font-semibold mb-4 text-neutral-900">Services & Products</h2>
+              <div className="space-y-2">
+                {menuItem('📋', 'Manage Services', 'services')}
+                {menuItem('📦', 'Manage Products', 'products')}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h2 className="text-lg font-semibold mb-4 text-neutral-900">Website Integration</h2>
+              <div className="space-y-2">
+                {menuItem('🔗', 'Request Form Settings', 'request-form')}
               </div>
             </div>
           </div>
@@ -323,7 +330,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Payment Settings - REMOVED */}
+        {/* Payment Settings */}
         {view === 'payment' && (
           <div>
             {backBtn}
