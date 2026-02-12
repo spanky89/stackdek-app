@@ -182,12 +182,15 @@ export default function QuoteDetailPage() {
       if (upErr) throw new Error(`Failed to mark deposit paid: ${upErr.message}`)
 
       // 2. Create job from quote
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
       const jobData = {
         quote_id: quote.id,
         title: quote.title,
         client_id: quote.client_id,
         company_id: quote.company_id,
         status: 'pending',
+        date_scheduled: tomorrow.toISOString().split('T')[0], // Default to tomorrow
         created_at: new Date().toISOString(),
       }
       
