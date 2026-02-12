@@ -19,14 +19,16 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
     ;(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        // Use getSession() instead of getUser() for better reliability
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
           if (isMounted) {
             setError('Not authenticated')
             setLoading(false)
           }
           return
         }
+        const user = session.user
 
         // Get existing company (should only be one now)
         const { data: companies, error: fetchErr } = await supabase
