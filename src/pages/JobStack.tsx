@@ -12,7 +12,7 @@ type Job = {
   date_scheduled: string
   location: string
   time_scheduled?: string
-  clients: { name: string; avatar_url?: string } | null
+  client_id?: string
   created_at?: string
 }
 
@@ -36,10 +36,10 @@ export default function JobStackPage() {
           .toISOString()
           .split('T')[0]
 
-        // Load jobs
+        // Load jobs (simplified query without nested relationships)
         let query = supabase
           .from('jobs')
-          .select('id, title, status, estimate_amount, date_scheduled, location, time_scheduled, clients(name, avatar_url), created_at')
+          .select('*')
           .eq('company_id', companyId)
           .order('date_scheduled', { ascending: true })
 
@@ -47,7 +47,8 @@ export default function JobStackPage() {
           query = query.eq('status', filter)
         }
 
-        const { data: jobsData } = await query
+        const { data: jobsData, error: jobsError } = await query
+        if (jobsError) console.error('Jobs query error:', jobsError)
         setJobs((jobsData as any) || [])
 
         // Load stats
@@ -215,26 +216,16 @@ export default function JobStackPage() {
                   </div>
                 </div>
 
-                {/* Client Info */}
-                {job.clients && (
-                  <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
-                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-700 flex-shrink-0">
-                      {job.clients.avatar_url ? (
-                        <img
-                          src={job.clients.avatar_url}
-                          alt={job.clients.name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        job.clients.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-neutral-900">{job.clients.name}</p>
-                      <p className="text-xs text-neutral-500">Customer</p>
-                    </div>
+                {/* Client Info Placeholder */}
+                <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
+                  <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-700 flex-shrink-0">
+                    👤
                   </div>
-                )}
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">Client</p>
+                    <p className="text-xs text-neutral-500">Customer</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
