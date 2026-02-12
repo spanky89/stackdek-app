@@ -12,6 +12,7 @@ type Client = {
   name: string
   email: string | null
   phone: string | null
+  address: string | null
   vip: boolean
   created_at?: string
 }
@@ -38,7 +39,7 @@ export default function ClientListPage() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   const list = useListFilter(clients, {
-    searchKeys: ['name', 'email', 'phone'],
+    searchKeys: ['name', 'email', 'phone', 'address'],
     filterKey: (c) => String(c.vip),
     sortOptions: SORT_OPTIONS,
   })
@@ -50,7 +51,7 @@ export default function ClientListPage() {
       try {
         console.log('Fetching clients for company:', companyId)
         const { data, error: fetchErr } = await supabase
-          .from('clients').select('id, name, email, phone, vip, created_at')
+          .from('clients').select('id, name, email, phone, address, vip, created_at')
           .eq('company_id', companyId).order('name')
         
         console.log('Clients response:', { data, fetchErr })
@@ -104,8 +105,8 @@ export default function ClientListPage() {
               <thead className="bg-neutral-50 border-b border-neutral-200">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-neutral-600">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden sm:table-cell">Email</th>
                   <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden sm:table-cell">Phone</th>
+                  <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden md:table-cell">Address</th>
                   <th className="text-center px-4 py-3 font-medium text-neutral-600">VIP</th>
                 </tr>
               </thead>
@@ -113,8 +114,8 @@ export default function ClientListPage() {
                 {list.filtered.map(c => (
                   <tr key={c.id} onClick={() => nav(`/client/${c.id}`)} className="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer">
                     <td className="px-4 py-3 font-medium">{c.name}</td>
-                    <td className="px-4 py-3 text-neutral-600 hidden sm:table-cell">{c.email || '—'}</td>
                     <td className="px-4 py-3 text-neutral-600 hidden sm:table-cell">{c.phone || '—'}</td>
+                    <td className="px-4 py-3 text-neutral-600 hidden md:table-cell text-sm">{c.address || '—'}</td>
                     <td className="px-4 py-3 text-center">{c.vip ? <span className="bg-neutral-100 text-neutral-800 text-xs px-2 py-0.5 rounded-full font-medium">VIP</span> : '—'}</td>
                   </tr>
                 ))}
