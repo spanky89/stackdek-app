@@ -15,6 +15,10 @@ type Job = {
   id: string; title: string; status: string
   estimate_amount: number; date_scheduled: string; created_at: string
 }
+type Quote = {
+  id: string; title: string; status: string
+  amount: number; created_at: string
+}
 type Note = { id: string; content: string; created_at: string }
 type TabKey = 'overview' | 'history' | 'notes'
 
@@ -23,6 +27,7 @@ export default function ClientProfilePage() {
   const nav = useNavigate()
   const [client, setClient] = useState<Client | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [quotes, setQuotes] = useState<Quote[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [tab, setTab] = useState<TabKey>('overview')
@@ -36,14 +41,17 @@ export default function ClientProfilePage() {
         const { data: c } = await supabase.from('clients').select('*').eq('id', id).single()
         if (c) setClient(c)
 
-        const [invRes, jobRes] = await Promise.all([
+        const [invRes, jobRes, quoteRes] = await Promise.all([
           supabase.from('invoices').select('id, title, invoice_number, status, total_amount, created_at')
             .eq('client_id', id).order('created_at', { ascending: false }).limit(10),
           supabase.from('jobs').select('id, title, status, estimate_amount, date_scheduled, created_at')
             .eq('client_id', id).order('created_at', { ascending: false }).limit(20),
+          supabase.from('quotes').select('id, title, status, amount, created_at')
+            .eq('client_id', id).eq('status', 'accepted').order('created_at', { ascending: false }).limit(10),
         ])
         setInvoices(invRes.data || [])
         setJobs(jobRes.data || [])
+        setQuotes(quoteRes.data || [])
 
         try {
           const { data: nData } = await supabase.from('client_notes')
@@ -188,6 +196,32 @@ export default function ClientProfilePage() {
                   <span className="text-sm font-medium text-right max-w-[60%]">{client.address || '—'}</span>
                 </div>
               </div>
+
+              {/* Accepted Quotes */}
+              {quotes.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-base font-semibold">Accepted Quotes</h2>
+                  </div>
+                  <div className="space-y-3">
+                    {quotes.map(q => (
+                      <button
+                        key={q.id}
+                        onClick={() => nav(`/quote/${q.id}`)}
+                        className="w-full text-left flex justify-between items-start p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{q.title}</p>
+                          <span className="text-xs text-neutral-600 mt-2 block">
+                            {new Date(q.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold">${q.amount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) ?? '0'}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Recent Activity */}
               <div className="mt-6">
