@@ -46,23 +46,37 @@ export default function QuotePublicViewPage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const { data, error: fetchErr } = await supabase
+        // Fetch quote without line items first
+        const { data: quoteData, error: quoteErr } = await supabase
           .from('quotes')
           .select(`
             id, title, status, amount, expiration_date, 
             deposit_amount, deposit_paid,
             clients(id, name, email), 
-            companies(id, name, logo_url, invoice_notes),
-            quote_line_items(id, description, quantity, unit_price)
+            companies(id, name, logo_url, invoice_notes)
           `)
           .eq('id', id)
           .single()
         
-        if (fetchErr) { 
-          setError(fetchErr.message)
+        if (quoteErr) { 
+          setError(quoteErr.message)
           return 
         }
-        setQuote(data as any)
+
+        // Fetch line items separately
+        const { data: lineItems, error: lineErr } = await supabase
+          .from('quote_line_items')
+          .select('id, description, quantity, unit_price')
+          .eq('quote_id', id)
+
+        if (lineErr) {
+          console.warn('Warning: Could not fetch line items:', lineErr)
+        }
+
+        setQuote({ 
+          ...(quoteData as any),
+          quote_line_items: lineItems || []
+        })
       } catch (e: any) { 
         setError(e?.message ?? 'Unknown error') 
       }
