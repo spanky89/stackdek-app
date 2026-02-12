@@ -180,7 +180,7 @@ export default function SettingsPage() {
                 <button onClick={() => nav('/settings/billing')}
                   className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 transition rounded border-b border-neutral-100">
                   <div className="flex items-center gap-3">
-                    <span className="text-neutral-600">💎</span>
+                    <span className="text-neutral-600">◆</span>
                     <span className="text-neutral-900">Billing & Subscription</span>
                   </div>
                   <span className="text-neutral-400">›</span>
@@ -190,23 +190,23 @@ export default function SettingsPage() {
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h2 className="text-lg font-semibold mb-4 text-neutral-900">Company Details</h2>
               <div className="space-y-2">
-                {menuItem('🏢', 'Business Information', 'business')}
-                {menuItem('🖼️', 'Logo & Branding', 'branding')}
-                {menuItem('📄', 'Invoice Settings', 'invoice')}
-                {menuItem('💳', 'Payment Settings', 'payment')}
+                {menuItem('⊞', 'Business Information', 'business')}
+                {menuItem('▭', 'Logo & Branding', 'branding')}
+                {menuItem('▬', 'Invoice Settings', 'invoice')}
+                {menuItem('▮', 'Payment Settings', 'payment')}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h2 className="text-lg font-semibold mb-4 text-neutral-900">Services & Products</h2>
               <div className="space-y-2">
-                {menuItem('📋', 'Manage Services', 'services')}
-                {menuItem('📦', 'Manage Products', 'products')}
+                {menuItem('▥', 'Manage Services', 'services')}
+                {menuItem('▢', 'Manage Products', 'products')}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h2 className="text-lg font-semibold mb-4 text-neutral-900">Website Integration</h2>
               <div className="space-y-2">
-                {menuItem('🔗', 'Request Form Settings', 'request-form')}
+                {menuItem('</', 'Request Form Settings', 'request-form')}
               </div>
             </div>
           </div>
