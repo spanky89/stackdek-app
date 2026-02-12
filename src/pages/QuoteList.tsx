@@ -47,8 +47,8 @@ export default function QuoteListPage() {
         if (!user) return
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
         if (!company) return
-        // Exclude accepted quotes from main list
-        const { data } = await supabase.from('quotes').select('id, title, status, amount, expiration_date, created_at, clients(id, name)').eq('company_id', company.id).neq('status', 'accepted').order('created_at', { ascending: false })
+        // Exclude accepted and approved quotes from main list (they move to jobs)
+        const { data } = await supabase.from('quotes').select('id, title, status, amount, expiration_date, created_at, clients(id, name)').eq('company_id', company.id).neq('status', 'accepted').neq('status', 'approved').order('created_at', { ascending: false })
         setQuotes((data as any) || [])
       } finally { setLoading(false) }
     })()

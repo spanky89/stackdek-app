@@ -95,17 +95,18 @@ export default async function handler(
           return res.status(403).json({ error: 'Company ID mismatch' });
         }
 
-        // 1. Mark quote deposit as paid
+        // 1. Mark quote deposit as paid AND set status to approved
         const { data: quote, error: quoteError } = await supabase
           .from('quotes')
           .update({
             deposit_paid: true,
+            status: 'approved',
             stripe_checkout_session_id: session.id,
             deposit_paid_at: new Date().toISOString(),
           })
           .eq('id', quoteId)
           .eq('company_id', companyId) // Extra security: ensure quote belongs to company
-          .select('*, quote_line_items(*)')
+          .select('*, quote_line_items(*), clients(id, name, email), companies(id, name)')
           .single();
 
         if (quoteError) {
@@ -114,6 +115,9 @@ export default async function handler(
         }
 
         // 2. Auto-create job with same line items
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
         const { data: newJob, error: jobError } = await supabase
           .from('jobs')
           .insert({
@@ -123,8 +127,9 @@ export default async function handler(
             title: quote.title,
             description: `Auto-created from Quote #${quoteId.slice(0, 8)} after deposit payment`,
             status: 'scheduled',
-            date_scheduled: new Date().toISOString().split('T')[0], // Today
+            date_scheduled: tomorrow.toISOString().split('T')[0],
             estimate_amount: quote.amount,
+            created_at: new Date().toISOString(),
           })
           .select()
           .single();
@@ -132,6 +137,27 @@ export default async function handler(
         if (jobError) {
           console.error('Error creating job:', jobError);
           return res.status(500).json({ error: 'Failed to create job' });
+        }
+
+        // 3. Send receipt email asynchronously (don't block on this)
+        try {
+          const appUrl = process.env.VITE_APP_URL || 'https://stackdek-app.vercel.app';
+          await fetch(`${appUrl}/api/send-receipt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              quoteId,
+              clientEmail: quote.clients?.email,
+              clientName: quote.clients?.name,
+              companyName: quote.companies?.name,
+              depositAmount: session.metadata?.depositAmount || 0,
+              quoteTitle: quote.title,
+              jobId: newJob.id,
+            }),
+          }).catch(err => console.error('Async email error:', err));
+        } catch (emailErr) {
+          console.error('Error sending receipt email:', emailErr);
+          // Don't fail the webhook if email fails - just log it
         }
 
         console.log('Successfully processed payment:', {
