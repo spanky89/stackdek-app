@@ -6,7 +6,7 @@ type LineItem = {
   id: string
   description: string
   quantity: number
-  rate: number
+  unit_price: number
 }
 
 type Quote = {
@@ -53,7 +53,7 @@ export default function QuotePublicViewPage() {
             deposit_amount, deposit_paid,
             clients(id, name, email), 
             companies(id, name, logo_url, invoice_notes),
-            quote_line_items(id, description, quantity, rate)
+            quote_line_items(id, description, quantity, unit_price)
           `)
           .eq('id', id)
           .single()
@@ -140,7 +140,7 @@ export default function QuotePublicViewPage() {
 
   const isExpired = quote.expiration_date && new Date(quote.expiration_date) < new Date()
   const lineItems = quote.quote_line_items || []
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0)
+  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
 
   // If payment was successful, show thank you page
   if (paymentSuccess && quote.deposit_paid) {
@@ -237,8 +237,8 @@ export default function QuotePublicViewPage() {
                     <p className="text-neutral-600 text-xs">Qty: {item.quantity}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">${(item.quantity * item.rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="text-neutral-600 text-xs">${item.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each</p>
+                    <p className="font-semibold">${(item.quantity * item.unit_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-neutral-600 text-xs">${item.unit_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each</p>
                   </div>
                 </div>
               ))}
