@@ -81,11 +81,17 @@ function ClipboardIcon({ className }: { className?: string }) {
   )
 }
 
-export default function BottomMenu() {
+interface BottomMenuProps {
+  onNewTask?: () => void
+}
+
+export default function BottomMenu({ onNewTask }: BottomMenuProps) {
   const nav = useNavigate()
   const loc = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const isHome = loc.pathname === '/home'
 
   const isActive = (path: string) => {
     if (path === '/home') return loc.pathname === '/home'
@@ -119,7 +125,7 @@ export default function BottomMenu() {
   const quickActions = [
     { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
     { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
-    { label: 'New Task', path: '/jobs?create=1', Icon: ClipboardIcon },
+    ...(isHome ? [{ label: 'New Task', action: 'newTask', Icon: ClipboardIcon }] : []),
   ]
 
   const renderItem = ({ Icon, label, path }: { Icon: React.FC<{ className?: string }>; label: string; path: string }) => (
@@ -145,12 +151,16 @@ export default function BottomMenu() {
         <div className="relative flex flex-col items-center" ref={menuRef}>
           {menuOpen && (
             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg border border-neutral-200 py-1 w-44">
-              {quickActions.map((action) => (
+              {quickActions.map((action: any) => (
                 <button
-                  key={action.path}
+                  key={action.path || action.action}
                   onClick={() => {
                     setMenuOpen(false)
-                    nav(action.path)
+                    if (action.action === 'newTask') {
+                      onNewTask?.()
+                    } else {
+                      nav(action.path)
+                    }
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
                 >

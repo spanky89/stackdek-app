@@ -15,8 +15,7 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-
-  const TAX_RATE = 0.1 // 10%
+  const [discount, setDiscount] = useState('0') // Editable discount amount
 
   useEffect(() => {
     const loadClients = async () => {
@@ -59,8 +58,8 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
   }
 
   const subtotal = services.reduce((sum, s) => sum + (s.price || 0), 0)
-  const tax = subtotal * TAX_RATE
-  const total = subtotal + tax
+  const discountAmount = parseFloat(discount) || 0
+  const total = Math.max(0, subtotal - discountAmount)
   const deposit = Math.round(total * 0.25 * 100) / 100 // 25% deposit
 
   async function onSubmit(e: React.FormEvent, saveDraft: boolean) {
@@ -92,7 +91,7 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
           client_id: clientId,
           title: services.map(s => s.name).join(', '),
           amount: total,
-          status: saveDraft ? 'draft' : 'sent',
+          status: saveDraft ? 'draft' : 'pending',
           expiration_date: startDate ? new Date(new Date(startDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : null,
         })
         .select()
@@ -106,6 +105,7 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
       setDuration('')
       setStartDate('')
       setClientMessage('')
+      setDiscount('0')
       
       // Call onSuccess after a short delay
       setTimeout(() => onSuccess?.(), 1000)
@@ -203,14 +203,23 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
         </div>
 
         {/* Calculations */}
-        <div className="bg-neutral-50 rounded-lg border border-neutral-100 p-4 space-y-2">
+        <div className="bg-neutral-50 rounded-lg border border-neutral-100 p-4 space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-neutral-600">Subtotal</span>
             <span className="font-medium">${subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-neutral-600">Tax (10%)</span>
-            <span className="font-medium">${tax.toFixed(2)}</span>
+          <div>
+            <label className="block text-xs text-neutral-600 mb-1">Discount</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max={subtotal}
+              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+              placeholder="$0.00"
+              value={discount}
+              onChange={e => setDiscount(e.target.value)}
+            />
           </div>
           <div className="border-t border-neutral-200 pt-2 flex justify-between text-sm font-semibold">
             <span>Total</span>

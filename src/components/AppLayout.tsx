@@ -1,7 +1,12 @@
 import Header from './Header'
 import BottomMenu from './BottomMenu'
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+interface AppLayoutProps {
+  children: React.ReactNode
+  onNewTask?: () => void
+}
+
+export default function AppLayout({ children, onNewTask }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
       <div className="flex-1 pb-20 px-4">
@@ -10,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
-      <BottomMenu />
+      <BottomMenu onNewTask={onNewTask} />
     </div>
   )
 }

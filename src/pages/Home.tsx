@@ -24,6 +24,10 @@ export default function HomePage() {
   const [showGoalModal, setShowGoalModal] = useState(false)
   const [goalInput, setGoalInput] = useState('100000')
   const [savingGoal, setSavingGoal] = useState(false)
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDueDate, setTaskDueDate] = useState('')
+  const [savingTask, setSavingTask] = useState(false)
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return }
@@ -131,6 +135,43 @@ export default function HomePage() {
     }
   }
 
+  async function saveTask() {
+    if (!taskTitle.trim()) return
+
+    setSavingTask(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single()
+      
+      if (!company) return
+
+      const { error: err } = await supabase
+        .from('reminders')
+        .insert({
+          company_id: company.id,
+          title: taskTitle,
+          due_date: taskDueDate || new Date().toISOString().split('T')[0],
+        })
+
+      if (err) throw err
+      setTaskTitle('')
+      setTaskDueDate('')
+      setShowTaskModal(false)
+      // Refresh page data
+      window.location.reload()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingTask(false)
+    }
+  }
+
   const fmt = (n: number) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const revenuePct = Math.min(100, Math.round((monthlyRevenue / revenueGoal) * 100))
 
@@ -147,7 +188,7 @@ export default function HomePage() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout onNewTask={() => setShowTaskModal(true)}>
       <>
         {/* Revenue Goal */}
         <button
@@ -336,6 +377,47 @@ export default function HomePage() {
                   className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
                 >
                   {savingGoal ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* New Task Modal */}
+        {showTaskModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTaskModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+              <h2 className="text-lg font-bold mb-4">New Task</h2>
+              <input
+                type="text"
+                value={taskTitle}
+                onChange={e => setTaskTitle(e.target.value)}
+                className="w-full px-4 py-2 border border-neutral-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                placeholder="Task title"
+                autoFocus
+              />
+              <div className="mb-4">
+                <label className="block text-xs text-neutral-600 mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={e => setTaskDueDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTaskModal(false)}
+                  className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg font-medium hover:bg-neutral-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTask}
+                  disabled={savingTask || !taskTitle.trim()}
+                  className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
+                >
+                  {savingTask ? 'Creating…' : 'Create Task'}
                 </button>
               </div>
             </div>
