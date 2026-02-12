@@ -7,7 +7,7 @@ interface Company {
   id: string
   name: string
   subscription_status: 'trial' | 'active' | 'past_due' | 'canceled' | 'none'
-  subscription_plan: 'basic' | 'pro' | 'enterprise'
+  subscription_plan: 'basic' | 'pro'
   subscription_current_period_end: string | null
   trial_ends_at: string | null
 }
@@ -30,44 +30,27 @@ const PLANS: Plan[] = [
     interval: 'month',
     stripePriceId: process.env.VITE_STRIPE_PRICE_BASIC || 'price_basic',
     features: [
-      'Up to 50 quotes/month',
-      'Up to 25 jobs/month',
-      'Basic client management',
-      'Email support',
-      'Accept payments (your Stripe)',
+      'In-app calling and GPS',
+      'Client management system',
+      'Accept Stripe payments',
+      'Headache-free management system',
+      '1 user included',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: 79,
+    price: 69,
     interval: 'month',
     stripePriceId: process.env.VITE_STRIPE_PRICE_PRO || 'price_pro',
     recommended: true,
     features: [
-      'Unlimited quotes',
-      'Unlimited jobs',
-      'Advanced client management',
-      'Priority email support',
-      'Accept payments (your Stripe)',
-      'Custom branding',
-      'Reporting & analytics',
-    ],
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 199,
-    interval: 'month',
-    stripePriceId: process.env.VITE_STRIPE_PRICE_ENTERPRISE || 'price_enterprise',
-    features: [
-      'Everything in Pro',
-      'Multi-user accounts',
-      'API access',
-      'White-label options',
-      'Dedicated account manager',
-      'Custom integrations',
-      'SLA guarantee',
+      'In-app calling and GPS',
+      'Client management system',
+      'Accept Stripe payments',
+      'Headache-free management system',
+      '3 users included',
+      'Additional users $5/each',
     ],
   },
 ]
