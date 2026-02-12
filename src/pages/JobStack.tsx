@@ -92,11 +92,11 @@ export default function JobStackPage() {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-neutral-100 text-neutral-800'
       case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-neutral-100 text-neutral-800'
       case 'completed':
-        return 'bg-green-100 text-green-800'
+        return 'bg-neutral-100 text-neutral-800'
       default:
         return 'bg-neutral-100 text-neutral-800'
     }
@@ -131,12 +131,12 @@ export default function JobStackPage() {
     <AppLayout>
       <>
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <button className="text-2xl">☰</button>
-          <h1 className="text-2xl font-bold">Job Stack</h1>
+        <div className="flex items-center gap-4 mb-6">
+          <button className="text-2xl text-neutral-700">☰</button>
+          <h1 className="text-2xl font-bold text-neutral-900">Job Stack</h1>
           <div className="flex-1" />
-          <button className="text-xl">🔍</button>
-          <button className="relative text-xl">🔔</button>
+          <button className="text-neutral-500">🔍</button>
+          <button className="relative text-neutral-500">🔔</button>
         </div>
 
         {/* Filter Tabs */}
@@ -208,25 +208,25 @@ export default function JobStackPage() {
                 </div>
 
                 {/* Date & Time */}
-                <div className="flex gap-4 text-sm text-neutral-700 mb-4">
-                  <div className="flex items-center gap-1">
-                    <span>📅</span>
+                <div className="flex gap-6 text-sm text-neutral-600 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400">📅</span>
                     <span>{formatDate(job.date_scheduled)}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span>🕐</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400">🕐</span>
                     <span>{formatTime(job.time_scheduled)}</span>
                   </div>
                 </div>
 
                 {/* Client Info Placeholder */}
                 <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
-                  <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-700 flex-shrink-0">
-                    👤
+                  <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-600 flex-shrink-0">
+                    C
                   </div>
                   <div>
                     <p className="text-sm font-medium text-neutral-900">Client</p>
-                    <p className="text-xs text-neutral-500">Customer</p>
+                    <p className="text-xs text-neutral-500">Customer since 2024</p>
                   </div>
                 </div>
               </div>
