@@ -144,7 +144,7 @@ function LoginPage() {
   );
 }
 
-/** Route guard (CompanyProvider moved to top level) */
+/** Route guard with CompanyProvider */
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { loading, session } = useSupabaseSession();
   if (loading) {
@@ -154,14 +154,13 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
       </div>
     );
   }
-  return session ? children : <Navigate to="/login" replace />;
+  return session ? <CompanyProvider>{children}</CompanyProvider> : <Navigate to="/login" replace />;
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <CompanyProvider>
-        <Routes>
+      <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -322,7 +321,6 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-      </CompanyProvider>
     </BrowserRouter>
   );
 }
