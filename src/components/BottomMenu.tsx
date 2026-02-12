@@ -81,6 +81,24 @@ function ClipboardIcon({ className }: { className?: string }) {
   )
 }
 
+function CreditCardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+      <line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  )
+}
+
+function RequestIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  )
+}
+
 interface BottomMenuProps {
   onNewTask?: () => void
 }
@@ -123,9 +141,9 @@ export default function BottomMenu({ onNewTask }: BottomMenuProps) {
   ]
 
   const quickActions = [
+    { label: 'New Request', path: '/quotes/create', Icon: RequestIcon },
+    { label: 'New Invoice', path: '/invoices/create', Icon: CreditCardIcon },
     { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
-    { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
-    { label: 'New Task', action: 'newTask', Icon: ClipboardIcon },
   ]
 
   const renderItem = ({ Icon, label, path }: { Icon: React.FC<{ className?: string }>; label: string; path: string }) => (
