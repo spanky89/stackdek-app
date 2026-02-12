@@ -6,9 +6,11 @@ import {
   Route,
   Navigate,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
 import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
+import LoginPage from "./pages/Login";
 import HomePage from "./pages/Home";
 import JobStackPage from "./pages/JobStack";
 import RequestListPage from "./pages/RequestList";
@@ -65,82 +67,30 @@ function useSupabaseSession() {
   return { loading, session };
 }
 
-/** Login page (email/password) */
-function LoginPage() {
+/** Auth callback handler for OAuth redirects */
+function AuthCallbackPage() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [searchParams] = useSearchParams();
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setErr(error.message);
-        return;
+  useEffect(() => {
+    // Supabase automatically parses the callback URL
+    // Redirect to home after OAuth login
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        nav("/", { replace: true });
+      } else {
+        nav("/login", { replace: true });
       }
-      nav("/home", { replace: true });
-    } catch (e: any) {
-      setErr(e?.message ?? "Unknown error");
-    } finally {
-      setBusy(false);
-    }
-  }
+    };
+
+    // Give Supabase a moment to process the callback
+    setTimeout(checkSession, 1000);
+  }, [nav]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-100 p-6">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow border border-neutral-200 p-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <img src="/logo-symbol.png" alt="StackDek" className="h-10 w-auto" />
-          <h1 className="text-3xl font-bold">StackDek</h1>
-        </div>
-        <p className="text-center text-sm font-semibold text-neutral-700 mb-6">Built by Contractors, For Contractors</p>
-        <p className="text-sm text-neutral-600 mb-6">Sign in to your account</p>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <label className="block text-sm mb-1">Email</label>
-            <input
-              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Password</label>
-            <input
-              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-          {err && <p className="text-red-600 text-sm">{err}</p>}
-          <button
-            className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60"
-            disabled={busy}
-            type="submit"
-          >
-            {busy ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
-        <p className="text-center text-sm text-neutral-600 mt-4">
-          Don't have an account?{" "}
-          <button onClick={() => nav("/")} className="text-blue-600 hover:underline font-medium">
-            Create one
-          </button>
-        </p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center">
+      <p className="text-neutral-600">Processing authentication…</p>
     </div>
   );
 }
@@ -164,6 +114,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route
           path="/home"
           element={
