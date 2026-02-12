@@ -165,11 +165,17 @@ export default function QuoteDetailPage() {
   }
 
   async function markOfflinePayment() {
-    if (!quote) return
+    console.log('[markOfflinePayment] Called with quote:', quote)
+    if (!quote) {
+      console.log('[markOfflinePayment] Quote is null, returning')
+      return
+    }
+    
     setBusy(true)
     setError(null)
     
     try {
+      console.log('[markOfflinePayment] Step 1: Marking deposit as paid...')
       // 1. Mark deposit as paid
       const { error: upErr } = await supabase
         .from('quotes')
@@ -180,8 +186,16 @@ export default function QuoteDetailPage() {
         .eq('id', id)
       
       if (upErr) throw new Error(`Failed to mark deposit paid: ${upErr.message}`)
+      console.log('[markOfflinePayment] Step 1 complete: Deposit marked as paid')
 
       // 2. Create job from quote
+      console.log('[markOfflinePayment] Step 2: Creating job with data:', {
+        quote_id: quote.id,
+        title: quote.title,
+        client_id: quote.client_id,
+        company_id: quote.company_id,
+      })
+      
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const jobData = {
@@ -190,7 +204,7 @@ export default function QuoteDetailPage() {
         client_id: quote.client_id,
         company_id: quote.company_id,
         status: 'pending',
-        date_scheduled: tomorrow.toISOString().split('T')[0], // Default to tomorrow
+        date_scheduled: tomorrow.toISOString().split('T')[0],
         created_at: new Date().toISOString(),
       }
       
@@ -202,6 +216,8 @@ export default function QuoteDetailPage() {
 
       if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`)
       if (!newJob) throw new Error('Job created but no data returned')
+      
+      console.log('[markOfflinePayment] Step 2 complete: Job created:', newJob.id)
 
       setQuote({ ...quote, deposit_paid: true })
       setBusy(false)
@@ -210,7 +226,7 @@ export default function QuoteDetailPage() {
       alert(`✓ Deposit marked as paid. Job created!`)
       nav('/jobs')
     } catch (err: any) {
-      console.error('Offline payment error:', err)
+      console.error('[markOfflinePayment] ERROR:', err)
       setError(err.message || 'Failed to process offline payment')
       setBusy(false)
     }
