@@ -125,7 +125,7 @@ export default function BottomMenu({ onNewTask }: BottomMenuProps) {
   const quickActions = [
     { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
     { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
-    ...(isHome ? [{ label: 'New Task', action: 'newTask', Icon: ClipboardIcon }] : []),
+    { label: 'New Task', action: 'newTask', Icon: ClipboardIcon },
   ]
 
   const renderItem = ({ Icon, label, path }: { Icon: React.FC<{ className?: string }>; label: string; path: string }) => (

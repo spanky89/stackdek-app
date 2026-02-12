@@ -16,6 +16,7 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [discount, setDiscount] = useState('0') // Editable discount amount
+  const [depositPercentage, setDepositPercentage] = useState('25') // Editable deposit percentage
 
   useEffect(() => {
     const loadClients = async () => {
@@ -60,7 +61,8 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
   const subtotal = services.reduce((sum, s) => sum + (s.price || 0), 0)
   const discountAmount = parseFloat(discount) || 0
   const total = Math.max(0, subtotal - discountAmount)
-  const deposit = Math.round(total * 0.25 * 100) / 100 // 25% deposit
+  const depositPct = parseFloat(depositPercentage) || 25
+  const deposit = Math.round(total * (depositPct / 100) * 100) / 100
 
   async function onSubmit(e: React.FormEvent, saveDraft: boolean) {
     e.preventDefault()
@@ -106,6 +108,7 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
       setStartDate('')
       setClientMessage('')
       setDiscount('0')
+      setDepositPercentage('25')
       
       // Call onSuccess after a short delay
       setTimeout(() => onSuccess?.(), 1000)
@@ -225,9 +228,21 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
             <span>Total</span>
             <span>${total.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm pt-1">
-            <span className="text-neutral-600">Required Deposit (25%)</span>
-            <span className="font-medium">${deposit.toFixed(2)}</span>
+          <div>
+            <label className="block text-xs text-neutral-600 mb-1">Required Deposit (%)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                placeholder="25"
+                value={depositPercentage}
+                onChange={e => setDepositPercentage(e.target.value)}
+              />
+              <span className="text-sm font-medium py-1.5 px-2 bg-white rounded border border-neutral-200">${deposit.toFixed(2)}</span>
+            </div>
           </div>
         </div>
 
