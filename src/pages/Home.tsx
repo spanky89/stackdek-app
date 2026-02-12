@@ -6,7 +6,7 @@ import { DocumentIcon, BriefcaseIcon } from '../components/Icons'
 import { useCompany } from '../context/CompanyContext'
 
 type Job = { id: string; title: string; date_scheduled: string; status: string; estimate_amount: number; clients: { name: string } | null }
-type Quote = { id: string; title: string; amount: number; status: string; clients: { name: string } | null }
+type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; clients: { name: string } | null }
 type Reminder = { id: string; title: string; due_date: string }
 
 export default function HomePage() {
@@ -62,7 +62,7 @@ export default function HomePage() {
           // Pending quotes
           supabase
             .from('quotes')
-            .select('id, title, amount, status, clients(name)')
+            .select('id, title, amount, status, created_at, clients(name)')
             .eq('company_id', cid)
             .eq('status', 'pending')
             .order('created_at', { ascending: false })
@@ -252,22 +252,40 @@ export default function HomePage() {
                 View all
               </button>
             </div>
-            <div className="space-y-2">
-              {pendingQuotes.map(quote => (
-                <button
-                  key={quote.id}
-                  onClick={() => nav(`/quote/${quote.id}`)}
-                  className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-medium">{quote.clients?.name || 'Unknown'}</p>
-                      <p className="text-xs text-neutral-600">{quote.title}</p>
+            <div className="space-y-3">
+              {pendingQuotes.map(quote => {
+                const createdDate = quote.created_at ? new Date(quote.created_at) : null
+                const daysAgo = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
+                const timeLabel = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`
+                const clientInitial = quote.clients?.name?.[0]?.toUpperCase() || '?'
+                
+                return (
+                  <button
+                    key={quote.id}
+                    onClick={() => nav(`/quote/${quote.id}`)}
+                    className="w-full bg-neutral-50 border border-neutral-100 rounded-lg p-3 hover:bg-neutral-100 transition text-left"
+                  >
+                    {/* Title + Amount */}
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold text-sm text-neutral-900">{quote.title}</h4>
+                      <span className="text-sm font-semibold text-neutral-900 ml-2">${quote.amount.toFixed(2)}</span>
                     </div>
-                    <span className="text-sm font-semibold">{fmt(quote.amount)}</span>
-                  </div>
-                </button>
-              ))}
+                    
+                    {/* Client + Time */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-neutral-700">
+                        {clientInitial}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-neutral-600">{quote.clients?.name || 'Unknown'}</p>
+                        <p className="text-xs text-neutral-500 flex items-center gap-1">
+                          🕐 Sent {timeLabel}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

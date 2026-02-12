@@ -8,7 +8,7 @@ import AppLayout from '../components/AppLayout'
 
 type Quote = {
   id: string; title: string; status: string; amount: number
-  expiration_date: string | null; created_at?: string; clients: { name: string } | null
+  expiration_date: string | null; created_at?: string; clients: { name: string; id: string } | null
 }
 
 const FILTERS = [
@@ -47,7 +47,7 @@ export default function QuoteListPage() {
         if (!user) return
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
         if (!company) return
-        const { data } = await supabase.from('quotes').select('id, title, status, amount, expiration_date, created_at, clients(name)').eq('company_id', company.id).order('created_at', { ascending: false })
+        const { data } = await supabase.from('quotes').select('id, title, status, amount, expiration_date, created_at, clients(id, name)').eq('company_id', company.id).order('created_at', { ascending: false })
         setQuotes((data as any) || [])
       } finally { setLoading(false) }
     })()
@@ -80,29 +80,41 @@ export default function QuoteListPage() {
             {quotes.length === 0 ? 'No quotes yet.' : 'No matching quotes.'}
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-neutral-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 border-b border-neutral-200">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-neutral-600">Title</th>
-                  <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden sm:table-cell">Client</th>
-                  <th className="text-right px-4 py-3 font-medium text-neutral-600">Amount</th>
-                  <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden sm:table-cell">Expires</th>
-                  <th className="text-center px-4 py-3 font-medium text-neutral-600">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.filtered.map(q => (
-                  <tr key={q.id} onClick={() => nav(`/quote/${q.id}`)} className="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer">
-                    <td className="px-4 py-3 font-medium">{q.title}</td>
-                    <td className="px-4 py-3 text-neutral-600 hidden sm:table-cell">{q.clients?.name || '—'}</td>
-                    <td className="px-4 py-3 text-right">${q.amount}</td>
-                    <td className="px-4 py-3 text-neutral-600 hidden sm:table-cell">{q.expiration_date ? new Date(q.expiration_date).toLocaleDateString() : '—'}</td>
-                    <td className="px-4 py-3 text-center"><span className="px-2 py-0.5 bg-neutral-100 rounded text-xs font-medium">{q.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {list.filtered.map(q => {
+              const createdDate = q.created_at ? new Date(q.created_at) : null
+              const daysAgo = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
+              const timeLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`
+              const clientInitial = q.clients?.name?.[0]?.toUpperCase() || '?'
+              
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => nav(`/quote/${q.id}`)}
+                  className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
+                >
+                  {/* Top row: Title + Amount */}
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-semibold text-neutral-900 flex-1">{q.title}</h3>
+                    <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Middle row: Client avatar + name + info */}
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-neutral-700">
+                      {clientInitial}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-neutral-900">{q.clients?.name || 'Unknown'}</p>
+                      <div className="flex items-center gap-1 text-xs text-neutral-600 mt-1">
+                        <span>🕐</span>
+                        <span>Sent {timeLabel}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         )}
 
