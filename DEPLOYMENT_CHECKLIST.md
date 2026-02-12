@@ -1,308 +1,333 @@
-# StackDek MVP Fixes - Deployment Checklist
-**Date:** Feb 11, 2026  
-**Status:** Ready for Production Deployment
+# Distributed Stripe Integration - Deployment Checklist
 
----
+## ✅ Code Deployment Status
 
-## 📋 Pre-Deployment Checklist
+**Git Status:** ✅ Committed and pushed to `origin/main`
 
-### Code Quality
-- [x] All source files compiled successfully
-- [x] Production build completes without errors
-- [x] No TypeScript errors or warnings
-- [x] All dependencies resolved (npm audit shows only minor vulnerabilities)
-- [x] Git history is clean and commits are descriptive
-- [x] Code follows existing project conventions and style
+**Commit:** `e1b1e43 - Refactor: Distributed Stripe integration - each company has own Stripe account`
 
-### Feature Implementation
-- [x] Fix #1: Invoice deposit % input and state management
-- [x] Fix #2: Settings services/products add functionality
-- [x] Fix #3: Account page with subscription/billing info
-- [x] Fix #4: Search bar and hamburger menu in header
-- [x] Fix #5: Quote sharing with copy-to-clipboard
-- [x] Fix #6: Logo styling improvements
-
-### Routes & Navigation
-- [x] All new routes added to App.tsx
-- [x] Protected routes properly configured
-- [x] Public routes accessible without auth
-- [x] Navigation menu updated
-
-### Configuration
-- [x] Supabase credentials in .env.local
-- [x] Vercel deployment config (vercel.json) correct
-- [x] Tailwind CSS configured with custom breakpoints
-- [x] TypeScript configuration valid
+**Files Changed:**
+- ✅ `MIGRATION_distributed_stripe.sql` - Database schema
+- ✅ `api/create-checkout.ts` - Company-specific checkout
+- ✅ `api/webhooks/stripe.ts` - Company-specific webhook handling
+- ✅ `src/pages/Settings.tsx` - Payment Settings UI
+- ✅ `src/pages/QuoteDetail.tsx` - Connection status display
+- ✅ `STRIPE_SETUP_GUIDE.md` - Contractor documentation
+- ✅ `DISTRIBUTED_STRIPE_IMPLEMENTATION.md` - Technical docs
 
 ---
 
 ## 🚀 Deployment Steps
 
-### Step 1: Verify Vercel is Connected
+### 1. Vercel Deployment
+
+**If GitHub is connected to Vercel** (auto-deploy enabled):
+- ✅ Code is already pushed to GitHub
+- ⏳ Vercel should automatically detect the push and deploy
+- Check: https://vercel.com/your-project/deployments
+
+**If manual deployment needed:**
 ```bash
-# Check if Vercel is linked to repository
-# This should auto-deploy on push to main
+# Install Vercel CLI (if not installed)
+npm install -g vercel
+
+# Login to Vercel
+vercel login
+
+# Deploy to production
+cd stackdek-app
+vercel --prod
 ```
 
-### Step 2: Deploy Code Changes
+### 2. Database Migration
+
+**Run in Supabase SQL Editor:**
+
+1. Go to: https://supabase.com/dashboard/project/YOUR_PROJECT/sql
+2. Copy contents of `MIGRATION_distributed_stripe.sql`
+3. Paste and click **RUN**
+4. Verify columns added:
+   ```sql
+   SELECT 
+     stripe_publishable_key,
+     stripe_secret_key,
+     stripe_webhook_secret
+   FROM companies
+   LIMIT 1;
+   ```
+
+### 3. Environment Variables (Vercel)
+
+**Check these are set in Vercel:**
+- `VITE_SUPABASE_URL` - Your Supabase URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Service role key
+- `VITE_APP_URL` - Your StackDek domain (e.g., https://stackdek.vercel.app)
+
+**Optional (can remove if using old centralized Stripe):**
+- `STRIPE_SECRET_KEY` - No longer needed
+- `STRIPE_WEBHOOK_SECRET` - No longer needed
+
+### 4. Test Deployment
+
+**Smoke Test:**
+1. ✅ Visit your StackDek URL
+2. ✅ Log in with a test account
+3. ✅ Go to Settings → Payment Settings
+4. ✅ Verify the new "Payment Settings" option appears
+5. ✅ Check that input fields for Stripe keys are visible
+6. ✅ Copy webhook URL and verify it includes `?companyId=...`
+
+---
+
+## 📋 Post-Deployment Tasks
+
+### For Each Contractor Company
+
+**Send this guide:** `STRIPE_SETUP_GUIDE.md`
+
+**Onboarding Steps:**
+1. Create/login to Stripe account
+2. Get API keys (test mode first)
+3. Add keys to StackDek Settings → Payment Settings
+4. Set up webhook in Stripe Dashboard
+5. Add webhook secret to StackDek
+6. Test with test card
+7. Switch to live mode when ready
+
+### Testing Checklist (Per Company)
+
+- [ ] Company adds test Stripe keys
+- [ ] Connection status shows "✓ Connected"
+- [ ] Create quote with deposit amount
+- [ ] Click "Pay Deposit with Stripe"
+- [ ] Use test card: `4242 4242 4242 4242`
+- [ ] Verify quote marked "Deposit Paid"
+- [ ] Verify job auto-created
+- [ ] Check Stripe Dashboard for payment
+- [ ] Verify webhook fired successfully
+
+---
+
+## 🔍 Verification Steps
+
+### 1. API Endpoints Working
+
+**Test Checkout API:**
 ```bash
-cd C:\Users\x\.openclaw\workspace\stackdek-app
+curl -X POST https://your-domain.com/api/create-checkout \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "quoteId": "test-quote-id",
+    "depositAmount": 100,
+    "clientEmail": "test@example.com",
+    "clientName": "Test Client",
+    "companyName": "Test Company"
+  }'
+```
+
+Expected: Returns `sessionId`, `url`, and `publishableKey`
+
+**Test Webhook:**
+- Create a test payment in Stripe
+- Check Vercel logs for webhook POST request
+- Verify quote updated in Supabase
+
+### 2. Database Schema
+
+```sql
+-- Verify new columns exist
+\d companies
+
+-- Check if any companies have Stripe configured
+SELECT 
+  id, 
+  name,
+  CASE 
+    WHEN stripe_publishable_key IS NOT NULL THEN 'Configured'
+    ELSE 'Not Configured'
+  END as stripe_status
+FROM companies;
+```
+
+### 3. Frontend UI
+
+- [ ] Settings page loads without errors
+- [ ] Payment Settings menu item visible
+- [ ] Input fields for all 3 Stripe keys
+- [ ] Webhook URL displays correctly
+- [ ] Copy webhook URL button works
+- [ ] Save button works
+- [ ] Quote detail page shows connection status
+- [ ] Pay Deposit button disabled when Stripe not configured
+
+---
+
+## 🐛 Troubleshooting
+
+### Issue: "Stripe not configured" error
+
+**Check:**
+1. Keys saved in database?
+   ```sql
+   SELECT stripe_publishable_key, stripe_secret_key 
+   FROM companies 
+   WHERE id = 'YOUR_COMPANY_ID';
+   ```
+2. Keys start with correct prefix? (`pk_`, `sk_`)
+3. Using correct mode? (Test vs Live)
+
+### Issue: Webhook not firing
+
+**Check:**
+1. Webhook URL correct in Stripe Dashboard?
+2. `companyId` parameter included in URL?
+3. Webhook secret matches in StackDek Settings?
+4. Event `checkout.session.completed` selected in Stripe?
+5. Check Stripe webhook logs for errors
+
+### Issue: Payment completes but job not created
+
+**Check:**
+1. Webhook verified successfully? (Check Vercel logs)
+2. `companyId` in session metadata?
+3. Quote exists in database?
+4. Company has permission to create jobs?
+
+### Issue: CORS errors
+
+**Check:**
+1. `VITE_APP_URL` set correctly in Vercel?
+2. API endpoints return proper CORS headers?
+3. Auth token passed correctly?
+
+---
+
+## 📊 Monitoring
+
+### What to Monitor
+
+1. **Vercel Functions:**
+   - `/api/create-checkout` response times
+   - `/api/webhooks/stripe` success rate
+   - Error rates
+
+2. **Stripe Dashboard:**
+   - Payment success rate
+   - Webhook delivery success
+   - Failed payments
+
+3. **Supabase:**
+   - Database query performance
+   - Row-level security violations
+   - Auth errors
+
+### Key Metrics
+
+- Payment success rate: Target >95%
+- Webhook delivery: Target >99%
+- API response time: Target <500ms
+- Job auto-creation rate: Should match payment completion rate
+
+---
+
+## 📝 Communication Plan
+
+### Announce to Contractors
+
+**Email Template:**
+
+Subject: 🚀 New Payment Feature: Accept Deposits with Stripe!
+
+Hi [Contractor Name],
+
+Great news! StackDek now supports accepting deposits directly through your own Stripe account.
+
+**What's New:**
+- Accept credit card payments from clients
+- Deposits paid = jobs auto-created
+- Money goes directly to your Stripe account
+- No transaction fees from StackDek
+
+**Setup (5 minutes):**
+1. Create a free Stripe account (if you don't have one)
+2. Get your API keys from Stripe
+3. Add them to StackDek Settings → Payment Settings
+4. Set up a webhook (we'll show you how)
+
+**Get Started:**
+See our step-by-step guide: [Link to STRIPE_SETUP_GUIDE.md]
+
+Questions? Reply to this email or check our docs.
+
+Happy selling!
+The StackDek Team
+
+---
+
+### Support Resources
+
+- **Setup Guide:** `/docs/stripe-setup` (host `STRIPE_SETUP_GUIDE.md` here)
+- **Technical Docs:** `DISTRIBUTED_STRIPE_IMPLEMENTATION.md`
+- **Support Email:** support@stackdek.com
+
+---
+
+## ✅ Final Checklist
+
+**Before marking complete:**
+
+- [ ] Code deployed to Vercel
+- [ ] Database migration run successfully
+- [ ] Environment variables configured
+- [ ] Smoke test passed (UI loads, no errors)
+- [ ] At least 1 test company configured and tested
+- [ ] Webhook working end-to-end
+- [ ] Documentation accessible to contractors
+- [ ] Support team briefed on new feature
+- [ ] Monitoring/logging in place
+- [ ] Rollback plan ready (if needed)
+
+---
+
+## 🔄 Rollback Plan (If Needed)
+
+**If critical issues arise:**
+
+1. **Quick fix:** Disable payment button in UI (feature flag)
+2. **Database:** Revert migration (drop columns)
+3. **Code:** Revert to previous commit and redeploy
+4. **Stripe:** Webhooks can be paused in Stripe Dashboard
+
+**Rollback Command:**
+```bash
+git revert e1b1e43
 git push origin main
-```
-
-**Status:** ✅ Already pushed and on main branch
-```
-On branch main
-Your branch is up to date with 'origin/main'.
-nothing to commit, working tree clean
-```
-
-### Step 3: Monitor Vercel Deployment
-1. Go to Vercel Dashboard: https://vercel.com/dashboard
-2. Select StackDek project
-3. Check deployment status
-4. View build logs if needed
-5. Verify preview deployment succeeds
-
-### Step 4: Test Live App
-1. Open https://stackdek-app.vercel.app
-2. Sign in with test account
-3. Navigate through all new features
-4. Verify responsive design on mobile
-
-### Step 5: Run Supabase Migration (CRITICAL)
-1. Open https://app.supabase.com
-2. Select StackDek project
-3. SQL Editor → "+ New Query"
-4. Copy from `MIGRATION_add_services_products_deposits.sql`
-5. Paste and RUN
-6. Verify success message
-
-### Step 6: Post-Migration Testing
-1. Go to Settings → Manage Services
-2. Add a test service
-3. Go to Create Invoice
-4. Test deposit % input
-5. Verify all features working
-
----
-
-## 🔍 Smoke Tests (After Deployment)
-
-### Fix #1: Invoice Deposit % ✅
-- [ ] Navigate to Invoices
-- [ ] Click "Create Invoice"
-- [ ] Add line items
-- [ ] Change "Deposit %" value
-- [ ] Verify deposit amount calculates
-- [ ] Create invoice
-- [ ] Verify deposit % saved in database
-
-### Fix #2: Services/Products (After Migration) ✅
-- [ ] Navigate to Settings
-- [ ] Click "Manage Services"
-- [ ] Click "Add Service"
-- [ ] Enter service details
-- [ ] Click "Add Service" button
-- [ ] Verify service appears in list
-- [ ] Repeat for products
-
-### Fix #3: Account Page ✅
-- [ ] Navigate to Settings
-- [ ] Click "Account & Billing"
-- [ ] Verify subscription info displays
-- [ ] Check next billing date shown
-- [ ] Test payment method edit button
-- [ ] Verify cancel subscription visible
-
-### Fix #4: Search & Menu ✅
-**Desktop:**
-- [ ] Open app on desktop
-- [ ] Search bar visible in header
-- [ ] Can type in search field
-- [ ] Logo visible with tagline
-
-**Mobile:**
-- [ ] Open app on mobile
-- [ ] Click hamburger menu (☰)
-- [ ] Menu opens showing all sections
-- [ ] Can navigate to each section
-- [ ] Menu closes on selection
-
-### Fix #5: Quote Sharing ✅
-- [ ] Navigate to any quote
-- [ ] Find "Share Quote" section
-- [ ] Click "Copy Link" button
-- [ ] Verify "Copied!" message
-- [ ] Open shared link in new tab
-- [ ] Verify quote displays without login
-- [ ] Check mobile view of public quote
-
-### Fix #6: Logo ✅
-- [ ] Check header logo size
-- [ ] Verify tagline visible
-- [ ] Test logo hover effect
-- [ ] Click logo to go home
-- [ ] Check mobile logo responsiveness
-
----
-
-## 📱 Device Testing
-
-### Desktop (1920px+)
-- [x] All features visible
-- [x] Search bar prominent
-- [x] Logo with tagline
-- [x] No horizontal scrolling
-
-### Tablet (768px - 1024px)
-- [x] Responsive layout
-- [x] Menu adapts properly
-- [x] Touch-friendly buttons
-
-### Mobile (320px - 767px)
-- [x] Hamburger menu appears
-- [x] Search bar hidden
-- [x] Single column layout
-- [x] Touch-friendly sizes
-
----
-
-## 📊 Performance Metrics (Post-Build)
-
-```
-Build Output:
-- index.html:     0.46 kB (gzip: 0.29 kB)
-- CSS bundle:    19.92 kB (gzip: 4.30 kB)
-- JS bundle:    480.77 kB (gzip: 125.43 kB)
-- Build time:     6.94s
-
-Module Count:     152 modules
-Gzip Total:       ~130 kB
+# Vercel auto-deploys reverted code
 ```
 
 ---
 
-## ⚠️ Known Issues & Mitigations
+## 📅 Timeline
 
-### Migration Dependency
-- **Issue:** Services/Products won't work until migration runs
-- **Mitigation:** Clear documentation provided in SUPABASE_SETUP.md
-- **Status:** User action required
-
-### Mock Subscription Data
-- **Issue:** Account page shows mock subscription data
-- **Mitigation:** Structure in place for real Stripe/payment integration
-- **Status:** Planned for v1.1
-
-### Search Placeholder
-- **Issue:** Search input doesn't filter yet
-- **Mitigation:** Structure ready for search implementation
-- **Status:** Planned enhancement
+- **Code Deployed:** 2026-02-11
+- **Database Migrated:** [Pending]
+- **First Test:** [Pending]
+- **Production Ready:** [Pending]
+- **Contractor Rollout:** [Pending]
 
 ---
 
-## 📝 Deployment Notes
+**Status:** 🟡 Code deployed, awaiting database migration and testing
 
-### Vercel Auto-Deploy
-- Changes pushed to `main` branch auto-deploy to production
-- Build logs available in Vercel Dashboard
-- Rollback possible via Vercel if needed
-
-### Environment Variables
-- Production Vercel build has access to:
-  - `VITE_SUPABASE_URL` (configured in Vercel env vars)
-  - `VITE_SUPABASE_ANON_KEY` (configured in Vercel env vars)
-- These are already set up in Vercel project
-
-### Database Connectivity
-- Supabase RLS policies ensure data security
-- All queries include company_id filters
-- User-authenticated access only (except public quote view)
+**Next Steps:**
+1. Run database migration in Supabase
+2. Test with at least 1 contractor
+3. Monitor for 24-48 hours
+4. Begin contractor rollout
 
 ---
 
-## 🔐 Security Checklist
-
-- [x] No API keys exposed in source code
-- [x] Environment variables properly configured
-- [x] Supabase RLS policies in place
-- [x] User authentication required for protected routes
-- [x] Public quote view has no sensitive data
-- [x] Payment info uses mock data (no real processing yet)
-
----
-
-## 📞 Support & Troubleshooting
-
-### If Vercel Deploy Fails
-1. Check build logs in Vercel Dashboard
-2. Common issues:
-   - Missing environment variables (check Vercel Settings → Environment Variables)
-   - Node version mismatch (Vercel uses Node 18+ by default)
-   - Dependency conflicts (check package-lock.json)
-
-### If Features Don't Work After Deployment
-1. Clear browser cache (Ctrl+Shift+Delete)
-2. Force refresh (Ctrl+F5)
-3. Check browser console for errors (F12 → Console)
-4. Verify Supabase migration ran successfully
-
-### If Services/Products Still Not Working
-1. Verify Supabase migration ran
-2. Check table exists in Supabase Table Editor
-3. Verify RLS policies created
-4. Check browser network tab for API errors
-
----
-
-## ✅ Sign-Off Checklist
-
-### Development Complete
-- [x] All 6 MVP fixes implemented
-- [x] Code compiled successfully
-- [x] Production build verified
-- [x] Git commits pushed
-
-### Testing Complete
-- [x] Local development tests passed
-- [x] Build output verified
-- [x] Feature implementations confirmed
-
-### Documentation Complete
-- [x] MVP_FIXES_COMPLETED.md created
-- [x] MVP_VERIFICATION_REPORT.md created
-- [x] SUPABASE_SETUP.md provided
-- [x] DEPLOYMENT_CHECKLIST.md (this file)
-
-### Ready for Production
-- [x] Code quality verified
-- [x] No breaking changes
-- [x] Backward compatible
-- [x] All routes working
-- [x] Security reviewed
-
----
-
-## 🎉 Deployment Status
-
-**Current Status:** READY FOR PRODUCTION ✅
-
-**What's Deployed:**
-- All source code on main branch
-- Production build created and tested
-- Vercel auto-deploy configured
-- Supabase credentials in place
-
-**What's Next:**
-1. Vercel auto-deploys on push (should be live soon)
-2. User runs Supabase migration to enable services/products
-3. User tests all features on live app
-4. Ready for end-user testing
-
-**Estimated Time to Live:** < 5 minutes (Vercel build) + 2 minutes (migration)
-
----
-
-**Generated:** 2026-02-11 16:14 EST  
-**Status:** 🚀 DEPLOYMENT READY
+**Deployed by:** Subagent  
+**Date:** 2026-02-11  
+**Commit:** e1b1e43
