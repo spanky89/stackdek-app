@@ -24,6 +24,10 @@ export default function HomePage() {
   const [showGoalModal, setShowGoalModal] = useState(false)
   const [goalInput, setGoalInput] = useState('100000')
   const [savingGoal, setSavingGoal] = useState(false)
+  
+  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null)
+  const [showReminderModal, setShowReminderModal] = useState(false)
+  const [completingReminder, setCompletingReminder] = useState(false)
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return }
@@ -133,6 +137,26 @@ export default function HomePage() {
 
   const fmt = (n: number) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const revenuePct = Math.min(100, Math.round((monthlyRevenue / revenueGoal) * 100))
+
+  async function completeReminder() {
+    if (!selectedReminder) return
+    setCompletingReminder(true)
+    try {
+      const { error } = await supabase
+        .from('reminders')
+        .delete()
+        .eq('id', selectedReminder.id)
+      
+      if (error) throw error
+      setReminders(reminders.filter(r => r.id !== selectedReminder.id))
+      setShowReminderModal(false)
+      setSelectedReminder(null)
+    } catch (e: any) {
+      console.error('Failed to complete reminder:', e)
+    } finally {
+      setCompletingReminder(false)
+    }
+  }
 
   const statusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -295,18 +319,15 @@ export default function HomePage() {
           <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">Task Reminders</h3>
-              <button
-                onClick={() => nav('/reminders')}
-                className="text-neutral-500 hover:text-neutral-700 text-xs font-medium"
-              >
-                View all
-              </button>
             </div>
             <div className="space-y-2">
               {reminders.map(reminder => (
                 <button
                   key={reminder.id}
-                  onClick={() => nav(`/reminder/${reminder.id}`)}
+                  onClick={() => {
+                    setSelectedReminder(reminder)
+                    setShowReminderModal(true)
+                  }}
                   className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
                 >
                   <div className="flex items-start gap-3">
@@ -354,6 +375,31 @@ export default function HomePage() {
                   className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
                 >
                   {savingGoal ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reminder Detail Modal */}
+        {showReminderModal && selectedReminder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowReminderModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+              <h2 className="text-lg font-bold mb-2">{selectedReminder.title}</h2>
+              <p className="text-sm text-neutral-600 mb-6">Due: {new Date(selectedReminder.due_date).toLocaleDateString()}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowReminderModal(false)}
+                  className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg font-medium hover:bg-neutral-50 transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={completeReminder}
+                  disabled={completingReminder}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition"
+                >
+                  {completingReminder ? 'Completing…' : 'Complete'}
                 </button>
               </div>
             </div>
