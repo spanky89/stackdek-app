@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import { useCompany } from '../context/CompanyContext'
 
 type Job = {
   id: string
@@ -10,106 +11,230 @@ type Job = {
   estimate_amount: number
   date_scheduled: string
   location: string
+  time_scheduled?: string
+  clients: { name: string; avatar_url?: string } | null
+  created_at?: string
 }
 
 export default function JobStackPage() {
   const nav = useNavigate()
+  const { companyId } = useCompany()
   const [jobs, setJobs] = useState<Job[]>([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [upcomingCount, setUpcomingCount] = useState(0)
+  const [estimatedHours, setEstimatedHours] = useState(0)
 
   useEffect(() => {
-    const loadJobs = async () => {
+    const loadData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        if (!companyId) return
 
-        const { data: company } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('owner_id', user.id)
-          .single()
+        const now = new Date()
+        const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split('T')[0]
 
-        if (company) {
-          let query = supabase
-            .from('jobs')
-            .select('*')
-            .eq('company_id', company.id)
+        // Load jobs
+        let query = supabase
+          .from('jobs')
+          .select('id, title, status, estimate_amount, date_scheduled, location, time_scheduled, clients(name, avatar_url), created_at')
+          .eq('company_id', companyId)
+          .order('date_scheduled', { ascending: true })
 
-          if (filter !== 'all') {
-            query = query.eq('status', filter)
-          }
-
-          const { data } = await query
-
-          setJobs(data || [])
+        if (filter !== 'all') {
+          query = query.eq('status', filter)
         }
+
+        const { data: jobsData } = await query
+        setJobs((jobsData as any) || [])
+
+        // Load stats
+        const [revenueRes, upcomingRes, hoursRes] = await Promise.all([
+          // Total revenue from paid invoices
+          supabase
+            .from('invoices')
+            .select('total_amount')
+            .eq('company_id', companyId)
+            .eq('status', 'paid'),
+          // Upcoming jobs count
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', companyId)
+            .gte('date_scheduled', now.toISOString().split('T')[0])
+            .lte('date_scheduled', next30days),
+          // Estimated hours (assume 8h per job estimate)
+          supabase
+            .from('jobs')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', companyId)
+            .neq('status', 'completed'),
+        ])
+
+        const revenue = (revenueRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
+        setTotalRevenue(revenue)
+        setUpcomingCount(upcomingRes.count || 0)
+        setEstimatedHours(Math.ceil((upcomingRes.count || 0) * 8))
       } finally {
         setLoading(false)
       }
     }
 
-    loadJobs()
-  }, [filter])
+    loadData()
+  }, [filter, companyId])
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-800'
+      case 'in_progress':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      default:
+        return 'bg-neutral-100 text-neutral-800'
+    }
+  }
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
+
+  const formatTime = (timeStr?: string) => {
+    if (!timeStr) return '—'
+    const [hours, minutes] = timeStr.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
+  }
 
   if (loading) {
-    return <div className="p-6">Loading…</div>
+    return (
+      <AppLayout>
+        <div className="p-6">Loading…</div>
+      </AppLayout>
+    )
   }
 
   return (
     <AppLayout>
       <>
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <button className="text-2xl">☰</button>
           <h1 className="text-2xl font-bold">Job Stack</h1>
-          <button
-            onClick={() => nav('/home')}
-            className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg"
-          >
-            Home
-          </button>
+          <div className="flex-1" />
+          <button className="text-xl">🔍</button>
+          <button className="relative text-xl">🔔</button>
         </div>
 
+        {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto">
-          {['all', 'scheduled', 'in_progress', 'completed'].map(s => (
+          {[
+            { key: 'all', label: 'All Jobs' },
+            { key: 'scheduled', label: 'Scheduled' },
+            { key: 'in_progress', label: 'In Progress' },
+            { key: 'completed', label: 'Completed' },
+          ].map(tab => (
             <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap text-sm ${
-                filter === s
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition ${
+                filter === tab.key
                   ? 'bg-neutral-900 text-white'
-                  : 'bg-white border border-neutral-200 text-neutral-700'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
+              {tab.label}
             </button>
           ))}
         </div>
 
+        {/* Stats Bar */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
+            <div className="text-2xl font-bold text-neutral-900">
+              ${(totalRevenue / 1000).toFixed(1)}k
+            </div>
+            <div className="text-xs text-neutral-600 mt-1">Revenue</div>
+          </div>
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
+            <div className="text-2xl font-bold text-neutral-900">{upcomingCount}</div>
+            <div className="text-xs text-neutral-600 mt-1">Upcoming Jobs</div>
+          </div>
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
+            <div className="text-2xl font-bold text-neutral-900">{estimatedHours}d</div>
+            <div className="text-xs text-neutral-600 mt-1">Est. Time</div>
+          </div>
+        </div>
+
+        {/* Job Cards */}
         {jobs.length === 0 ? (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center text-neutral-600">
-            No jobs found.
+          <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center text-neutral-600">
+            <p className="text-sm">No jobs found in this category.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {jobs.map(job => (
-              <div key={job.id} className="bg-white rounded-lg border border-neutral-200 p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold">{job.title}</h3>
+              <div
+                key={job.id}
+                onClick={() => nav(`/jobs/${job.id}`)}
+                className="bg-white rounded-lg border border-neutral-200 p-4 cursor-pointer hover:border-neutral-300 transition"
+              >
+                {/* Title & Status */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-neutral-900">{job.title}</h3>
                     <p className="text-sm text-neutral-600">{job.location}</p>
                   </div>
-                  <span className="text-sm bg-neutral-100 px-2 py-1 rounded">
-                    ${job.estimate_amount}
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
+                      job.status
+                    )}`}
+                  >
+                    {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm text-neutral-600">
-                  <span>
-                    {new Date(job.date_scheduled).toLocaleDateString()}
-                  </span>
-                  <span className="px-2 py-1 bg-neutral-100 rounded text-xs font-medium">
-                    {job.status}
-                  </span>
+
+                {/* Date & Time */}
+                <div className="flex gap-4 text-sm text-neutral-700 mb-4">
+                  <div className="flex items-center gap-1">
+                    <span>📅</span>
+                    <span>{formatDate(job.date_scheduled)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>🕐</span>
+                    <span>{formatTime(job.time_scheduled)}</span>
+                  </div>
                 </div>
+
+                {/* Client Info */}
+                {job.clients && (
+                  <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
+                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-700 flex-shrink-0">
+                      {job.clients.avatar_url ? (
+                        <img
+                          src={job.clients.avatar_url}
+                          alt={job.clients.name}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        job.clients.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-neutral-900">{job.clients.name}</p>
+                      <p className="text-xs text-neutral-500">Customer</p>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
