@@ -176,6 +176,10 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="bg-white rounded-lg p-4">
               <h2 className="text-base font-semibold mb-4 text-neutral-900">≡ Settings</h2>
+              <button onClick={() => nav('/settings/billing')}
+                className="w-full text-left text-sm text-blue-600 hover:text-blue-700">
+                → Subscription & Billing
+              </button>
             </div>
             <div className="bg-white rounded-lg p-4">
               <h2 className="text-base font-semibold mb-4 text-neutral-900">Company Details</h2>
