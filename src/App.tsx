@@ -28,6 +28,7 @@ import QuoteEditPage from "./pages/QuoteEditPage";
 import QuotePublicViewPage from "./pages/QuotePublicView";
 import AccountPage from "./pages/Account";
 import SettingsPage from "./pages/Settings";
+import BillingSettingsPage from "./pages/BillingSettings";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -298,6 +299,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/billing"
+          element={
+            <ProtectedRoute>
+              <BillingSettingsPage />
             </ProtectedRoute>
           }
         />

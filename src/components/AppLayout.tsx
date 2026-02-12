@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import Header from './Header'
 import BottomMenu from './BottomMenu'
+import SubscriptionBanner from './SubscriptionBanner'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -71,6 +72,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
+      <SubscriptionBanner />
       <div className="flex-1 pb-20 px-4">
         <div className="max-w-4xl mx-auto">
           <Header />
