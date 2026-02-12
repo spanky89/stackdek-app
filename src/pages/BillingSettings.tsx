@@ -1,78 +1,83 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
 
 interface Company {
   id: string
   name: string
-  subscription_plan: string
-  subscription_status: string
-  subscription_expires_at: string | null
+  subscription_status: 'trial' | 'active' | 'past_due' | 'canceled' | 'none'
+  subscription_plan: 'basic' | 'pro' | 'enterprise'
+  subscription_current_period_end: string | null
   trial_ends_at: string | null
 }
 
-const PLANS = {
-  basic: {
-    name: 'Basic',
-    price: 0,
-    features: [
-      'Up to 50 clients',
-      'Up to 100 jobs per month',
-      'Basic quote management',
-      'Email support',
-      'StackDek branding on quotes',
-    ],
-  },
-  pro: {
-    name: 'Pro',
-    price: 29,
-    features: [
-      'Unlimited clients',
-      'Unlimited jobs',
-      'Advanced quote management',
-      'Priority email support',
-      'Remove StackDek branding',
-      'Custom invoice templates',
-      'Analytics dashboard',
-    ],
-  },
-  premium: {
-    name: 'Premium',
-    price: 99,
-    features: [
-      'Everything in Pro',
-      'White-label solution',
-      'Dedicated account manager',
-      'Phone support',
-      'Custom integrations',
-      'Advanced reporting',
-      'Multi-user support (coming soon)',
-    ],
-  },
+interface Plan {
+  id: string
+  name: string
+  price: number
+  interval: 'month' | 'year'
+  features: string[]
+  stripePriceId: string
+  recommended?: boolean
 }
 
-export default function BillingSettingsPage() {
+const PLANS: Plan[] = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    price: 29,
+    interval: 'month',
+    stripePriceId: process.env.VITE_STRIPE_PRICE_BASIC || 'price_basic',
+    features: [
+      'Up to 50 quotes/month',
+      'Up to 25 jobs/month',
+      'Basic client management',
+      'Email support',
+      'Accept payments (your Stripe)',
+    ],
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 79,
+    interval: 'month',
+    stripePriceId: process.env.VITE_STRIPE_PRICE_PRO || 'price_pro',
+    recommended: true,
+    features: [
+      'Unlimited quotes',
+      'Unlimited jobs',
+      'Advanced client management',
+      'Priority email support',
+      'Accept payments (your Stripe)',
+      'Custom branding',
+      'Reporting & analytics',
+    ],
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 199,
+    interval: 'month',
+    stripePriceId: process.env.VITE_STRIPE_PRICE_ENTERPRISE || 'price_enterprise',
+    features: [
+      'Everything in Pro',
+      'Multi-user accounts',
+      'API access',
+      'White-label options',
+      'Dedicated account manager',
+      'Custom integrations',
+      'SLA guarantee',
+    ],
+  },
+]
+
+export default function BillingSettings() {
   const nav = useNavigate()
-  const [searchParams] = useSearchParams()
   const [company, setCompany] = useState<Company | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    // Check for success/cancel from Stripe checkout
-    const success = searchParams.get('success')
-    const canceled = searchParams.get('canceled')
-    
-    if (success) {
-      setMessage('✅ Subscription activated successfully!')
-      setTimeout(() => setMessage(''), 5000)
-    } else if (canceled) {
-      setMessage('⚠️ Subscription upgrade canceled')
-      setTimeout(() => setMessage(''), 5000)
-    }
-  }, [searchParams])
 
   useEffect(() => {
     fetchCompany()
@@ -81,20 +86,15 @@ export default function BillingSettingsPage() {
   async function fetchCompany() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        nav('/login')
-        return
-      }
+      if (!user) return
 
       const { data: company } = await supabase
         .from('companies')
-        .select('id, name, subscription_plan, subscription_status, subscription_expires_at, trial_ends_at')
+        .select('*')
         .eq('owner_id', user.id)
         .single()
 
-      if (company) {
-        setCompany(company)
-      }
+      setCompany(company)
     } catch (err) {
       console.error(err)
     } finally {
@@ -102,14 +102,13 @@ export default function BillingSettingsPage() {
     }
   }
 
-  async function handleUpgrade(plan: string) {
+  async function handleUpgrade(plan: Plan) {
     if (!company) return
 
     setProcessing(true)
     setMessage('')
 
     try {
-      // Get auth session
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setMessage('❌ Not authenticated')
@@ -117,218 +116,220 @@ export default function BillingSettingsPage() {
         return
       }
 
-      const response = await fetch('/api/billing/create-subscription', {
+      const response = await fetch('/api/create-subscription-checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({
+          priceId: plan.stripePriceId,
+          planId: plan.id,
+        }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || 'Failed to create subscription')
+        throw new Error(data.message || data.error || 'Failed to create checkout')
       }
 
-      // For basic plan (free), reload page
-      if (plan === 'basic') {
-        setMessage('✅ ' + data.message)
-        await fetchCompany()
-        setProcessing(false)
-        return
-      }
-
-      // For paid plans, redirect to Stripe checkout
+      // Redirect to Stripe checkout
       if (data.url) {
         window.location.href = data.url
       }
     } catch (err: any) {
-      setMessage('❌ ' + (err.message || 'Failed to upgrade subscription'))
+      setMessage(`❌ ${err.message}`)
       setProcessing(false)
     }
   }
 
-  function getTrialDaysRemaining() {
-    if (!company?.trial_ends_at) return null
-    const now = new Date()
-    const trialEnd = new Date(company.trial_ends_at)
-    const diffTime = trialEnd.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays > 0 ? diffDays : 0
+  function getStatusBadge(status: string) {
+    const badges: Record<string, { color: string; text: string }> = {
+      trial: { color: 'bg-blue-100 text-blue-800', text: '🎁 Trial' },
+      active: { color: 'bg-green-100 text-green-800', text: '✓ Active' },
+      past_due: { color: 'bg-yellow-100 text-yellow-800', text: '⚠ Past Due' },
+      canceled: { color: 'bg-red-100 text-red-800', text: '✕ Canceled' },
+      none: { color: 'bg-neutral-100 text-neutral-800', text: 'No Subscription' },
+    }
+    const badge = badges[status] || badges.none
+    return (
+      <span className={`text-xs px-3 py-1 rounded-full font-medium ${badge.color}`}>
+        {badge.text}
+      </span>
+    )
   }
 
-  function getExpirationDate() {
-    if (!company?.subscription_expires_at) return null
-    return new Date(company.subscription_expires_at).toLocaleDateString()
+  function getDaysRemaining(endDate: string | null): number | null {
+    if (!endDate) return null
+    const end = new Date(endDate)
+    const now = new Date()
+    const diff = end.getTime() - now.getTime()
+    return Math.ceil(diff / (1000 * 60 * 60 * 24))
   }
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <p>Loading billing information...</p>
-        </div>
-      </AppLayout>
+      <div className="min-h-screen bg-neutral-100 flex items-center justify-center">
+        <p>Loading…</p>
+      </div>
     )
   }
 
   if (!company) {
-    return (
-      <AppLayout>
-        <div className="p-6">
-          <p className="text-red-600">Company not found</p>
-        </div>
-      </AppLayout>
-    )
+    return <div className="p-6">Company not found</div>
   }
 
-  const currentPlan = company.subscription_plan || 'basic'
-  const trialDays = getTrialDaysRemaining()
-  const expirationDate = getExpirationDate()
+  const trialDays = getDaysRemaining(company.trial_ends_at)
+  const periodDays = getDaysRemaining(company.subscription_current_period_end)
 
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Billing & Subscription</h1>
-            <p className="text-sm text-neutral-600 mt-1">Manage your StackDek subscription plan</p>
-          </div>
+          <h1 className="text-2xl font-bold">Subscription & Billing</h1>
           <button
             onClick={() => nav('/settings')}
-            className="px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+            className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50"
           >
             ← Back to Settings
           </button>
         </div>
 
-        {/* Message */}
-        {message && (
-          <div className="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <p className="text-sm text-blue-800">{message}</p>
-          </div>
-        )}
-
-        {/* Current Plan Status */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Current Plan</h2>
+        {/* Current Subscription Status */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">Current Subscription</h2>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-neutral-900">
-                {PLANS[currentPlan as keyof typeof PLANS].name}
-              </p>
-              <p className="text-sm text-neutral-600 mt-1">
-                {company.subscription_status === 'active' ? (
-                  <span className="text-green-600 font-medium">✓ Active</span>
-                ) : company.subscription_status === 'past_due' ? (
-                  <span className="text-red-600 font-medium">⚠ Payment Past Due</span>
-                ) : company.subscription_status === 'canceled' ? (
-                  <span className="text-yellow-600 font-medium">Canceled (expires {expirationDate})</span>
-                ) : (
-                  <span className="text-neutral-500">Inactive</span>
-                )}
-              </p>
-              {expirationDate && company.subscription_status === 'active' && (
-                <p className="text-xs text-neutral-500 mt-1">
-                  Renews on {expirationDate}
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl font-bold capitalize">{company.subscription_plan}</span>
+                {getStatusBadge(company.subscription_status)}
+              </div>
+              {company.subscription_status === 'trial' && trialDays !== null && (
+                <p className="text-sm text-neutral-600">
+                  {trialDays > 0 ? `${trialDays} days remaining in trial` : 'Trial expired'}
                 </p>
               )}
-              {trialDays !== null && trialDays > 0 && (
-                <p className="text-xs text-blue-600 mt-1">
-                  🎉 Free trial: {trialDays} days remaining
+              {company.subscription_status === 'active' && periodDays !== null && (
+                <p className="text-sm text-neutral-600">
+                  Renews in {periodDays} days
+                  {company.subscription_current_period_end && (
+                    <> ({new Date(company.subscription_current_period_end).toLocaleDateString()})</>
+                  )}
+                </p>
+              )}
+              {company.subscription_status === 'past_due' && (
+                <p className="text-sm text-yellow-700 font-medium">
+                  ⚠️ Payment failed. Please update your payment method.
+                </p>
+              )}
+              {company.subscription_status === 'canceled' && (
+                <p className="text-sm text-red-700">
+                  Subscription canceled. Reactivate to continue using StackDek.
                 </p>
               )}
             </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-neutral-900">
-                ${PLANS[currentPlan as keyof typeof PLANS].price}
-              </p>
-              <p className="text-sm text-neutral-600">/month</p>
-            </div>
+            {company.subscription_status === 'active' && (
+              <div className="text-right">
+                <p className="text-2xl font-bold">
+                  ${PLANS.find(p => p.id === company.subscription_plan)?.price || 0}
+                </p>
+                <p className="text-sm text-neutral-600">/month</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {Object.entries(PLANS).map(([planKey, plan]) => {
-            const isCurrentPlan = planKey === currentPlan
-            const isUpgrade = 
-              (currentPlan === 'basic' && planKey !== 'basic') ||
-              (currentPlan === 'pro' && planKey === 'premium')
-            const isDowngrade = 
-              (currentPlan === 'premium' && planKey !== 'premium') ||
-              (currentPlan === 'pro' && planKey === 'basic')
+        {/* Trial Warning */}
+        {company.subscription_status === 'trial' && trialDays !== null && trialDays <= 3 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-yellow-800">
+              <strong>⏰ Your trial ends in {trialDays} {trialDays === 1 ? 'day' : 'days'}!</strong>
+              <br />
+              Choose a plan below to continue using StackDek.
+            </p>
+          </div>
+        )}
 
-            return (
+        {/* Plan Selection */}
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Choose Your Plan</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {PLANS.map(plan => (
               <div
-                key={planKey}
-                className={`bg-white rounded-lg shadow-sm border-2 p-6 ${
-                  isCurrentPlan ? 'border-blue-500' : 'border-neutral-200'
+                key={plan.id}
+                className={`bg-white rounded-lg border-2 p-6 relative ${
+                  plan.recommended
+                    ? 'border-neutral-900 shadow-lg'
+                    : 'border-neutral-200'
                 }`}
               >
-                {/* Plan Header */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xl font-bold text-neutral-900">{plan.name}</h3>
-                    {isCurrentPlan && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
-                        Current
-                      </span>
-                    )}
+                {plan.recommended && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-neutral-900 text-white text-xs px-3 py-1 rounded-full font-medium">
+                      Recommended
+                    </span>
                   </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-bold text-neutral-900">${plan.price}</span>
-                    <span className="text-sm text-neutral-600 ml-1">/month</span>
+                )}
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className="text-4xl font-bold">${plan.price}</span>
+                    <span className="text-neutral-600">/{plan.interval}</span>
                   </div>
                 </div>
-
-                {/* Features */}
-                <ul className="space-y-2 mb-6">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start text-sm text-neutral-700">
-                      <span className="text-green-600 mr-2">✓</span>
+                <ul className="space-y-3 mb-6">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <span className="text-green-600 mt-0.5">✓</span>
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
-
-                {/* Action Button */}
                 <button
-                  onClick={() => handleUpgrade(planKey)}
-                  disabled={processing || isCurrentPlan}
-                  className={`w-full px-4 py-2 rounded-lg font-medium transition ${
-                    isCurrentPlan
-                      ? 'bg-neutral-100 text-neutral-500 cursor-not-allowed'
-                      : isUpgrade
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                  onClick={() => handleUpgrade(plan)}
+                  disabled={
+                    processing ||
+                    (company.subscription_plan === plan.id &&
+                      company.subscription_status === 'active')
+                  }
+                  className={`w-full py-3 rounded-lg font-medium transition ${
+                    company.subscription_plan === plan.id &&
+                    company.subscription_status === 'active'
+                      ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                      : plan.recommended
+                      ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                      : 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200'
                   }`}
                 >
-                  {processing
-                    ? 'Processing...'
-                    : isCurrentPlan
+                  {company.subscription_plan === plan.id &&
+                  company.subscription_status === 'active'
                     ? 'Current Plan'
-                    : isUpgrade
-                    ? `Upgrade to ${plan.name}`
-                    : `Switch to ${plan.name}`}
+                    : processing
+                    ? 'Processing...'
+                    : company.subscription_status === 'trial'
+                    ? 'Start Plan'
+                    : 'Upgrade'}
                 </button>
               </div>
-            )
-          })}
+            ))}
+          </div>
         </div>
 
-        {/* Additional Info */}
-        <div className="mt-6 bg-neutral-50 rounded-lg p-6 border border-neutral-200">
-          <h3 className="text-sm font-semibold text-neutral-900 mb-3">💡 Good to Know</h3>
-          <ul className="space-y-2 text-sm text-neutral-700">
-            <li>• Subscriptions can be upgraded or downgraded at any time</li>
-            <li>• Downgrades take effect at the end of your current billing period</li>
-            <li>• All payments are processed securely through Stripe</li>
-            <li>• Cancel anytime - no long-term contracts required</li>
-            <li>• Need help? Contact support at support@stackdek.com</li>
+        {message && (
+          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800">{message}</p>
+          </div>
+        )}
+
+        {/* FAQ / Info */}
+        <div className="mt-8 bg-neutral-50 rounded-lg border border-neutral-200 p-6">
+          <h3 className="text-sm font-semibold mb-3">💡 Billing Information</h3>
+          <ul className="text-sm text-neutral-700 space-y-2">
+            <li>• All plans are billed monthly and can be canceled anytime</li>
+            <li>• You can upgrade or downgrade at any time</li>
+            <li>• Your payment method is securely stored with Stripe</li>
+            <li>• Need help? Contact support@stackdek.com</li>
           </ul>
         </div>
       </div>

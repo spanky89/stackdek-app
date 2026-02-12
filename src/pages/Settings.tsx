@@ -204,6 +204,19 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4">
+              <h2 className="text-lg font-semibold mb-4 text-neutral-900">Billing & Payments</h2>
+              <div className="space-y-2">
+                <button onClick={() => nav('/billing')}
+                  className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 transition rounded border-b border-neutral-100 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-neutral-600">💰</span>
+                    <span className="text-neutral-900">Subscription & Billing</span>
+                  </div>
+                  <span className="text-neutral-400">›</span>
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4">
               <h2 className="text-lg font-semibold mb-4 text-neutral-900">Website Integration</h2>
               <div className="space-y-2">
                 {menuItem('🔗', 'Request Form Settings', 'request-form')}
