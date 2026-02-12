@@ -10,7 +10,7 @@ interface Company {
   phone?: string
 }
 
-type SubscriptionTier = 'free' | 'pro' | 'business'
+type SubscriptionTier = 'free' | 'pro'
 
 export default function AccountPage() {
   const nav = useNavigate()
@@ -27,9 +27,16 @@ export default function AccountPage() {
     tier: 'pro' as SubscriptionTier,
     status: 'active',
     nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    monthlyAmount: 49.99,
+    monthlyAmount: 69.99,
     amountDue: 0,
-    features: ['Unlimited invoices', 'Unlimited clients', 'Custom branding', 'Priority support'],
+    users: 3,
+    additionalUserCost: 5,
+    features: [
+      'In app calling and GPS',
+      'Client management system',
+      'Accept Stripe payments',
+      'Headache free management system',
+    ],
   })
 
   useEffect(() => {
@@ -93,13 +100,11 @@ export default function AccountPage() {
   const tierColors = {
     free: 'bg-gray-100 text-gray-800',
     pro: 'bg-blue-100 text-blue-800',
-    business: 'bg-purple-100 text-purple-800',
   }
 
   const tierLabels = {
     free: 'Free Plan',
     pro: 'Pro Plan',
-    business: 'Business Plan',
   }
 
   if (loading) return <div className="p-6">Loading…</div>
@@ -151,6 +156,18 @@ export default function AccountPage() {
             </div>
           </div>
 
+          {/* Users & Additional Cost */}
+          <div className="grid grid-cols-2 gap-4 py-4 border-b border-neutral-200">
+            <div>
+              <p className="text-xs text-neutral-600 mb-1">Team Members Included</p>
+              <p className="font-semibold">{subscription.users} users</p>
+            </div>
+            <div>
+              <p className="text-xs text-neutral-600 mb-1">Additional Users</p>
+              <p className="font-semibold">${subscription.additionalUserCost} each/month</p>
+            </div>
+          </div>
+
           {/* Features */}
           <div className="mt-4">
             <p className="text-sm font-semibold mb-3">What's included:</p>
@@ -167,17 +184,17 @@ export default function AccountPage() {
           {/* Subscription Actions */}
           <div className="flex gap-3 pt-6 border-t border-neutral-200 mt-6">
             <button
-              onClick={() => nav('/')}
+              onClick={() => nav('/settings')}
               className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition"
             >
-              Upgrade Plan
+              Manage Plan
             </button>
             <button
               onClick={cancelSubscription}
               disabled={saving}
               className="flex-1 px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition disabled:opacity-50"
             >
-              {saving ? 'Cancelling…' : 'Cancel Subscription'}
+              {saving ? 'Cancelling…' : 'Downgrade Plan'}
             </button>
           </div>
         </div>
