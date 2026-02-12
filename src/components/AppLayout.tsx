@@ -12,22 +12,35 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDueDate, setTaskDueDate] = useState('')
   const [savingTask, setSavingTask] = useState(false)
+  const [taskError, setTaskError] = useState<string | null>(null)
 
   async function saveTask() {
     if (!taskTitle.trim()) return
 
     setSavingTask(true)
+    setTaskError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setTaskError('Not logged in')
+        return
+      }
 
-      const { data: company } = await supabase
+      const { data: company, error: companyErr } = await supabase
         .from('companies')
         .select('id')
         .eq('owner_id', user.id)
         .single()
       
-      if (!company) return
+      if (companyErr) {
+        setTaskError('Company not found')
+        return
+      }
+      
+      if (!company) {
+        setTaskError('No company data')
+        return
+      }
 
       const { error: err } = await supabase
         .from('reminders')
@@ -37,13 +50,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
           due_date: taskDueDate || new Date().toISOString().split('T')[0],
         })
 
-      if (err) throw err
+      if (err) {
+        setTaskError(err.message || 'Failed to create task')
+        return
+      }
+      
       setTaskTitle('')
       setTaskDueDate('')
       setShowTaskModal(false)
-      // Refresh page data
-      window.location.reload()
-    } catch (e) {
+      setTaskError(null)
+      // Refresh page after a brief delay
+      setTimeout(() => window.location.reload(), 500)
+    } catch (e: any) {
+      setTaskError(e?.message ?? 'Unknown error')
       console.error(e)
     } finally {
       setSavingTask(false)
@@ -82,9 +101,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
               />
             </div>
+            {taskError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-xs text-red-600 font-medium">{taskError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowTaskModal(false)}
+                onClick={() => {
+                  setShowTaskModal(false)
+                  setTaskError(null)
+                }}
                 className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg font-medium hover:bg-neutral-50 transition"
               >
                 Cancel
