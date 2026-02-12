@@ -2,32 +2,22 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
-import { DocumentIcon, BriefcaseIcon } from '../components/Icons'
 import { useCompany } from '../context/CompanyContext'
 
-type Job = { id: string; title: string; date_scheduled: string; status: string; estimate_amount: number; clients: { name: string } | null }
-type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; clients: { name: string } | null }
-type Reminder = { id: string; title: string; due_date: string }
+type Job = { id: string; title: string; date_scheduled: string; time_scheduled?: string; status: string; estimate_amount: number; clients: { name: string; avatar_url?: string } | null }
+type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; expires_at?: string; clients: { name: string; avatar_url?: string } | null }
+type Request = { id: string; client_name: string; status: string; created_at: string }
 
 export default function HomePage() {
   const nav = useNavigate()
   const { companyId } = useCompany()
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [upcomingJobs, setUpcomingJobs] = useState<Job[]>([])
   const [pendingQuotes, setPendingQuotes] = useState<Quote[]>([])
-  const [newRequests, setNewRequests] = useState(0)
+  const [newRequestsCount, setNewRequestsCount] = useState(0)
   const [monthlyRevenue, setMonthlyRevenue] = useState(0)
-  const [reminders, setReminders] = useState<Reminder[]>([])
   const [revenueGoal, setRevenueGoal] = useState(100000)
-  const [showGoalModal, setShowGoalModal] = useState(false)
-  const [goalInput, setGoalInput] = useState('100000')
-  const [savingGoal, setSavingGoal] = useState(false)
-  
-  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null)
-  const [showReminderModal, setShowReminderModal] = useState(false)
-  const [completingReminder, setCompletingReminder] = useState(false)
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return }
@@ -38,9 +28,9 @@ export default function HomePage() {
         const now = new Date()
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
-        const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-        // Fetch company details first (for revenue goal)
+        // Fetch company details (revenue goal)
         const { data: companyData } = await supabase
           .from('companies')
           .select('revenue_goal')
@@ -49,34 +39,34 @@ export default function HomePage() {
         
         if (companyData?.revenue_goal) {
           setRevenueGoal(companyData.revenue_goal)
-          setGoalInput(String(companyData.revenue_goal))
         }
 
         // Fetch all data in parallel
-        const [jobsRes, quotesRes, newReqRes, completedJobsRes, remindersRes] = await Promise.all([
+        const [jobsRes, quotesRes, requestsRes, invoicesRes] = await Promise.all([
           // Upcoming jobs (next 30 days)
           supabase
             .from('jobs')
-            .select('id, title, date_scheduled, status, estimate_amount, clients(name)')
+            .select('id, title, date_scheduled, time_scheduled, status, estimate_amount, clients(name, avatar_url)')
             .eq('company_id', cid)
             .gte('date_scheduled', now.toISOString().split('T')[0])
-            .lte('date_scheduled', next30days.split('T')[0])
+            .lte('date_scheduled', next30days)
             .order('date_scheduled', { ascending: true })
             .limit(5),
           // Pending quotes
           supabase
             .from('quotes')
-            .select('id, title, amount, status, created_at, clients(name)')
+            .select('id, title, amount, status, created_at, expires_at, clients(name, avatar_url)')
             .eq('company_id', cid)
             .eq('status', 'pending')
             .order('created_at', { ascending: false })
             .limit(5),
-          // New requests count (pending quotes)
+          // New requests (status = pending)
           supabase
-            .from('quotes')
-            .select('id', { count: 'exact', head: true })
+            .from('requests')
+            .select('id, client_name, status, created_at')
             .eq('company_id', cid)
-            .eq('status', 'pending'),
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false }),
           // Paid invoices this month (for revenue)
           supabase
             .from('invoices')
@@ -85,328 +75,165 @@ export default function HomePage() {
             .eq('status', 'paid')
             .gte('created_at', monthStart)
             .lte('created_at', monthEnd),
-          // Task reminders
-          supabase
-            .from('reminders')
-            .select('id, title, due_date')
-            .eq('company_id', cid)
-            .gte('due_date', now.toISOString().split('T')[0])
-            .order('due_date', { ascending: true })
-            .limit(5),
         ])
 
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
-        setNewRequests(newReqRes.count ?? 0)
-        setMonthlyRevenue(completedJobsRes.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) ?? 0)
-        setReminders((remindersRes.data as any) || [])
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to load dashboard')
+        setNewRequestsCount(requestsRes.data?.length || 0)
+
+        const revenue = (invoicesRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
+        setMonthlyRevenue(revenue)
       } finally {
         setLoading(false)
       }
     })()
   }, [companyId])
 
-  if (loading) return <div className="p-6 text-neutral-600">Loading…</div>
-  if (error) return <div className="p-6 text-red-600">Error: {error}</div>
-
-  async function saveRevenueGoal() {
-    const parsed = parseInt(goalInput, 10)
-    if (isNaN(parsed) || parsed < 0) return
-
-    setSavingGoal(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { error: err } = await supabase
-        .from('companies')
-        .update({ revenue_goal: parsed })
-        .eq('owner_id', user.id)
-
-      if (err) throw err
-      setRevenueGoal(parsed)
-      setShowGoalModal(false)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSavingGoal(false)
-    }
+  const formatTime = (timeStr?: string) => {
+    if (!timeStr) return ''
+    const [hours, minutes] = timeStr.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
   }
 
-  const fmt = (n: number) => '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const revenuePct = Math.min(100, Math.round((monthlyRevenue / revenueGoal) * 100))
-
-  async function completeReminder() {
-    if (!selectedReminder) return
-    setCompletingReminder(true)
-    try {
-      const { error } = await supabase
-        .from('reminders')
-        .delete()
-        .eq('id', selectedReminder.id)
-      
-      if (error) throw error
-      setReminders(reminders.filter(r => r.id !== selectedReminder.id))
-      setShowReminderModal(false)
-      setSelectedReminder(null)
-    } catch (e: any) {
-      console.error('Failed to complete reminder:', e)
-    } finally {
-      setCompletingReminder(false)
-    }
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const statusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      paid: 'bg-neutral-800 text-white',
-      pending: 'bg-neutral-300 text-neutral-800',
-      'past-due': 'bg-red-500 text-white',
-      scheduled: 'bg-blue-500 text-white',
-      completed: 'bg-green-600 text-white',
-      'in-progress': 'bg-blue-500 text-white',
-    }
-    return colors[status] || 'bg-neutral-200 text-neutral-800'
+  const revenuePercentage = Math.round((monthlyRevenue / revenueGoal) * 100)
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-6 text-center text-neutral-600">Loading…</div>
+      </AppLayout>
+    )
   }
 
   return (
     <AppLayout>
-      <>
-        {/* Revenue Goal */}
-        <button
-          onClick={() => { setShowGoalModal(true); setGoalInput(String(revenueGoal)) }}
-          className="w-full bg-white rounded-lg border border-neutral-200 p-4 mb-4 hover:bg-neutral-50 transition text-left"
-        >
-          <h2 className="text-sm font-semibold text-neutral-700 mb-3">Revenue Goal</h2>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs text-neutral-600">Monthly Goal: {fmt(revenueGoal)}</span>
-            <span className="text-sm font-semibold">{fmt(monthlyRevenue)}</span>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-neutral-900">StackDek</h1>
+          <div className="flex gap-3">
+            <button className="text-neutral-500">🔍</button>
+            <button className="text-neutral-500">🔔</button>
           </div>
-          <div className="w-full bg-neutral-100 rounded-full h-3 overflow-hidden">
-            <div
-              className="bg-neutral-900 h-full rounded-full transition-all duration-300"
-              style={{ width: `${revenuePct}%` }}
-            />
-          </div>
-          <p className="text-xs text-neutral-500 mt-2">Click to edit goal</p>
-        </button>
-
-        {/* New Requests */}
-        {newRequests > 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-lg">📧</span>
-                <div>
-                  <h3 className="text-sm font-semibold">New Requests</h3>
-                  <p className="text-xs text-neutral-600">{newRequests} pending quote{newRequests !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => nav('/quotes')}
-                className="text-neutral-900 hover:text-neutral-700 font-medium text-sm"
-              >
-                →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <button
-            onClick={() => nav('/quotes')}
-            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition flex flex-col items-center"
-          >
-            <div className="text-neutral-900 mb-2"><DocumentIcon /></div>
-            <p className="text-xs font-semibold">New Quote</p>
-          </button>
-          <button
-            onClick={() => nav('/jobs')}
-            className="bg-white border border-neutral-200 rounded-lg p-4 text-center hover:bg-neutral-50 transition flex flex-col items-center"
-          >
-            <div className="text-neutral-900 mb-2"><BriefcaseIcon /></div>
-            <p className="text-xs font-semibold">Schedule Job</p>
-          </button>
         </div>
 
-        {/* Upcoming Jobs */}
-        {upcomingJobs.length > 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Upcoming Jobs</h3>
-              <button
-                onClick={() => nav('/jobs')}
-                className="text-neutral-500 hover:text-neutral-700 text-xs font-medium"
-              >
+        {/* Revenue Goal */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-sm font-semibold text-neutral-900">Revenue Goal</h2>
+            <span className="text-xs text-neutral-600">
+              ${(monthlyRevenue / 1000).toFixed(0)}k / ${(revenueGoal / 1000).toFixed(0)}k
+            </span>
+          </div>
+          <div className="w-full bg-neutral-200 rounded-full h-2">
+            <div
+              className="bg-neutral-900 h-2 rounded-full transition-all"
+              style={{ width: `${Math.min(revenuePercentage, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* New Requests */}
+        {newRequestsCount > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-sm font-semibold text-neutral-900">New Requests</h2>
+              <button onClick={() => nav('/requests')} className="text-xs text-blue-600 hover:underline">
                 View all
               </button>
             </div>
+            <div className="flex items-center gap-2 mb-4 pb-4 border-b border-neutral-100">
+              <span className="text-xl">●</span>
+              <span className="text-sm text-neutral-700">{newRequestsCount} new requests</span>
+              <span className="text-neutral-400 ml-auto">→</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => nav('/quotes/create')} className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition">
+                📋 New Quote
+              </button>
+              <button className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition">
+                📅 Schedule Job
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Jobs */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-semibold text-neutral-900">Upcoming Jobs</h2>
+            <button onClick={() => nav('/jobs')} className="text-xs text-blue-600 hover:underline">
+              View all
+            </button>
+          </div>
+          {upcomingJobs.length === 0 ? (
+            <p className="text-xs text-neutral-600">No upcoming jobs</p>
+          ) : (
             <div className="space-y-3">
               {upcomingJobs.map(job => (
-                <button
-                  key={job.id}
-                  onClick={() => nav(`/job/${job.id}`)}
-                  className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-medium">{job.clients?.name || 'Unknown'}</p>
+                <div key={job.id} className="pb-3 border-b border-neutral-100 last:border-b-0 last:pb-0">
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex-shrink-0 flex items-center justify-center text-xs font-bold text-neutral-700">
+                      {job.clients?.name?.charAt(0).toUpperCase() || 'C'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-neutral-900 truncate">{job.clients?.name || 'Client'}</p>
                       <p className="text-xs text-neutral-600">{job.title}</p>
                     </div>
-                    <span className="text-sm font-semibold">{fmt(job.estimate_amount || 0)}</span>
+                    <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${job.estimate_amount.toLocaleString()}</p>
                   </div>
-                  <p className="text-xs text-neutral-500 mt-1">{new Date(job.date_scheduled).toLocaleDateString()}</p>
-                </button>
+                  <div className="flex items-center gap-2 text-xs text-neutral-600 ml-11">
+                    <span>🕐 {formatDate(job.date_scheduled)} {formatTime(job.time_scheduled)}</span>
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Pending Quotes */}
-        {pendingQuotes.length > 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Pending Quotes</h3>
-              <button
-                onClick={() => nav('/quotes')}
-                className="text-neutral-500 hover:text-neutral-700 text-xs font-medium"
-              >
-                View all
-              </button>
-            </div>
-            <div className="space-y-3">
-              {pendingQuotes.map(quote => {
-                const createdDate = quote.created_at ? new Date(quote.created_at) : null
-                const daysAgo = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
-                const timeLabel = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`
-                const clientInitial = quote.clients?.name?.[0]?.toUpperCase() || '?'
-                
-                return (
-                  <button
-                    key={quote.id}
-                    onClick={() => nav(`/quote/${quote.id}`)}
-                    className="w-full bg-neutral-50 border border-neutral-100 rounded-lg p-3 hover:bg-neutral-100 transition text-left"
-                  >
-                    {/* Title + Amount */}
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold text-sm text-neutral-900">{quote.title}</h4>
-                      <span className="text-sm font-semibold text-neutral-900 ml-2">${quote.amount.toFixed(2)}</span>
-                    </div>
-                    
-                    {/* Client + Time */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-neutral-700">
-                        {clientInitial}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-neutral-600">{quote.clients?.name || 'Unknown'}</p>
-                        <p className="text-xs text-neutral-500 flex items-center gap-1">
-                          🕐 Sent {timeLabel}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-semibold text-neutral-900">Pending Quotes</h2>
+            <button onClick={() => nav('/quotes')} className="text-xs text-blue-600 hover:underline">
+              View all
+            </button>
           </div>
-        )}
-
-        {/* Task Reminders */}
-        {reminders.length > 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Task Reminders</h3>
-            </div>
-            <div className="space-y-2">
-              {reminders.map(reminder => (
-                <button
-                  key={reminder.id}
-                  onClick={() => {
-                    setSelectedReminder(reminder)
-                    setShowReminderModal(true)
-                  }}
-                  className="w-full text-left p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition border border-neutral-100"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-lg">📋</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{reminder.title}</p>
-                      <p className="text-xs text-neutral-500">{new Date(reminder.due_date).toLocaleDateString()}</p>
+          {pendingQuotes.length === 0 ? (
+            <p className="text-xs text-neutral-600">No pending quotes</p>
+          ) : (
+            <div className="space-y-3">
+              {pendingQuotes.map(quote => (
+                <div key={quote.id} className="pb-3 border-b border-neutral-100 last:border-b-0 last:pb-0">
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex-shrink-0 flex items-center justify-center text-xs font-bold text-neutral-700">
+                      {quote.clients?.name?.charAt(0).toUpperCase() || 'C'}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-neutral-900 truncate">{quote.clients?.name || 'Client'}</p>
+                      <p className="text-xs text-neutral-600">{quote.title}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${quote.amount.toLocaleString()}</p>
                   </div>
-                </button>
+                  {quote.expires_at && (
+                    <div className="text-xs text-neutral-600 ml-11">
+                      Expires: {formatDate(quote.expires_at)}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {upcomingJobs.length === 0 && pendingQuotes.length === 0 && reminders.length === 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center">
-            <p className="text-neutral-600 text-sm">No jobs, quotes, or reminders yet. Create one to get started.</p>
-          </div>
-        )}
-
-        {/* Revenue Goal Modal */}
-        {showGoalModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowGoalModal(false)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
-              <h2 className="text-lg font-bold mb-4">Set Monthly Revenue Goal</h2>
-              <input
-                type="number"
-                value={goalInput}
-                onChange={e => setGoalInput(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-200 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
-                placeholder="100000"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowGoalModal(false)}
-                  className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg font-medium hover:bg-neutral-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={saveRevenueGoal}
-                  disabled={savingGoal}
-                  className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
-                >
-                  {savingGoal ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Reminder Detail Modal */}
-        {showReminderModal && selectedReminder && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowReminderModal(false)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
-              <h2 className="text-lg font-bold mb-2">{selectedReminder.title}</h2>
-              <p className="text-sm text-neutral-600 mb-6">Due: {new Date(selectedReminder.due_date).toLocaleDateString()}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowReminderModal(false)}
-                  className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg font-medium hover:bg-neutral-50 transition"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={completeReminder}
-                  disabled={completingReminder}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition"
-                >
-                  {completingReminder ? 'Completing…' : 'Complete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </>
+          )}
+        </div>
+      </div>
     </AppLayout>
   )
 }
