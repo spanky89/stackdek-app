@@ -6,6 +6,7 @@ import AppLayout from '../components/AppLayout'
 type Quote = {
   id: string; title: string; status: string; amount: number
   expiration_date: string | null; client_id: string | null
+  company_id: string | null
   deposit_amount: number | null; deposit_paid: boolean
   stripe_checkout_session_id: string | null
   clients: { id: string; name: string; email?: string } | null
@@ -40,7 +41,7 @@ export default function QuoteDetailPage() {
     ;(async () => {
       try {
         const { data, error: fetchErr } = await supabase
-          .from('quotes').select('*, clients(id, name, email)').eq('id', id).single()
+          .from('quotes').select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, clients(id, name, email)').eq('id', id).single()
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
         // Set deposit amount if already exists
@@ -166,6 +167,7 @@ export default function QuoteDetailPage() {
   async function markOfflinePayment() {
     if (!quote) return
     setBusy(true)
+    setError(null)
     
     try {
       // 1. Mark deposit as paid
@@ -177,31 +179,36 @@ export default function QuoteDetailPage() {
         })
         .eq('id', id)
       
-      if (upErr) throw upErr
+      if (upErr) throw new Error(`Failed to mark deposit paid: ${upErr.message}`)
 
       // 2. Create job from quote
+      const jobData = {
+        quote_id: quote.id,
+        title: quote.title,
+        client_id: quote.client_id,
+        company_id: quote.company_id,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      }
+      
       const { data: newJob, error: jobErr } = await supabase
         .from('jobs')
-        .insert({
-          quote_id: quote.id,
-          title: quote.title,
-          client_id: quote.client_id,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-        })
+        .insert(jobData)
         .select()
         .single()
 
-      if (jobErr) throw jobErr
+      if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`)
+      if (!newJob) throw new Error('Job created but no data returned')
 
       setQuote({ ...quote, deposit_paid: true })
       setBusy(false)
       
       // Show success and navigate
-      alert(`✓ Deposit marked as paid. Job created: ${newJob.id}`)
+      alert(`✓ Deposit marked as paid. Job created!`)
       nav('/jobs')
     } catch (err: any) {
-      setError(err.message)
+      console.error('Offline payment error:', err)
+      setError(err.message || 'Failed to process offline payment')
       setBusy(false)
     }
   }
