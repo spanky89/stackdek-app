@@ -6,7 +6,6 @@ import {
   Route,
   Navigate,
   useNavigate,
-  useSearchParams,
 } from "react-router-dom";
 import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
@@ -70,7 +69,6 @@ function useSupabaseSession() {
 /** Auth callback handler for OAuth redirects */
 function AuthCallbackPage() {
   const nav = useNavigate();
-  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     // Supabase automatically parses the callback URL
@@ -78,7 +76,7 @@ function AuthCallbackPage() {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        nav("/", { replace: true });
+        nav("/home", { replace: true });
       } else {
         nav("/login", { replace: true });
       }

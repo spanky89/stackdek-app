@@ -12,7 +12,7 @@ export default function LandingPage() {
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         setIsLoggedIn(true)
-        nav('/', { replace: true })
+        nav('/home', { replace: true })
       }
       setLoading(false)
     }

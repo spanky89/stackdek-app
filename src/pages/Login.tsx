@@ -30,7 +30,7 @@ export default function LoginPage() {
       if (err) throw err
       // Check session to ensure it's set before navigating
       await supabase.auth.getSession()
-      nav('/', { replace: true })
+      nav('/home', { replace: true })
     } catch (err: any) {
       setError(err.message || 'Sign in failed')
     } finally {
