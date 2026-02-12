@@ -203,7 +203,7 @@ export default function QuoteDetailPage() {
         title: quote.title,
         client_id: quote.client_id,
         company_id: quote.company_id,
-        status: 'pending',
+        status: 'scheduled',  // Use 'scheduled' instead of 'pending'
         date_scheduled: tomorrow.toISOString().split('T')[0],
         created_at: new Date().toISOString(),
       }
