@@ -25,24 +25,6 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
   return (
     <>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        {/* Logo - Enhanced */}
-        <div 
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" 
-          onClick={() => nav('/home')}
-        >
-          <div className="flex-shrink-0">
-            <img 
-              src="/logo-symbol.png" 
-              alt="StackDek" 
-              className="h-10 sm:h-12 w-auto" 
-            />
-          </div>
-          <div className="hidden xs:flex flex-col">
-            <span className="text-lg sm:text-2xl font-bold tracking-tight leading-none">StackDek</span>
-            <span className="text-xs sm:text-xs text-neutral-500 font-medium">Project Management</span>
-          </div>
-        </div>
-
         {/* Search Bar (Desktop) */}
         {showSignOut && (
           <div className="hidden sm:flex items-center gap-2 flex-1 max-w-xs">
