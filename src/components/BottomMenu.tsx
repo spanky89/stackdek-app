@@ -133,11 +133,11 @@ export default function BottomMenu({ onNewTask, onNewRequest }: BottomMenuProps)
 
   const leftItems = [
     { Icon: HomeIcon, label: 'Home', path: '/home' },
-    { Icon: BriefcaseIcon, label: 'Jobs', path: '/jobs' },
+    { Icon: FileTextIcon, label: 'Quotes', path: '/quotes' },
   ]
 
   const rightItems = [
-    { Icon: FileTextIcon, label: 'Quotes', path: '/quotes' },
+    { Icon: BriefcaseIcon, label: 'Jobs', path: '/jobs' },
     { Icon: DollarIcon, label: 'Invoices', path: '/invoices' },
   ]
 
