@@ -32,6 +32,7 @@ import QuotePublicViewPage from "./pages/QuotePublicView";
 import AccountPage from "./pages/Account";
 import SettingsPage from "./pages/Settings";
 import BillingSettingsPage from "./pages/BillingSettings";
+import RequestDetailPage from "./pages/RequestDetail";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -174,6 +175,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <RequestListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/request/:id"
+          element={
+            <ProtectedRoute>
+              <RequestDetailPage />
             </ProtectedRoute>
           }
         />
