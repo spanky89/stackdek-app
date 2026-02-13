@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
@@ -35,7 +35,6 @@ export default function ClientProfilePage() {
   const [newNote, setNewNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
-  const createMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -106,20 +105,6 @@ export default function ClientProfilePage() {
     setShowCreateMenu(false)
     nav(`/invoice/create?clientId=${client?.id}`)
   }
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
-        setShowCreateMenu(false)
-      }
-    }
-
-    if (showCreateMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showCreateMenu])
 
   function statusBadge(status: string) {
     const s = status.toLowerCase()
@@ -198,7 +183,7 @@ export default function ClientProfilePage() {
           </div>
 
           {/* Create Button with Dropdown */}
-          <div className="relative mb-6" ref={createMenuRef}>
+          <div className="relative mb-6">
             <button
               onClick={() => setShowCreateMenu(!showCreateMenu)}
               className="w-full py-3 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition flex items-center justify-center gap-2"
