@@ -106,17 +106,16 @@ export default function ClientListPage() {
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-neutral-600">Name</th>
                   <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden sm:table-cell">Phone</th>
-                  <th className="text-left px-4 py-3 font-medium text-neutral-600 hidden md:table-cell">Address</th>
-                  <th className="text-center px-4 py-3 font-medium text-neutral-600">VIP</th>
                 </tr>
               </thead>
               <tbody>
                 {list.filtered.map(c => (
-                  <tr key={c.id} onClick={() => nav(`/client/${c.id}`)} className="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer">
-                    <td className="px-4 py-3 font-medium">{c.name}</td>
+                  <tr key={c.id} onClick={() => nav(`/client/${c.id}`)} className={`border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer ${c.vip ? 'border-l-4 border-l-amber-500' : ''}`}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{c.name}</div>
+                      {c.address && <div className="text-xs text-neutral-500 mt-0.5">{c.address}</div>}
+                    </td>
                     <td className="px-4 py-3 text-neutral-600 hidden sm:table-cell">{c.phone || '—'}</td>
-                    <td className="px-4 py-3 text-neutral-600 hidden md:table-cell text-sm">{c.address || '—'}</td>
-                    <td className="px-4 py-3 text-center">{c.vip ? <span className="bg-neutral-100 text-neutral-800 text-xs px-2 py-0.5 rounded-full font-medium">VIP</span> : '—'}</td>
                   </tr>
                 ))}
               </tbody>
