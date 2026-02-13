@@ -117,7 +117,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
             name: requestName,
             email: requestEmail || null,
             phone: requestPhone || null,
-            service_type: requestServiceType || null,
           })
           .select('id')
           .single()
