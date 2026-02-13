@@ -93,6 +93,44 @@ export default function AppLayout({ children }: AppLayoutProps) {
         return
       }
 
+      // Check if client already exists (by email or phone)
+      let clientId: string | null = null
+      if (requestEmail) {
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('email', requestEmail)
+          .single()
+        
+        if (existingClient) {
+          clientId = existingClient.id
+        }
+      }
+
+      // If client doesn't exist, create one
+      if (!clientId) {
+        const { data: newClient, error: clientErr } = await supabase
+          .from('clients')
+          .insert({
+            company_id: companyId,
+            name: requestName,
+            email: requestEmail || null,
+            phone: requestPhone || null,
+            service_type: requestServiceType || null,
+          })
+          .select('id')
+          .single()
+
+        if (clientErr) {
+          setRequestError('Failed to create client: ' + clientErr.message)
+          return
+        }
+
+        clientId = newClient.id
+      }
+
+      // Now create the request
       const { error: err } = await supabase
         .from('requests')
         .insert({
