@@ -30,6 +30,7 @@ export default function ClientDetailPage() {
   const [tab, setTab] = useState<TabKey>('overview')
   const [newNote, setNewNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [showCreateMenu, setShowCreateMenu] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -70,6 +71,26 @@ export default function ClientDetailPage() {
       }
     } catch { }
     finally { setSavingNote(false) }
+  }
+
+  function handleCreateRequest() {
+    setShowCreateMenu(false)
+    nav(`/request/create?clientId=${client?.id}`)
+  }
+
+  function handleCreateQuote() {
+    setShowCreateMenu(false)
+    nav(`/quote/create?clientId=${client?.id}`)
+  }
+
+  function handleCreateJob() {
+    setShowCreateMenu(false)
+    nav(`/job/create?clientId=${client?.id}`)
+  }
+
+  function handleCreateInvoice() {
+    setShowCreateMenu(false)
+    nav(`/invoice/create?clientId=${client?.id}`)
   }
 
   function clientSince() {
@@ -152,6 +173,46 @@ export default function ClientDetailPage() {
             >
               Navigate
             </a>
+          </div>
+
+          {/* Create Button with Dropdown */}
+          <div className="relative mb-6">
+            <button
+              onClick={() => setShowCreateMenu(!showCreateMenu)}
+              className="w-full py-3 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition flex items-center justify-center gap-2"
+            >
+              + Create
+              <span className={`transform transition ${showCreateMenu ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            
+            {showCreateMenu && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-lg z-50">
+                <button
+                  onClick={handleCreateRequest}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900 border-b border-neutral-100 last:border-b-0"
+                >
+                  New Request
+                </button>
+                <button
+                  onClick={handleCreateQuote}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900 border-b border-neutral-100 last:border-b-0"
+                >
+                  New Quote
+                </button>
+                <button
+                  onClick={handleCreateJob}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900 border-b border-neutral-100 last:border-b-0"
+                >
+                  New Job
+                </button>
+                <button
+                  onClick={handleCreateInvoice}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900"
+                >
+                  New Invoice
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}
