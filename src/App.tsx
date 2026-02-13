@@ -22,6 +22,8 @@ import JobDetailPage from "./pages/JobDetail";
 import QuoteListPage from "./pages/QuoteList";
 import QuoteDetailPage from "./pages/QuoteDetail";
 import CreateQuotePage from "./pages/CreateQuote";
+import CreateJobPage from "./pages/CreateJob";
+import CreateRequestPage from "./pages/CreateRequest";
 import InvoiceListPage from "./pages/InvoiceList";
 import InvoiceDetailPage from "./pages/InvoiceDetail";
 import CreateInvoicePage from "./pages/CreateInvoice";
@@ -179,6 +181,14 @@ export default function App() {
           }
         />
         <Route
+          path="/request/create"
+          element={
+            <ProtectedRoute>
+              <CreateRequestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/request/:id"
           element={
             <ProtectedRoute>
@@ -199,6 +209,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <JobEditPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/job/create"
+          element={
+            <ProtectedRoute>
+              <CreateJobPage />
             </ProtectedRoute>
           }
         />

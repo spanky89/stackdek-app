@@ -10,6 +10,7 @@ export default function CreateInvoicePage() {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('job_id')
+  const urlClientId = searchParams.get('clientId')
 
   const [completedJobs, setCompletedJobs] = useState<Job[]>([])
   const [selectedJobId, setSelectedJobId] = useState(jobId || '')
@@ -37,6 +38,13 @@ export default function CreateInvoicePage() {
         if (jobId) {
           const job = (jobs as any)?.find((j: Job) => j.id === jobId)
           if (job) populateFromJob(job)
+        }
+        // Pre-populate if clientId provided (from URL query)
+        else if (urlClientId) {
+          setClientId(urlClientId)
+          // Optionally fetch client name
+          const { data: client } = await supabase.from('clients').select('name').eq('id', urlClientId).single()
+          if (client) setClientName(client.name)
         }
       } finally { setLoading(false) }
     })()

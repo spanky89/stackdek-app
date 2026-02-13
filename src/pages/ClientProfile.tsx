@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
@@ -34,6 +34,8 @@ export default function ClientProfilePage() {
   const [loading, setLoading] = useState(true)
   const [newNote, setNewNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [showCreateMenu, setShowCreateMenu] = useState(false)
+  const createMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -84,6 +86,40 @@ export default function ClientProfilePage() {
     const d = new Date(client.created_at)
     return `Client since ${d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
   }
+
+  function handleCreateRequest() {
+    setShowCreateMenu(false)
+    nav(`/request/create?clientId=${client?.id}`)
+  }
+
+  function handleCreateQuote() {
+    setShowCreateMenu(false)
+    nav(`/quote/create?clientId=${client?.id}`)
+  }
+
+  function handleCreateJob() {
+    setShowCreateMenu(false)
+    nav(`/job/create?clientId=${client?.id}`)
+  }
+
+  function handleCreateInvoice() {
+    setShowCreateMenu(false)
+    nav(`/invoice/create?clientId=${client?.id}`)
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+        setShowCreateMenu(false)
+      }
+    }
+
+    if (showCreateMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCreateMenu])
 
   function statusBadge(status: string) {
     const s = status.toLowerCase()
@@ -159,6 +195,46 @@ export default function ClientProfilePage() {
             >
               Navigate
             </a>
+          </div>
+
+          {/* Create Button with Dropdown */}
+          <div className="relative mb-6" ref={createMenuRef}>
+            <button
+              onClick={() => setShowCreateMenu(!showCreateMenu)}
+              className="w-full py-3 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition flex items-center justify-center gap-2"
+            >
+              + Create
+              <span className={`transform transition ${showCreateMenu ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            
+            {showCreateMenu && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-neutral-200 rounded-lg shadow-lg z-50">
+                <button
+                  onClick={handleCreateRequest}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900 border-b border-neutral-100 last:border-b-0"
+                >
+                  New Request
+                </button>
+                <button
+                  onClick={handleCreateQuote}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900 border-b border-neutral-100 last:border-b-0"
+                >
+                  New Quote
+                </button>
+                <button
+                  onClick={handleCreateJob}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900 border-b border-neutral-100 last:border-b-0"
+                >
+                  New Job
+                </button>
+                <button
+                  onClick={handleCreateInvoice}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition text-sm font-medium text-neutral-900"
+                >
+                  New Invoice
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}

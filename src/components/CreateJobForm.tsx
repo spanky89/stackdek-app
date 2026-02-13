@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 
 type Client = { id: string; name: string }
 
-export default function CreateJobForm({ onSuccess }: { onSuccess?: () => void }) {
+export default function CreateJobForm({ onSuccess, prefilledClientId }: { onSuccess?: () => void; prefilledClientId?: string }) {
+  const location = useLocation()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dateScheduled, setDateScheduled] = useState('')
@@ -32,9 +34,17 @@ export default function CreateJobForm({ onSuccess }: { onSuccess?: () => void })
         .select('id, name')
         .eq('company_id', company.id)
       setClients(data || [])
+
+      // Pre-fill client ID if passed via URL params or prop
+      const params = new URLSearchParams(location.search)
+      const urlClientId = params.get('clientId')
+      const finalClientId = prefilledClientId || urlClientId
+      if (finalClientId) {
+        setClientId(finalClientId)
+      }
     }
     loadClients()
-  }, [])
+  }, [location.search, prefilledClientId])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()

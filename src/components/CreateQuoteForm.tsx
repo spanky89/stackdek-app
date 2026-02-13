@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 
 type Client = { id: string; name: string; address: string }
 type ServiceItem = { id: string; name: string; description: string; price: number }
 
-export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void }) {
+export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSuccess?: () => void; prefilledClientId?: string }) {
+  const location = useLocation()
   const [clientId, setClientId] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
@@ -33,9 +35,17 @@ export default function CreateQuoteForm({ onSuccess }: { onSuccess?: () => void 
         .select('id, name, address')
         .eq('company_id', company.id)
       setClients(data || [])
+
+      // Pre-fill client ID if passed via URL params or prop
+      const params = new URLSearchParams(location.search)
+      const urlClientId = params.get('clientId')
+      const finalClientId = prefilledClientId || urlClientId
+      if (finalClientId) {
+        setClientId(finalClientId)
+      }
     }
     loadClients()
-  }, [])
+  }, [location.search, prefilledClientId])
 
   useEffect(() => {
     if (clientId) {
