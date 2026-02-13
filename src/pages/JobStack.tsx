@@ -131,12 +131,8 @@ export default function JobStackPage() {
     <AppLayout>
       <>
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button className="text-2xl text-neutral-700">☰</button>
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-neutral-900">Job Stack</h1>
-          <div className="flex-1" />
-          <button className="text-neutral-500">🔍</button>
-          <button className="relative text-neutral-500">🔔</button>
         </div>
 
         {/* Filter Tabs */}
