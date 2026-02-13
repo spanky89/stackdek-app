@@ -116,6 +116,9 @@ export default function HomePage() {
   return (
     <AppLayout>
       <div className="space-y-6">
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
+
         {/* Revenue Goal */}
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <div className="flex justify-between items-center mb-2">
