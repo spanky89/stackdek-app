@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useCompany } from '../context/CompanyContext'
 
@@ -12,68 +12,6 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [suggestions, setSuggestions] = useState<any[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const autocompleteService = useRef<any>(null)
-  const placesService = useRef<any>(null)
-
-  useEffect(() => {
-    // Initialize Google Maps services
-    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    if (!googleMapsApiKey) {
-      console.warn('Google Maps API key not configured. Address autocomplete disabled.')
-      return
-    }
-    if (typeof window !== 'undefined' && !window.google) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        if (window.google) {
-          autocompleteService.current = new window.google.maps.places.AutocompleteService()
-          placesService.current = new window.google.maps.places.PlacesService(
-            document.createElement('div')
-          )
-        }
-      }
-      document.head.appendChild(script)
-    } else if (window.google && !autocompleteService.current) {
-      autocompleteService.current = new window.google.maps.places.AutocompleteService()
-      placesService.current = new window.google.maps.places.PlacesService(
-        document.createElement('div')
-      )
-    }
-  }, [])
-
-  async function handleAddressChange(value: string) {
-    setAddress(value)
-    
-    if (value.length < 3) {
-      setSuggestions([])
-      setShowSuggestions(false)
-      return
-    }
-
-    if (autocompleteService.current) {
-      try {
-        const response = await autocompleteService.current.getPlacePredictions({
-          input: value,
-          componentRestrictions: { country: 'us' },
-        })
-        setSuggestions(response.predictions || [])
-        setShowSuggestions(true)
-      } catch (err) {
-        console.error('Error fetching autocomplete suggestions:', err)
-      }
-    }
-  }
-
-  function handleSuggestionSelect(suggestion: any) {
-    setAddress(suggestion.description)
-    setSuggestions([])
-    setShowSuggestions(false)
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -107,8 +45,6 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
 
       setSuccess(true)
       setName(''); setEmail(''); setPhone(''); setAddress(''); setVip(false)
-      setSuggestions([])
-      setShowSuggestions(false)
       setTimeout(() => {
         console.log('Calling onSuccess callback')
         onSuccess?.()
@@ -155,30 +91,9 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
           <label className="block text-sm mb-1">Phone</label>
           <input type="tel" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" />
         </div>
-        <div className="relative">
+        <div>
           <label className="block text-sm mb-1">Address</label>
-          <input 
-            className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" 
-            value={address} 
-            onChange={e => handleAddressChange(e.target.value)}
-            onFocus={() => address.length >= 3 && setShowSuggestions(true)}
-            placeholder="123 Main St, City, ST" 
-          />
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
-              {suggestions.map((suggestion, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className="w-full text-left px-3 py-2 hover:bg-neutral-100 text-sm border-b border-neutral-100 last:border-b-0 text-neutral-700"
-                  onClick={() => handleSuggestionSelect(suggestion)}
-                >
-                  <div className="font-medium text-neutral-900">{suggestion.main_text}</div>
-                  <div className="text-xs text-neutral-600">{suggestion.secondary_text}</div>
-                </button>
-              ))}
-            </div>
-          )}
+          <textarea className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm resize-none" rows={2} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, ST 12345" />
         </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" id="vip" className="rounded border-neutral-200" checked={vip} onChange={e => setVip(e.target.checked)} />
