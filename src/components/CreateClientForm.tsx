@@ -8,10 +8,26 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [address2, setAddress2] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const [country, setCountry] = useState('United States')
   const [vip, setVip] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  const usStates = [
+    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
+    'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
+    'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
+    'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+    'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
+    'Wisconsin', 'Wyoming'
+  ]
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,12 +42,17 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
     try {
       console.log('Creating client with company_id:', companyId)
 
+      // Build full address
+      const fullAddress = [address, address2, city, state, zipCode, country]
+        .filter(v => v.trim())
+        .join(', ')
+
       const { data, error: insertErr } = await supabase.from('clients').insert({
         company_id: companyId,
         name: name.trim(),
         email: email.trim() || null,
         phone: phone.trim() || null,
-        address: address.trim() || null,
+        address: fullAddress || null,
         vip,
       }).select()
 
@@ -44,7 +65,7 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
       }
 
       setSuccess(true)
-      setName(''); setEmail(''); setPhone(''); setAddress(''); setVip(false)
+      setName(''); setEmail(''); setPhone(''); setAddress(''); setAddress2(''); setCity(''); setState(''); setZipCode(''); setCountry('United States'); setVip(false)
       setTimeout(() => {
         console.log('Calling onSuccess callback')
         onSuccess?.()
@@ -91,9 +112,42 @@ export default function CreateClientForm({ onSuccess }: { onSuccess?: () => void
           <label className="block text-sm mb-1">Phone</label>
           <input type="tel" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" />
         </div>
-        <div>
-          <label className="block text-sm mb-1">Address</label>
-          <textarea className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm resize-none" rows={2} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, ST 12345" />
+        
+        {/* Address Section */}
+        <div className="pt-2 border-t border-neutral-200">
+          <div>
+            <label className="block text-sm mb-1">Property Address *</label>
+            <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St" required />
+          </div>
+          <div className="mt-3">
+            <label className="block text-sm mb-1">Address Line 2</label>
+            <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={address2} onChange={e => setAddress2(e.target.value)} placeholder="Apt, Suite, etc." />
+          </div>
+          <div className="mt-3">
+            <label className="block text-sm mb-1">City</label>
+            <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={city} onChange={e => setCity(e.target.value)} placeholder="City" />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm mb-1">State</label>
+              <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={state} onChange={e => setState(e.target.value)}>
+                <option value="">Select...</option>
+                {usStates.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Zip Code</label>
+              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={zipCode} onChange={e => setZipCode(e.target.value)} placeholder="12345" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="block text-sm mb-1">Country</label>
+            <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={country} onChange={e => setCountry(e.target.value)}>
+              <option value="United States">United States</option>
+              <option value="Canada">Canada</option>
+              <option value="Mexico">Mexico</option>
+            </select>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" id="vip" className="rounded border-neutral-200" checked={vip} onChange={e => setVip(e.target.checked)} />
