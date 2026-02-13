@@ -179,10 +179,9 @@ export default function ClientDetailPage() {
           <div className="relative mb-6">
             <button
               onClick={() => setShowCreateMenu(!showCreateMenu)}
-              className="w-full py-3 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition flex items-center justify-center gap-2"
+              className="w-full py-3 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition"
             >
-              + Create
-              <span className={`transform transition ${showCreateMenu ? 'rotate-180' : ''}`}>▼</span>
+              Create
             </button>
             
             {showCreateMenu && (
