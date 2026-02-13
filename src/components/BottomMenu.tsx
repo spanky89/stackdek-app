@@ -137,7 +137,7 @@ export default function BottomMenu({ onNewTask, onNewRequest }: BottomMenuProps)
   ]
 
   const rightItems = [
-    { Icon: UsersIcon, label: 'Clients', path: '/clients' },
+    { Icon: FileTextIcon, label: 'Quotes', path: '/quotes' },
     { Icon: DollarIcon, label: 'Invoices', path: '/invoices' },
   ]
 
