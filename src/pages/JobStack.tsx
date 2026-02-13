@@ -131,8 +131,11 @@ export default function JobStackPage() {
     <AppLayout>
       <>
         {/* Header */}
-        <div className="mb-6">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-neutral-900">Job Stack</h1>
+          <div className="flex gap-2">
+            <button onClick={() => nav('/job/create')} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg font-medium">+ New Job</button>
+          </div>
         </div>
 
         {/* Filter Tabs */}
