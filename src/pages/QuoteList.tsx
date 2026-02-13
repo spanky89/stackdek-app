@@ -63,7 +63,6 @@ export default function QuoteListPage() {
           <h1 className="text-2xl font-bold">Quotes</h1>
           <div className="flex gap-2">
             <button onClick={() => setShowCreate(true)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg font-medium">+ New Quote</button>
-            <button onClick={() => nav('/home')} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Home</button>
           </div>
         </div>
 
