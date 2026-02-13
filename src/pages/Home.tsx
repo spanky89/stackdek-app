@@ -116,15 +116,6 @@ export default function HomePage() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-neutral-900">StackDek</h1>
-          <div className="flex gap-3">
-            <button className="text-neutral-500">🔍</button>
-            <button className="text-neutral-500">🔔</button>
-          </div>
-        </div>
-
         {/* Revenue Goal */}
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <div className="flex justify-between items-center mb-2">
