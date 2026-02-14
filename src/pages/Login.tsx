@@ -122,13 +122,8 @@ export default function LoginPage() {
         {/* Logo & Tagline */}
         <div className="text-center mb-8">
           <div className="mb-4 flex justify-center">
-            <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center">
-              <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 3h9v9H3V3zm9-3h9v9h-9V0zm0 12h9v9h-9v-9zM0 12h9v9H0v-9z" />
-              </svg>
-            </div>
+            <img src="/logo-transparent.png" alt="StackDek" className="h-20 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-neutral-900 mb-2">StackDek</h1>
           <p className="text-sm text-neutral-600">Built by contractors for contractors</p>
         </div>
 
