@@ -63,7 +63,11 @@ export default function QuoteDetailPage() {
           .select('id, description, quantity, unit_price')
           .eq('quote_id', id)
           .order('created_at', { ascending: true })
-        if (itemsErr) { setError(itemsErr.message); return }
+        if (itemsErr) { 
+          console.error('Line items error:', itemsErr)
+          // Don't return error - line items are optional
+        }
+        console.log('Fetched line items:', items)
         setLineItems(items || [])
         
         // Set deposit amount if already exists
@@ -283,48 +287,51 @@ export default function QuoteDetailPage() {
     <AppLayout>
       <>
         {/* Header */}
-        <div className="flex items-center gap-2 mb-6">
-          <button onClick={() => nav('/quotes')} className="text-xl">←</button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{quote.clients?.name}</h1>
-            <p className="text-sm text-neutral-600">{quote.title}</p>
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => nav('/quotes')} className="text-lg">←</button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-neutral-900 truncate">{quote.clients?.name}</h1>
+            <p className="text-xs text-neutral-600 truncate">{quote.title}</p>
           </div>
-          <button onClick={() => nav(`/quote/${id}/edit`)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg">Edit</button>
+          <button onClick={() => nav(`/quote/${id}/edit`)} className="text-xs px-2 py-1 bg-neutral-900 text-white rounded">Edit</button>
         </div>
 
         {/* Line Items */}
-        <div className="space-y-3 mb-6">
-          {lineItems.map((item) => (
-            <div key={item.id} className="bg-white rounded-lg border border-neutral-200 p-4">
-              <div className="font-semibold text-neutral-900 mb-1">{item.description}</div>
-              <div className="flex justify-between items-end text-sm text-neutral-600">
-                <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
-                <span className="font-semibold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
+        {lineItems.length > 0 && (
+          <div className="space-y-2 mb-4">
+            <h2 className="text-xs font-semibold text-neutral-700 mb-2">LINE ITEMS ({lineItems.length})</h2>
+            {lineItems.map((item) => (
+              <div key={item.id} className="bg-white rounded border border-neutral-200 p-3">
+                <div className="font-semibold text-sm text-neutral-900 mb-1">{item.description}</div>
+                <div className="flex justify-between items-center text-xs text-neutral-600">
+                  <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
+                  <span className="font-semibold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) || <div className="text-xs text-neutral-500 mb-4">No line items</div>}
 
         {/* Summary Section */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4 space-y-3 mb-6">
-          <div className="flex justify-between text-sm">
+        <div className="bg-white rounded border border-neutral-200 p-3 space-y-1 mb-3">
+          <div className="flex justify-between text-xs">
             <span className="text-neutral-600">Subtotal</span>
             <span className="font-semibold text-neutral-900">${subtotal.toFixed(2)}</span>
           </div>
           {taxRate > 0 && (
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs">
               <span className="text-neutral-600">Tax ({taxRate}%)</span>
               <span className="text-green-600 font-semibold">${tax.toFixed(2)}</span>
             </div>
           )}
-          <div className="border-t border-neutral-200 pt-3 flex justify-between">
-            <span className="font-semibold text-neutral-900">Total</span>
-            <span className="text-xl font-bold text-neutral-900">${total.toFixed(2)}</span>
+          <div className="border-t border-neutral-200 pt-1 flex justify-between font-semibold text-sm">
+            <span className="text-neutral-900">Total</span>
+            <span className="text-neutral-900">${total.toFixed(2)}</span>
           </div>
           {quote.deposit_amount && quote.deposit_amount > 0 && (
-            <div className="bg-neutral-50 rounded p-3 flex justify-between">
-              <span className="font-semibold text-neutral-900">Required Deposit</span>
-              <span className="text-lg font-bold text-green-600">${quote.deposit_amount.toFixed(2)}</span>
+            <div className="bg-neutral-50 rounded p-2 flex justify-between mt-1">
+              <span className="font-semibold text-xs text-neutral-900">Deposit</span>
+              <span className="font-bold text-sm text-green-600">${quote.deposit_amount.toFixed(2)}</span>
             </div>
           )}
         </div>
