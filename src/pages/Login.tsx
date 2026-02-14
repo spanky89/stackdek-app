@@ -122,7 +122,7 @@ export default function LoginPage() {
         {/* Logo & Tagline */}
         <div className="text-center mb-8">
           <div className="mb-4 flex justify-center">
-            <img src="/logo-transparent.png" alt="StackDek" className="h-20 w-auto" />
+            <img src="/logo-transparent.png" alt="StackDek" className="h-40 w-auto" />
           </div>
           <p className="text-sm text-neutral-600">Built by contractors for contractors</p>
         </div>
