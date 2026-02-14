@@ -273,21 +273,21 @@ export default function QuotePublicViewPage() {
         {/* Quote Tab Content */}
         {activeTab === 'quote' && (
           <>
-            {/* Line Items */}
+            {/* Line Items - Full Display */}
             {lineItems.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-sm font-semibold mb-3 text-neutral-700">Product / Service</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-xs text-neutral-500 mb-2">
-                    <span>Line items</span>
+                <h3 className="text-sm font-semibold mb-4 text-neutral-700">Product / Service</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-xs text-neutral-500 mb-3">
+                    <span className="font-semibold">Line items</span>
                     <button className="text-blue-600 font-semibold">+</button>
                   </div>
                   {lineItems.map((item) => (
-                    <div key={item.id} className="bg-white rounded-lg p-4 border border-neutral-200">
-                      <p className="font-semibold text-neutral-900 mb-1">{item.description}</p>
-                      <div className="flex justify-between items-end text-sm">
+                    <div key={item.id} className="border-b border-neutral-200 pb-4">
+                      <p className="font-bold text-neutral-900 mb-2">{item.description}</p>
+                      <div className="flex justify-between items-center text-sm">
                         <span className="text-neutral-600">{item.quantity} × ${item.unit_price.toFixed(2)}</span>
-                        <span className="font-semibold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                        <span className="font-bold text-neutral-900 text-base">${(item.quantity * item.unit_price).toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
