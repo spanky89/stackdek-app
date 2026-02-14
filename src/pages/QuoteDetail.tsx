@@ -9,7 +9,15 @@ type Quote = {
   company_id: string | null
   deposit_amount: number | null; deposit_paid: boolean
   stripe_checkout_session_id: string | null
+  tax_rate: number | null
   clients: { id: string; name: string; email?: string } | null
+}
+
+type LineItem = {
+  id: string
+  description: string
+  quantity: number
+  unit_price: number
 }
 
 export default function QuoteDetailPage() {
@@ -17,6 +25,7 @@ export default function QuoteDetailPage() {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const [quote, setQuote] = useState<Quote | null>(null)
+  const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -41,9 +50,22 @@ export default function QuoteDetailPage() {
     ;(async () => {
       try {
         const { data, error: fetchErr } = await supabase
-          .from('quotes').select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, clients(id, name, email)').eq('id', id).single()
+          .from('quotes')
+          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, clients(id, name, email)')
+          .eq('id', id)
+          .single()
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
+        
+        // Fetch line items
+        const { data: items, error: itemsErr } = await supabase
+          .from('quote_line_items')
+          .select('id, description, quantity, unit_price')
+          .eq('quote_id', id)
+          .order('created_at', { ascending: true })
+        if (itemsErr) { setError(itemsErr.message); return }
+        setLineItems(items || [])
+        
         // Set deposit amount if already exists
         if (data.deposit_amount) {
           setDepositAmount(data.deposit_amount.toString())
@@ -251,163 +273,134 @@ export default function QuoteDetailPage() {
     expired: 'bg-neutral-100 text-neutral-800',
   }
 
+  // Calculate totals
+  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+  const taxRate = quote?.tax_rate || 0
+  const tax = subtotal * (taxRate / 100)
+  const total = subtotal + tax
+
   return (
     <AppLayout>
       <>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Quote Detail</h1>
-          <button onClick={() => nav('/quotes')} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Back</button>
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-6">
+          <button onClick={() => nav('/quotes')} className="text-xl">←</button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">{quote.clients?.name}</h1>
+            <p className="text-sm text-neutral-600">{quote.title}</p>
+          </div>
+          <button onClick={() => nav(`/quote/${id}/edit`)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg">Edit</button>
         </div>
 
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          <div className="flex justify-between items-start mb-4">
+        {/* Line Items */}
+        <div className="space-y-3 mb-6">
+          {lineItems.map((item) => (
+            <div key={item.id} className="bg-white rounded-lg border border-neutral-200 p-4">
+              <div className="font-semibold text-neutral-900 mb-1">{item.description}</div>
+              <div className="flex justify-between items-end text-sm text-neutral-600">
+                <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
+                <span className="font-semibold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Summary Section */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 space-y-3 mb-6">
+          <div className="flex justify-between text-sm">
+            <span className="text-neutral-600">Subtotal</span>
+            <span className="font-semibold text-neutral-900">${subtotal.toFixed(2)}</span>
+          </div>
+          {taxRate > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-neutral-600">Tax ({taxRate}%)</span>
+              <span className="text-green-600 font-semibold">${tax.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="border-t border-neutral-200 pt-3 flex justify-between">
+            <span className="font-semibold text-neutral-900">Total</span>
+            <span className="text-xl font-bold text-neutral-900">${total.toFixed(2)}</span>
+          </div>
+          {quote.deposit_amount && quote.deposit_amount > 0 && (
+            <div className="bg-neutral-50 rounded p-3 flex justify-between">
+              <span className="font-semibold text-neutral-900">Required Deposit</span>
+              <span className="text-lg font-bold text-green-600">${quote.deposit_amount.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Status & Deposit Section */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-xl font-semibold">{quote.title}</h2>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[quote.status] || 'bg-neutral-100 text-neutral-800'}`}>{quote.status}</span>
+              <span className="text-sm text-neutral-600">Status: </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[quote.status] || 'bg-neutral-100 text-neutral-800'}`}>
+                {quote.status}
+              </span>
             </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => nav(`/quote/${id}/edit`)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg">Edit</button>
-              <p className="text-2xl font-bold">${quote.amount.toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="space-y-1 text-sm text-neutral-600 mb-6">
-            {quote.clients && <p>Client: <span className="text-blue-600 cursor-pointer" onClick={() => nav(`/client/${quote.clients!.id}`)}>{quote.clients.name}</span></p>}
-            <p>Expiration: {quote.expiration_date ? new Date(quote.expiration_date).toLocaleDateString() : 'None'}</p>
+            {quote.deposit_paid ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">✓ Deposit Paid</span>
+            ) : quote.deposit_amount && quote.deposit_amount > 0 ? (
+              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">Pending Payment</span>
+            ) : null}
           </div>
 
-          {/* Deposit Payment Section */}
-          <div className="border-t border-neutral-200 pt-6 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Deposit Payment</h3>
-              {!checkingStripe && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-600">Stripe:</span>
-                  {stripeConnected ? (
-                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">
-                      ✓ Connected
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => nav('/settings')}
-                      className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium hover:bg-yellow-200 transition"
-                    >
-                      ⚠ Setup Required
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            {!stripeConnected && !checkingStripe && (
-              <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  <strong>⚠️ Stripe not configured.</strong> Configure your Stripe keys in{' '}
-                  <button 
-                    onClick={() => nav('/settings')}
-                    className="font-semibold hover:underline"
-                  >
-                    Settings → Payment Settings
-                  </button>{' '}
-                  to accept payments.
-                </p>
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              {/* Deposit Amount Input */}
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <label className="block text-xs text-neutral-600 mb-1">Deposit Amount ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
-                    disabled={quote.deposit_paid}
-                  />
-                </div>
+          {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
+            <>
+              <div className="flex gap-2 mb-3">
                 <button
-                  onClick={saveDepositAmount}
-                  disabled={busy || quote.deposit_paid || !depositAmount}
-                  className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={handleStripePayment}
+                  disabled={processingPayment || !stripeConnected}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Save Amount
+                  {processingPayment ? 'Processing...' : '💳 Pay Deposit'}
                 </button>
+                <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
+                  <input
+                    type="checkbox"
+                    onChange={markOfflinePayment}
+                    disabled={busy}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-xs">Offline</span>
+                </label>
               </div>
-
-              {/* Deposit Status */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-neutral-600">Status:</span>
-                {quote.deposit_paid ? (
-                  <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">
-                    ✓ Deposit Paid
-                  </span>
-                ) : (
-                  <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">
-                    Pending Payment
-                  </span>
-                )}
-              </div>
-
-              {/* Payment Actions */}
-              {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={handleStripePayment}
-                    disabled={processingPayment || !stripeConnected}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={!stripeConnected ? 'Configure Stripe in Settings first' : ''}
-                  >
-                    {processingPayment ? 'Processing...' : '💳 Pay Deposit with Stripe'}
-                  </button>
-                  <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
-                    <input
-                      type="checkbox"
-                      checked={quote.deposit_paid}
-                      onChange={markOfflinePayment}
-                      disabled={busy}
-                      className="w-4 h-4"
-                    />
-                    <span>Offline payment received</span>
-                  </label>
-                </div>
+              {!stripeConnected && (
+                <p className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded">
+                  ⚠️ <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure Stripe</button> to accept payments
+                </p>
               )}
-            </div>
-          </div>
+            </>
+          )}
+        </div>
 
-          <div className="flex flex-wrap gap-2 mb-6">
-            <button onClick={() => updateStatus('accepted')} disabled={busy || quote.status === 'accepted'}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-40">Accept Quote</button>
-            <button onClick={() => updateStatus('declined')} disabled={busy || quote.status === 'declined'}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm disabled:opacity-40">Decline Quote</button>
-            <button onClick={() => updateStatus('expired')} disabled={busy || quote.status === 'expired'}
-              className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm disabled:opacity-40">Mark Expired</button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button onClick={() => updateStatus('accepted')} disabled={busy || quote.status === 'accepted'}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-40">✓ Accept</button>
+          <button onClick={() => updateStatus('declined')} disabled={busy || quote.status === 'declined'}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm disabled:opacity-40">✗ Decline</button>
+        </div>
 
-          {/* Share Quote Section */}
-          <div className="border-t border-neutral-200 pt-6">
-            <h3 className="text-sm font-semibold mb-3">Share Quote</h3>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={`${window.location.origin}/quotes/view/${id}`}
-                readOnly
-                className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-600 bg-neutral-50"
-              />
-              <button 
-                onClick={copyShareableLink}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  copied 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
-                }`}
-              >
-                {copied ? '✓ Copied' : 'Copy Link'}
-              </button>
-            </div>
-            <p className="text-xs text-neutral-500 mt-2">Share this link with your client to view the quote</p>
+        {/* Share Link */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              value={`${window.location.origin}/quotes/view/${id}`}
+              readOnly
+              className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-600 bg-neutral-50"
+            />
+            <button 
+              onClick={copyShareableLink}
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition ${
+                copied 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              }`}
+            >
+              {copied ? '✓' : 'Copy'}
+            </button>
           </div>
         </div>
       </>
