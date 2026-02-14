@@ -193,64 +193,64 @@ export default function QuotePublicViewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* Mobile Header */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 px-4 py-3 flex items-center gap-3">
-        <button className="text-2xl">←</button>
-        <div className="flex-1">
+      <div className="bg-white border-b border-neutral-200 sticky top-0 px-4 py-2 flex items-center gap-3 z-10">
+        <button className="text-lg">←</button>
+        <div className="flex-1 min-w-0">
           <div className="text-xs text-neutral-500">Quote #{id.slice(0, 6)}</div>
-          <h1 className="font-semibold text-neutral-900 truncate">{quote.clients?.name}</h1>
+          <h1 className="font-semibold text-sm text-neutral-900 truncate">{quote.clients?.name}</h1>
         </div>
         <div className="flex gap-2">
-          <button className="text-xl">☎️</button>
-          <button className="text-xl">⭐</button>
+          <button className="text-lg">☎️</button>
+          <button className="text-lg">⭐</button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="px-4 py-6">
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         {/* Status & Amount */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-xs px-2 py-1 rounded-full font-medium bg-yellow-100 text-yellow-800">
               {quote.status === 'sent' ? '🟨 Awaiting Response' : quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
             </span>
           </div>
-          <h2 className="text-2xl font-bold mb-1">Quote #{id.slice(0, 6)} for {quote.clients?.name}</h2>
-          <h3 className="text-lg font-semibold text-neutral-600 mb-3">for ${quote.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-          <p className="text-sm text-neutral-600">{quote.title}</p>
+          <h2 className="text-xl font-bold mb-1">Quote #{id.slice(0, 6)} for {quote.clients?.name}</h2>
+          <h3 className="text-base font-semibold text-neutral-600 mb-2">for ${quote.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+          <p className="text-xs text-neutral-600">{quote.title}</p>
         </div>
 
         {/* Created & Viewed Dates */}
-        <div className="grid grid-cols-2 gap-4 mb-6 bg-white rounded-lg p-4">
+        <div className="grid grid-cols-2 gap-3 mb-4 bg-white rounded-lg p-3">
           <div>
             <p className="text-xs text-neutral-500 mb-1">Created</p>
-            <p className="font-medium text-sm">Today</p>
+            <p className="font-medium text-xs">Today</p>
           </div>
           <div>
             <p className="text-xs text-neutral-500 mb-1">Viewed</p>
-            <p className="font-medium text-sm">Today</p>
+            <p className="font-medium text-xs">Today</p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 mb-6">
-          <button className="flex-1 bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition">
+        <div className="flex gap-2 mb-4">
+          <button className="flex-1 bg-green-600 text-white font-semibold py-2 text-sm rounded-lg hover:bg-green-700 transition">
             ✓ Approve
           </button>
-          <button className="flex-1 bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition">
+          <button className="flex-1 bg-green-600 text-white font-semibold py-2 text-sm rounded-lg hover:bg-green-700 transition">
             ↻ Resend
           </button>
-          <button className="bg-white border border-neutral-200 text-neutral-900 p-3 rounded-lg hover:bg-neutral-50 transition">
+          <button className="bg-white border border-neutral-200 text-neutral-900 p-2 rounded-lg hover:bg-neutral-50 transition text-sm">
             ⋯
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-6 border-b border-neutral-200">
+        <div className="flex gap-4 mb-4 border-b border-neutral-200">
           <button
             onClick={() => setActiveTab('quote')}
-            className={`py-3 font-semibold text-sm border-b-2 transition ${
+            className={`py-2 font-semibold text-sm border-b-2 transition ${
               activeTab === 'quote'
                 ? 'text-neutral-900 border-b-red-600'
                 : 'text-neutral-600 border-b-transparent'
@@ -260,7 +260,7 @@ export default function QuotePublicViewPage() {
           </button>
           <button
             onClick={() => setActiveTab('notes')}
-            className={`py-3 font-semibold text-sm border-b-2 transition ${
+            className={`py-2 font-semibold text-sm border-b-2 transition ${
               activeTab === 'notes'
                 ? 'text-neutral-900 border-b-red-600'
                 : 'text-neutral-600 border-b-transparent'
@@ -276,18 +276,17 @@ export default function QuotePublicViewPage() {
             {/* Line Items - Full Display */}
             {lineItems.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-sm font-semibold mb-4 text-neutral-700">Product / Service</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-xs text-neutral-500 mb-3">
-                    <span className="font-semibold">Line items</span>
-                    <button className="text-blue-600 font-semibold">+</button>
-                  </div>
+                <div className="flex justify-between items-center text-xs text-neutral-500 mb-3">
+                  <span className="font-semibold">Line items</span>
+                  <button className="text-blue-600 font-semibold">+</button>
+                </div>
+                <div className="space-y-3">
                   {lineItems.map((item) => (
-                    <div key={item.id} className="border-b border-neutral-200 pb-4">
-                      <p className="font-bold text-neutral-900 mb-2">{item.description}</p>
-                      <div className="flex justify-between items-center text-sm">
+                    <div key={item.id} className="bg-white rounded-lg p-3 border border-neutral-200">
+                      <p className="font-bold text-neutral-900 mb-1 text-sm">{item.description}</p>
+                      <div className="flex justify-between items-center text-xs">
                         <span className="text-neutral-600">{item.quantity} × ${item.unit_price.toFixed(2)}</span>
-                        <span className="font-bold text-neutral-900 text-base">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                        <span className="font-bold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
@@ -296,18 +295,18 @@ export default function QuotePublicViewPage() {
             )}
 
             {/* Summary */}
-            <div className="bg-white rounded-lg p-4 space-y-3 mb-6">
-              <div className="flex justify-between text-sm">
+            <div className="bg-white rounded-lg p-3 space-y-2 mb-4">
+              <div className="flex justify-between text-xs">
                 <span className="text-neutral-600">Subtotal</span>
                 <span className="font-semibold">${subtotal.toFixed(2)}</span>
               </div>
-              <div className="border-t border-neutral-200 pt-3 flex justify-between font-semibold">
+              <div className="border-t border-neutral-200 pt-2 flex justify-between font-semibold text-sm">
                 <span>Total</span>
-                <span className="text-lg">${quote.amount.toFixed(2)}</span>
+                <span>${quote.amount.toFixed(2)}</span>
               </div>
               {quote.deposit_amount && (
-                <div className="bg-neutral-50 rounded p-3 flex justify-between">
-                  <span className="font-semibold">Required Deposit</span>
+                <div className="bg-neutral-50 rounded p-2 mt-2 flex justify-between text-sm">
+                  <span className="font-semibold text-neutral-900">Required Deposit</span>
                   <span className="text-green-600 font-bold">${quote.deposit_amount.toFixed(2)}</span>
                 </div>
               )}
@@ -315,16 +314,16 @@ export default function QuotePublicViewPage() {
 
             {/* Payment Section */}
             {quote.deposit_amount && !quote.deposit_paid && !isExpired && (
-              <div className="bg-white rounded-lg p-4 mb-6">
+              <div className="bg-white rounded-lg p-3 mb-3">
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-red-700 text-sm">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-3 text-red-700 text-xs">
                     {error}
                   </div>
                 )}
                 <button
                   onClick={handlePaymentClick}
                   disabled={processingPayment}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg py-3 font-semibold text-sm transition mb-2"
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg py-2 font-semibold text-sm transition mb-2"
                 >
                   {processingPayment ? 'Processing…' : '💳 Pay Deposit'}
                 </button>
@@ -334,14 +333,14 @@ export default function QuotePublicViewPage() {
 
             {/* Status Messages */}
             {quote.deposit_paid && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
-                <p className="text-sm text-green-800 font-semibold">✓ Deposit paid!</p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center mb-3">
+                <p className="text-xs text-green-800 font-semibold">✓ Deposit paid!</p>
               </div>
             )}
 
             {isExpired && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center mb-6">
-                <p className="text-sm text-yellow-800 font-semibold">⚠ This quote has expired</p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center mb-3">
+                <p className="text-xs text-yellow-800 font-semibold">⚠ This quote has expired</p>
               </div>
             )}
           </>
@@ -349,18 +348,18 @@ export default function QuotePublicViewPage() {
 
         {/* Notes Tab Content */}
         {activeTab === 'notes' && (
-          <div className="bg-white rounded-lg p-4">
+          <div className="bg-white rounded-lg p-3">
             {quote.companies?.invoice_notes ? (
-              <p className="text-sm text-neutral-700 whitespace-pre-wrap">{quote.companies.invoice_notes}</p>
+              <p className="text-xs text-neutral-700 whitespace-pre-wrap">{quote.companies.invoice_notes}</p>
             ) : (
-              <p className="text-sm text-neutral-500">No notes added</p>
+              <p className="text-xs text-neutral-500">No notes added</p>
             )}
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="text-center text-xs text-neutral-500 py-6 border-t border-neutral-200">
+      <div className="text-center text-xs text-neutral-500 py-2 border-t border-neutral-200 bg-white">
         Powered by StackDek
       </div>
     </div>
