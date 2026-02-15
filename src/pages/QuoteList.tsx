@@ -37,13 +37,17 @@ export default function QuoteListPage() {
         }
         console.log('Company ID:', company.id)
         
-        // Fetch quotes and requests in parallel
-        const [quotesRes, requestsRes] = await Promise.all([
+        // Fetch quotes, clients, and requests in parallel
+        const [quotesRes, clientsRes, requestsRes] = await Promise.all([
           supabase
             .from('quotes')
             .select('*')
             .eq('company_id', company.id)
             .order('created_at', { ascending: false }),
+          supabase
+            .from('clients')
+            .select('id, name, avatar_url')
+            .eq('company_id', company.id),
           supabase
             .from('requests')
             .select('id')
@@ -54,9 +58,17 @@ export default function QuoteListPage() {
         console.log('Quotes query result:', quotesRes)
         if (quotesRes.error) console.error('Quotes query error:', quotesRes.error)
         
-        // Filter out accepted/approved quotes in JS
+        // Build client lookup map
+        const clientsMap = new Map((clientsRes.data || []).map((c: any) => [c.id, c]))
+        
+        // Filter out accepted/approved quotes and attach client data
         const allQuotes = (quotesRes.data as any) || []
-        const filteredQuotes = allQuotes.filter((q: any) => q.status !== 'accepted' && q.status !== 'approved')
+        const filteredQuotes = allQuotes
+          .filter((q: any) => q.status !== 'accepted' && q.status !== 'approved')
+          .map((q: any) => ({
+            ...q,
+            clients: clientsMap.get(q.client_id) || null
+          }))
         
         setQuotes(filteredQuotes)
         setNewRequestsCount(requestsRes.data?.length || 0)
