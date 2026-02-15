@@ -105,13 +105,14 @@ export default function RequestDetailPage() {
         clientId = newClient.id
       }
 
-      // Create quote with scheduled status
+      // Create quote with pending status
       const { error: quoteErr } = await supabase
         .from('quotes')
         .insert({
           company_id: companyId,
           client_id: clientId,
-          status: 'scheduled',
+          title: request.service_type || 'Service Request',
+          status: 'pending',
           amount: 0,
         })
 
