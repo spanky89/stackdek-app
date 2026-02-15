@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
+import { LineItemCard } from '../components/LineItemCard'
+import { DocumentSummary } from '../components/DocumentSummary'
+import { UnifiedLineItem } from '../types/lineItems'
 
 type Job = {
   id: string; title: string; description: string | null; date_scheduled: string
@@ -11,7 +14,11 @@ type Job = {
 }
 
 type QuoteLineItem = {
-  id: string; description: string; quantity: number; unit_price: number
+  id: string; title?: string; description: string; quantity: number; unit_price: number; sort_order: number
+}
+
+type JobLineItem = UnifiedLineItem & {
+  job_id: string
 }
 
 type InvoiceLineItem = {
@@ -22,12 +29,14 @@ export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [job, setJob] = useState<Job | null>(null)
+  const [jobLineItems, setJobLineItems] = useState<JobLineItem[]>([])
   const [quoteLineItems, setQuoteLineItems] = useState<QuoteLineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', date_scheduled: '', time_scheduled: '', location: '', estimate_amount: '', status: '' })
+  const [form, setForm] = useState({ title: '', description: '', date_scheduled: '', time_scheduled: '', location: '', status: '' })
   const [saving, setSaving] = useState(false)
+  const [showOriginalQuote, setShowOriginalQuote] = useState(false)
   
   // Invoice modal state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
@@ -51,11 +60,23 @@ export default function JobDetailPage() {
         setForm({
           title: data.title, description: data.description || '',
           date_scheduled: datePart, time_scheduled: timePart?.slice(0, 5) || '',
-          location: data.location || '', estimate_amount: String(data.estimate_amount || ''),
-          status: data.status,
+          location: data.location || '', status: data.status,
         })
 
-        // Fetch quote line items if job was created from a quote
+        // Fetch job line items
+        const { data: jobItems, error: jobItemsErr } = await supabase
+          .from('job_line_items')
+          .select('*')
+          .eq('job_id', id)
+          .order('sort_order')
+        
+        if (jobItemsErr) {
+          console.error('Error fetching job line items:', jobItemsErr)
+        } else if (jobItems && jobItems.length > 0) {
+          setJobLineItems(jobItems)
+        }
+
+        // Fetch original quote line items if job was created from a quote
         if (data.quote_id) {
           const { data: items } = await supabase
             .from('quote_line_items')
@@ -68,6 +89,30 @@ export default function JobDetailPage() {
       finally { setLoading(false) }
     })()
   }, [id])
+
+  // Calculate estimate from line items
+  const calculateEstimateFromLineItems = (): number => {
+    return jobLineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+  }
+
+  // Auto-update estimate_amount when line items change
+  useEffect(() => {
+    if (jobLineItems.length > 0) {
+      const newEstimate = calculateEstimateFromLineItems()
+      if (job && job.estimate_amount !== newEstimate) {
+        // Auto-save estimate to database
+        supabase
+          .from('jobs')
+          .update({ estimate_amount: newEstimate })
+          .eq('id', id)
+          .then(({ error }) => {
+            if (!error) {
+              setJob({ ...job, estimate_amount: newEstimate })
+            }
+          })
+      }
+    }
+  }, [jobLineItems])
 
   async function changeStatus(newStatus: string) {
     const updateData: any = { status: newStatus }
@@ -88,43 +133,135 @@ export default function JobDetailPage() {
       title: form.title.trim(), description: form.description.trim() || null,
       date_scheduled: form.date_scheduled + (form.time_scheduled ? `T${form.time_scheduled}` : ''),
       location: form.location.trim() || null,
-      estimate_amount: form.estimate_amount ? parseFloat(form.estimate_amount) : 0,
       status: form.status,
     }).eq('id', id)
     setSaving(false)
     if (upErr) { setError(upErr.message); return }
-    setJob({ ...job!, title: form.title.trim(), description: form.description.trim() || null, date_scheduled: form.date_scheduled + (form.time_scheduled ? `T${form.time_scheduled}` : ''), location: form.location.trim() || null, estimate_amount: parseFloat(form.estimate_amount) || 0, status: form.status })
+    setJob({ 
+      ...job!, 
+      title: form.title.trim(), 
+      description: form.description.trim() || null, 
+      date_scheduled: form.date_scheduled + (form.time_scheduled ? `T${form.time_scheduled}` : ''), 
+      location: form.location.trim() || null, 
+      status: form.status 
+    })
     setEditing(false)
   }
 
-  async function openInvoiceModal() {
-    // Load quote line items if this job was created from a quote
-    if (job?.quote_id) {
-      const { data: quoteItems, error: qiErr } = await supabase
-        .from('quote_line_items')
-        .select('*')
-        .eq('quote_id', job.quote_id)
-        .order('sort_order')
+  // Add new line item
+  async function addLineItem() {
+    const newItem: Partial<JobLineItem> = {
+      job_id: id!,
+      title: '',
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      sort_order: jobLineItems.length,
+    }
 
-      if (!qiErr && quoteItems && quoteItems.length > 0) {
-        // Pre-fill invoice with quote line items
-        setInvoiceLineItems(
-          quoteItems.map((item: QuoteLineItem) => ({
-            id: crypto.randomUUID(),
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-          }))
-        )
-      } else {
-        // Create default line item from job estimate
-        setInvoiceLineItems([{
+    const { data, error } = await supabase
+      .from('job_line_items')
+      .insert(newItem)
+      .select()
+      .single()
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setJobLineItems([...jobLineItems, data])
+  }
+
+  // Update line item
+  async function updateLineItem(updatedItem: UnifiedLineItem) {
+    const { error } = await supabase
+      .from('job_line_items')
+      .update({
+        title: updatedItem.title,
+        description: updatedItem.description,
+        quantity: updatedItem.quantity,
+        unit_price: updatedItem.unit_price,
+      })
+      .eq('id', updatedItem.id)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setJobLineItems(items =>
+      items.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item)
+    )
+  }
+
+  // Delete line item
+  async function deleteLineItem(itemId: string) {
+    const { error } = await supabase
+      .from('job_line_items')
+      .delete()
+      .eq('id', itemId)
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setJobLineItems(items => items.filter(item => item.id !== itemId))
+  }
+
+  // Move line item up
+  async function moveLineItemUp(index: number) {
+    if (index === 0) return
+    const newItems = [...jobLineItems]
+    ;[newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]]
+    
+    // Update sort_order for both items
+    await Promise.all([
+      supabase.from('job_line_items').update({ sort_order: index - 1 }).eq('id', newItems[index - 1].id),
+      supabase.from('job_line_items').update({ sort_order: index }).eq('id', newItems[index].id),
+    ])
+
+    setJobLineItems(newItems.map((item, idx) => ({ ...item, sort_order: idx })))
+  }
+
+  // Move line item down
+  async function moveLineItemDown(index: number) {
+    if (index === jobLineItems.length - 1) return
+    const newItems = [...jobLineItems]
+    ;[newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]]
+    
+    // Update sort_order for both items
+    await Promise.all([
+      supabase.from('job_line_items').update({ sort_order: index }).eq('id', newItems[index].id),
+      supabase.from('job_line_items').update({ sort_order: index + 1 }).eq('id', newItems[index + 1].id),
+    ])
+
+    setJobLineItems(newItems.map((item, idx) => ({ ...item, sort_order: idx })))
+  }
+
+  async function openInvoiceModal() {
+    // Load job line items if they exist, otherwise fall back to quote items
+    if (jobLineItems.length > 0) {
+      // Pre-fill invoice with job line items
+      setInvoiceLineItems(
+        jobLineItems.map((item: JobLineItem) => ({
           id: crypto.randomUUID(),
-          description: job?.title || 'Job Completion',
-          quantity: 1,
-          unit_price: job?.estimate_amount || 0,
-        }])
-      }
+          description: item.title || item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        }))
+      )
+    } else if (job?.quote_id && quoteLineItems.length > 0) {
+      // Pre-fill invoice with quote line items
+      setInvoiceLineItems(
+        quoteLineItems.map((item: QuoteLineItem) => ({
+          id: crypto.randomUUID(),
+          description: item.title || item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        }))
+      )
     } else {
       // Create default line item from job estimate
       setInvoiceLineItems([{
@@ -138,20 +275,20 @@ export default function JobDetailPage() {
     setShowInvoiceModal(true)
   }
 
-  function addLineItem() {
+  function addInvoiceLineItem() {
     setInvoiceLineItems([
       ...invoiceLineItems,
       { id: crypto.randomUUID(), description: '', quantity: 1, unit_price: 0 }
     ])
   }
 
-  function updateLineItem(id: string, field: keyof InvoiceLineItem, value: any) {
+  function updateInvoiceLineItem(id: string, field: keyof InvoiceLineItem, value: any) {
     setInvoiceLineItems(items =>
       items.map(item => item.id === id ? { ...item, [field]: value } : item)
     )
   }
 
-  function removeLineItem(id: string) {
+  function removeInvoiceLineItem(id: string) {
     setInvoiceLineItems(items => items.filter(item => item.id !== id))
   }
 
@@ -286,14 +423,11 @@ export default function JobDetailPage() {
                 <input type="time" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.time_scheduled} onChange={e => setForm({ ...form, time_scheduled: e.target.value })} />
               </div>
               <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Location" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" step="0.01" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.estimate_amount} onChange={e => setForm({ ...form, estimate_amount: e.target.value })} placeholder="Estimate" />
-                <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
+              <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <option value="scheduled">Scheduled</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
               <div className="flex gap-2">
                 <button onClick={saveEdit} disabled={saving} className="bg-neutral-900 text-white rounded-xl px-4 py-2 text-sm disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
                 <button onClick={() => setEditing(false)} className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm">Cancel</button>
@@ -310,7 +444,7 @@ export default function JobDetailPage() {
                       {job.status.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
-                  <button onClick={() => nav(`/job/${id}/edit`)} className="text-sm px-4 py-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors">
+                  <button onClick={() => setEditing(true)} className="text-sm px-4 py-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors">
                     Edit Job
                   </button>
                 </div>
@@ -394,10 +528,6 @@ export default function JobDetailPage() {
                       <span className="text-sm font-medium text-neutral-900 text-right max-w-[60%]">{job.location}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-600">Estimate</span>
-                    <span className="text-lg font-bold text-neutral-900">${job.estimate_amount?.toLocaleString() ?? '0'}</span>
-                  </div>
                   {job.completed_at && (
                     <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
                       <span className="text-sm text-neutral-600">Completed</span>
@@ -415,33 +545,81 @@ export default function JobDetailPage() {
                 </div>
               </div>
 
-              {/* Quote Line Items Card */}
-              {quoteLineItems.length > 0 && (
-                <div className="mb-6 p-4 bg-white rounded-xl border border-neutral-200">
-                  <h3 className="text-sm font-semibold text-neutral-700 mb-3">Quote Breakdown</h3>
-                  <div className="space-y-3">
-                    {quoteLineItems.map((item, idx) => (
-                      <div key={item.id} className={`${idx !== 0 ? 'pt-3 border-t border-neutral-100' : ''}`}>
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="text-sm font-medium text-neutral-900">{item.description}</span>
-                          <span className="text-sm font-bold text-neutral-900">
-                            ${((item.quantity || 0) * (item.unit_price || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-neutral-500">
-                            Qty: {item.quantity} × ${item.unit_price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
-                          </span>
-                        </div>
-                      </div>
+              {/* Job Line Items - Editable */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-neutral-700">Line Items</h3>
+                  <button 
+                    onClick={addLineItem}
+                    className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+                
+                {jobLineItems.length > 0 ? (
+                  <>
+                    {jobLineItems.map((item, index) => (
+                      <LineItemCard
+                        key={item.id}
+                        item={item}
+                        mode="edit"
+                        onUpdate={updateLineItem}
+                        onDelete={() => deleteLineItem(item.id)}
+                        onMoveUp={() => moveLineItemUp(index)}
+                        onMoveDown={() => moveLineItemDown(index)}
+                        isFirst={index === 0}
+                        isLast={index === jobLineItems.length - 1}
+                      />
                     ))}
-                    <div className="pt-3 border-t-2 border-neutral-200 flex justify-between items-center">
-                      <span className="text-sm font-semibold text-neutral-700">Total</span>
-                      <span className="text-lg font-bold text-neutral-900">
-                        ${quoteLineItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unit_price || 0)), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
+                    
+                    <DocumentSummary
+                      subtotal={calculateEstimateFromLineItems()}
+                      tax={0}
+                    />
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-neutral-500">
+                    <p className="mb-2">No line items yet</p>
+                    <p className="text-sm">Click "Add Item" to break down this job into detailed line items</p>
                   </div>
+                )}
+              </div>
+
+              {/* Original Quote Reference (if exists) */}
+              {quoteLineItems.length > 0 && (
+                <div className="mb-6">
+                  <button
+                    onClick={() => setShowOriginalQuote(!showOriginalQuote)}
+                    className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors mb-3"
+                  >
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showOriginalQuote ? 'rotate-90' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="font-medium">View Original Quote</span>
+                  </button>
+
+                  {showOriginalQuote && (
+                    <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200">
+                      <h4 className="text-xs font-semibold text-neutral-500 uppercase mb-3">Quote Breakdown (Read-Only)</h4>
+                      {quoteLineItems.map((item, idx) => (
+                        <LineItemCard
+                          key={item.id}
+                          item={item}
+                          mode="view"
+                        />
+                      ))}
+                      <DocumentSummary
+                        subtotal={quoteLineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)}
+                        tax={0}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -521,7 +699,7 @@ export default function JobDetailPage() {
                             <input
                               type="text"
                               value={item.description}
-                              onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                              onChange={(e) => updateInvoiceLineItem(item.id, 'description', e.target.value)}
                               placeholder="Description"
                               className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
                             />
@@ -531,7 +709,7 @@ export default function JobDetailPage() {
                               type="number"
                               step="0.01"
                               value={item.quantity}
-                              onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => updateInvoiceLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
                               placeholder="Qty"
                               className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
                             />
@@ -541,7 +719,7 @@ export default function JobDetailPage() {
                               type="number"
                               step="0.01"
                               value={item.unit_price}
-                              onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => updateInvoiceLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
                               placeholder="Price"
                               className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm"
                             />
@@ -550,7 +728,7 @@ export default function JobDetailPage() {
                             ${(item.quantity * item.unit_price).toFixed(2)}
                           </div>
                           <button
-                            onClick={() => removeLineItem(item.id)}
+                            onClick={() => removeInvoiceLineItem(item.id)}
                             className="px-2 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm"
                             disabled={invoiceLineItems.length === 1}
                           >
@@ -560,7 +738,7 @@ export default function JobDetailPage() {
                       ))}
                     </div>
                     <button
-                      onClick={addLineItem}
+                      onClick={addInvoiceLineItem}
                       className="mt-3 text-sm text-blue-600 hover:text-blue-700"
                     >
                       + Add Line Item
