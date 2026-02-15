@@ -24,9 +24,18 @@ export default function QuoteListPage() {
     ;(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        if (!user) {
+          console.log('No user found')
+          return
+        }
+        console.log('User ID:', user.id)
+        
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
-        if (!company) return
+        if (!company) {
+          console.log('No company found for user')
+          return
+        }
+        console.log('Company ID:', company.id)
         
         // Fetch quotes and requests in parallel
         const [quotesRes, requestsRes] = await Promise.all([
@@ -44,6 +53,7 @@ export default function QuoteListPage() {
             .eq('status', 'pending')
         ])
         
+        console.log('Quotes query result:', quotesRes)
         setQuotes((quotesRes.data as any) || [])
         setNewRequestsCount(requestsRes.data?.length || 0)
       } finally { setLoading(false) }
