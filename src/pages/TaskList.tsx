@@ -3,6 +3,7 @@ import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import { useCompany } from '../context/CompanyContext'
+import { filterToNextOccurrence } from '../utils/recurringTasks'
 
 type Task = {
   id: string
@@ -50,7 +51,11 @@ export default function TaskListPage() {
     })()
   }, [companyId])
 
-  const filteredTasks = tasks.filter((task) => {
+  // First filter by recurring occurrences (show only next instance per series)
+  const tasksWithNextOccurrences = filterToNextOccurrence(tasks)
+  
+  // Then apply status filter
+  const filteredTasks = tasksWithNextOccurrences.filter((task) => {
     if (filter === 'pending') return task.status !== 'completed'
     if (filter === 'completed') return task.status === 'completed'
     return true

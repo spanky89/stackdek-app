@@ -135,3 +135,64 @@ export function shouldGenerateNextInstance(
 
   return true
 }
+
+/**
+ * Filter tasks to show only the next occurrence of recurring tasks
+ * For tasks with the same parent_task_id, only the earliest incomplete instance is shown
+ */
+export function filterToNextOccurrence<T extends { 
+  id: string
+  parent_task_id?: string | null
+  status: string
+  due_date?: string | null
+}>(tasks: T[]): T[] {
+  // Group tasks by their recurring series
+  const seriesMap = new Map<string, T[]>()
+  const standaloneNonRecurring: T[] = []
+
+  tasks.forEach(task => {
+    // Determine the series ID (parent_task_id for instances, own id for parents)
+    const seriesId = task.parent_task_id || task.id
+    
+    // If task is neither a recurring parent nor an instance, treat as standalone
+    const isRecurringSeries = task.parent_task_id || tasks.some(t => t.parent_task_id === task.id)
+    
+    if (!isRecurringSeries) {
+      standaloneNonRecurring.push(task)
+      return
+    }
+
+    if (!seriesMap.has(seriesId)) {
+      seriesMap.set(seriesId, [])
+    }
+    seriesMap.get(seriesId)!.push(task)
+  })
+
+  // For each series, find the next incomplete occurrence
+  const nextOccurrences: T[] = []
+  
+  seriesMap.forEach((seriesTasks) => {
+    // Filter to incomplete tasks
+    const incompleteTasks = seriesTasks.filter(t => t.status !== 'completed')
+    
+    if (incompleteTasks.length === 0) {
+      // If all are completed, show the most recent completed one (optional)
+      // Or show none - for now we'll show none to keep the list clean
+      return
+    }
+
+    // Sort by due_date ascending (earliest first)
+    incompleteTasks.sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0
+      if (!a.due_date) return 1
+      if (!b.due_date) return -1
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    })
+
+    // Take the first (earliest) incomplete task
+    nextOccurrences.push(incompleteTasks[0])
+  })
+
+  // Combine standalone non-recurring tasks with next occurrences
+  return [...standaloneNonRecurring, ...nextOccurrences]
+}

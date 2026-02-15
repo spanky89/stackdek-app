@@ -3,11 +3,12 @@ import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import { useCompany } from '../context/CompanyContext'
+import { filterToNextOccurrence } from '../utils/recurringTasks'
 
 type Job = { id: string; title: string; date_scheduled: string; time_scheduled?: string; status: string; estimate_amount: number; clients: { name: string; avatar_url?: string } | null }
 type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; expires_at?: string; clients: { name: string; avatar_url?: string } | null }
 type Request = { id: string; client_name: string; status: string; created_at: string }
-type Task = { id: string; title: string; status: string; priority: string; due_date?: string; created_at: string }
+type Task = { id: string; title: string; status: string; priority: string; due_date?: string; created_at: string; parent_task_id?: string }
 
 export default function HomePage() {
   const nav = useNavigate()
@@ -77,20 +78,24 @@ export default function HomePage() {
             .eq('status', 'paid')
             .gte('created_at', monthStart)
             .lte('created_at', monthEnd),
-          // Recent tasks (pending/in_progress, limit 5)
+          // Recent tasks (pending/in_progress) - fetch more initially for filtering
           supabase
             .from('tasks')
-            .select('id, title, status, priority, due_date, created_at')
+            .select('id, title, status, priority, due_date, created_at, parent_task_id')
             .eq('company_id', cid)
             .in('status', ['pending', 'in_progress'])
             .order('created_at', { ascending: false })
-            .limit(5),
+            .limit(20),
         ])
 
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
         setNewRequestsCount(requestsRes.data?.length || 0)
-        setRecentTasks((tasksRes.data as any) || [])
+        
+        // Filter to show only next occurrence per recurring series, then limit to 5
+        const allTasks = (tasksRes.data as any) || []
+        const filteredTasks = filterToNextOccurrence(allTasks).slice(0, 5)
+        setRecentTasks(filteredTasks)
 
         const revenue = (invoicesRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
         setMonthlyRevenue(revenue)
