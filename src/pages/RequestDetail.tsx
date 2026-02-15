@@ -26,6 +26,10 @@ export default function RequestDetailPage() {
   const [request, setRequest] = useState<Request | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
+  const [scheduleNotes, setScheduleNotes] = useState('')
 
   useEffect(() => {
     const loadRequest = async () => {
@@ -53,8 +57,15 @@ export default function RequestDetailPage() {
     loadRequest()
   }, [id, companyId, companyLoading])
 
-  const handleScheduleQuote = async () => {
-    if (!request || !companyId) return
+  const handleScheduleQuote = () => {
+    setShowScheduleModal(true)
+  }
+
+  const submitScheduleQuote = async () => {
+    if (!request || !companyId || !scheduleDate || !scheduleTime) {
+      alert('Please fill in all required fields')
+      return
+    }
     
     setProcessing(true)
     try {
@@ -105,7 +116,7 @@ export default function RequestDetailPage() {
         clientId = newClient.id
       }
 
-      // Create quote with pending status
+      // Create quote with scheduled date/time
       const { error: quoteErr } = await supabase
         .from('quotes')
         .insert({
@@ -114,6 +125,9 @@ export default function RequestDetailPage() {
           title: request.service_type || 'Service Request',
           status: 'pending',
           amount: 0,
+          scheduled_date: scheduleDate,
+          scheduled_time: scheduleTime,
+          notes: scheduleNotes || null,
         })
 
       if (quoteErr) {
@@ -128,7 +142,8 @@ export default function RequestDetailPage() {
         .update({ status: 'converted' })
         .eq('id', request.id)
 
-      // Go back to requests list
+      // Close modal and go back
+      setShowScheduleModal(false)
       nav('/requests')
     } catch (err) {
       console.error('Schedule quote failed:', err)
@@ -372,6 +387,92 @@ export default function RequestDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Schedule Quote Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowScheduleModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Schedule Quote Appointment</h2>
+              <button onClick={() => setShowScheduleModal(false)} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
+                <input
+                  type="text"
+                  value={request?.client_name || ''}
+                  disabled
+                  className="w-full px-3 py-2 bg-neutral-100 border border-neutral-300 rounded-lg text-neutral-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Service Type</label>
+                <input
+                  type="text"
+                  value={request?.service_type || ''}
+                  disabled
+                  placeholder="e.g., Kitchen Remodel, Deck Installation"
+                  className="w-full px-3 py-2 bg-neutral-100 border border-neutral-300 rounded-lg text-neutral-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={scheduleDate}
+                    onChange={e => setScheduleDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Time</label>
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={e => setScheduleTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
+                <textarea
+                  value={scheduleNotes}
+                  onChange={e => setScheduleNotes(e.target.value)}
+                  placeholder="Any special instructions or details..."
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 resize-none"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowScheduleModal(false)}
+                  className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg font-medium hover:bg-neutral-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitScheduleQuote}
+                  disabled={processing}
+                  className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
+                >
+                  {processing ? 'Scheduling...' : 'Schedule'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   )
 }
