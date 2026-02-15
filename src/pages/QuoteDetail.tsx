@@ -269,13 +269,36 @@ export default function QuoteDetailPage() {
     if (!confirm('Are you sure you want to delete this quote? This cannot be undone.')) return
 
     setBusy(true)
+    setError(null)
     try {
-      const { error: delErr } = await supabase.from('quotes').delete().eq('id', id)
-      if (delErr) throw delErr
+      // Delete line items first
+      const { error: itemsErr } = await supabase
+        .from('quote_line_items')
+        .delete()
+        .eq('quote_id', id)
+      
+      if (itemsErr) {
+        console.error('Error deleting line items:', itemsErr)
+        throw new Error(`Failed to delete line items: ${itemsErr.message}`)
+      }
+
+      // Then delete the quote
+      const { error: delErr } = await supabase
+        .from('quotes')
+        .delete()
+        .eq('id', id)
+      
+      if (delErr) {
+        console.error('Error deleting quote:', delErr)
+        throw new Error(`Failed to delete quote: ${delErr.message}`)
+      }
+
       nav('/quotes')
     } catch (err: any) {
+      console.error('Delete error:', err)
       setError(err?.message || 'Failed to delete quote')
       setBusy(false)
+      alert(`Delete failed: ${err?.message || 'Unknown error'}`)
     }
   }
 
