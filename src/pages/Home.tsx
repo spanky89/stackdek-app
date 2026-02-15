@@ -7,6 +7,7 @@ import { useCompany } from '../context/CompanyContext'
 type Job = { id: string; title: string; date_scheduled: string; time_scheduled?: string; status: string; estimate_amount: number; clients: { name: string; avatar_url?: string } | null }
 type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; expires_at?: string; clients: { name: string; avatar_url?: string } | null }
 type Request = { id: string; client_name: string; status: string; created_at: string }
+type Task = { id: string; title: string; status: string; priority: string; due_date?: string; created_at: string }
 
 export default function HomePage() {
   const nav = useNavigate()
@@ -18,6 +19,7 @@ export default function HomePage() {
   const [newRequestsCount, setNewRequestsCount] = useState(0)
   const [monthlyRevenue, setMonthlyRevenue] = useState(0)
   const [revenueGoal, setRevenueGoal] = useState(100000)
+  const [recentTasks, setRecentTasks] = useState<Task[]>([])
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return }
@@ -42,7 +44,7 @@ export default function HomePage() {
         }
 
         // Fetch all data in parallel
-        const [jobsRes, quotesRes, requestsRes, invoicesRes] = await Promise.all([
+        const [jobsRes, quotesRes, requestsRes, invoicesRes, tasksRes] = await Promise.all([
           // Upcoming jobs (next 30 days)
           supabase
             .from('jobs')
@@ -75,11 +77,20 @@ export default function HomePage() {
             .eq('status', 'paid')
             .gte('created_at', monthStart)
             .lte('created_at', monthEnd),
+          // Recent tasks (pending/in_progress, limit 5)
+          supabase
+            .from('tasks')
+            .select('id, title, status, priority, due_date, created_at')
+            .eq('company_id', cid)
+            .in('status', ['pending', 'in_progress'])
+            .order('created_at', { ascending: false })
+            .limit(5),
         ])
 
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
         setNewRequestsCount(requestsRes.data?.length || 0)
+        setRecentTasks((tasksRes.data as any) || [])
 
         const revenue = (invoicesRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
         setMonthlyRevenue(revenue)
@@ -222,6 +233,57 @@ export default function HomePage() {
                       Expires: {formatDate(quote.expires_at)}
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Tasks */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-semibold text-neutral-900">Recent Tasks</h2>
+            <button onClick={() => nav('/tasks')} className="text-xs text-blue-600 hover:underline">
+              View all
+            </button>
+          </div>
+          {recentTasks.length === 0 ? (
+            <p className="text-xs text-neutral-600">No active tasks</p>
+          ) : (
+            <div className="space-y-3">
+              {recentTasks.map(task => (
+                <div
+                  key={task.id}
+                  onClick={() => nav(`/task/${task.id}`)}
+                  className="pb-3 border-b border-neutral-100 last:border-b-0 last:pb-0 cursor-pointer hover:bg-neutral-50 -mx-2 px-2 py-2 rounded transition"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-semibold text-neutral-900 truncate">{task.title}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          task.priority === 'high' ? 'bg-red-100 text-red-700' :
+                          task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {task.priority}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-neutral-600">
+                        <span className={`capitalize ${
+                          task.status === 'in_progress' ? 'text-blue-600' : 'text-neutral-600'
+                        }`}>
+                          {task.status.replace('_', ' ')}
+                        </span>
+                        {task.due_date && (
+                          <>
+                            <span>•</span>
+                            <span>Due: {formatDate(task.due_date)}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

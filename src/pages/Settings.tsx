@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
+import CSVImportExport from '../components/CSVImportExport'
 
 interface Company {
   id: string; name: string; phone: string; email: string
@@ -276,6 +277,12 @@ export default function SettingsPage() {
                 </div>
               </div>
               {saveBtn}
+            </div>
+
+            {/* CSV Import/Export Section */}
+            <div className="bg-white rounded-lg shadow-sm p-6 mt-6 space-y-4">
+              <h2 className="text-xl font-bold text-neutral-900">Customer Data Management</h2>
+              <CSVImportExport companyId={company.id} />
             </div>
           </div>
         )}

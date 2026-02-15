@@ -35,6 +35,10 @@ import AccountPage from "./pages/Account";
 import SettingsPage from "./pages/Settings";
 import BillingSettingsPage from "./pages/BillingSettings";
 import RequestDetailPage from "./pages/RequestDetail";
+import TaskListPage from "./pages/TaskList";
+import CreateTaskPage from "./pages/CreateTask";
+import TaskDetailPage from "./pages/TaskDetail";
+import TaskEditPage from "./pages/TaskEdit";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -193,6 +197,38 @@ export default function App() {
           element={
             <ProtectedRoute>
               <RequestDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute>
+              <TaskListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks/create"
+          element={
+            <ProtectedRoute>
+              <CreateTaskPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/task/:id"
+          element={
+            <ProtectedRoute>
+              <TaskDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/task/:id/edit"
+          element={
+            <ProtectedRoute>
+              <TaskEditPage />
             </ProtectedRoute>
           }
         />
