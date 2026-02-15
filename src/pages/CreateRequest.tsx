@@ -14,6 +14,8 @@ export default function CreateRequestPage() {
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [clientAddress, setClientAddress] = useState('')
+  const [clientCity, setClientCity] = useState('')
+  const [clientState, setClientState] = useState('')
   const [serviceType, setServiceType] = useState('')
   const [description, setDescription] = useState('')
   const [requestedDate, setRequestedDate] = useState('')
@@ -109,6 +111,8 @@ export default function CreateRequestPage() {
           client_email: clientEmail || null,
           client_phone: clientPhone || null,
           client_address: clientAddress || null,
+          client_city: clientCity || null,
+          client_state: clientState || null,
           service_type: serviceType,
           description: description || null,
           requested_date: requestedDate || new Date().toISOString().split('T')[0],
@@ -179,14 +183,37 @@ export default function CreateRequestPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Address</label>
+              <label className="block text-sm font-medium mb-2">Street Address</label>
               <input
                 type="text"
                 value={clientAddress}
                 onChange={e => setClientAddress(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                placeholder="123 Main St, City, State 12345"
+                placeholder="123 Main St"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">City</label>
+                <input
+                  type="text"
+                  value={clientCity}
+                  onChange={e => setClientCity(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  placeholder="City"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">State</label>
+                <input
+                  type="text"
+                  value={clientState}
+                  onChange={e => setClientState(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  placeholder="GA"
+                />
+              </div>
             </div>
 
             <div>

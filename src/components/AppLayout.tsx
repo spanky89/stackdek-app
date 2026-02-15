@@ -19,6 +19,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [requestEmail, setRequestEmail] = useState('')
   const [requestPhone, setRequestPhone] = useState('')
   const [requestAddress, setRequestAddress] = useState('')
+  const [requestCity, setRequestCity] = useState('')
+  const [requestState, setRequestState] = useState('')
   const [requestServiceType, setRequestServiceType] = useState('')
   const [requestDescription, setRequestDescription] = useState('')
   const [requestDate, setRequestDate] = useState('')
@@ -82,6 +84,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           client_email: requestEmail,
           client_phone: requestPhone,
           client_address: requestAddress,
+          client_city: requestCity,
+          client_state: requestState,
           service_type: requestServiceType,
           description: requestDescription,
           requested_date: requestDate || new Date().toISOString().split('T')[0],
@@ -97,6 +101,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setRequestEmail('')
       setRequestPhone('')
       setRequestAddress('')
+      setRequestCity('')
+      setRequestState('')
       setRequestServiceType('')
       setRequestDescription('')
       setRequestDate('')
@@ -156,8 +162,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 value={requestAddress}
                 onChange={e => setRequestAddress(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
-                placeholder="Address"
+                placeholder="Street address"
               />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={requestCity}
+                  onChange={e => setRequestCity(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                  placeholder="City"
+                />
+                <input
+                  type="text"
+                  value={requestState}
+                  onChange={e => setRequestState(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                  placeholder="State"
+                />
+              </div>
               <input
                 type="text"
                 value={requestServiceType}

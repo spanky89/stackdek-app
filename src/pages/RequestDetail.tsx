@@ -10,6 +10,8 @@ type Request = {
   client_email?: string
   client_phone?: string
   client_address?: string
+  client_city?: string
+  client_state?: string
   service_type?: string
   description?: string
   requested_date?: string
@@ -56,6 +58,13 @@ export default function RequestDetailPage() {
     
     setProcessing(true)
     try {
+      // Build full address from parts
+      const fullAddress = [
+        request.client_address,
+        request.client_city,
+        request.client_state
+      ].filter(Boolean).join(', ')
+
       // Create quote with scheduled status
       const { error: quoteErr } = await supabase
         .from('quotes')
@@ -64,7 +73,7 @@ export default function RequestDetailPage() {
           client_name: request.client_name,
           client_email: request.client_email || null,
           client_phone: request.client_phone || null,
-          client_address: request.client_address || null,
+          client_address: fullAddress || null,
           service_type: request.service_type || 'General Service',
           description: request.description || '',
           status: 'scheduled',
@@ -118,6 +127,13 @@ export default function RequestDetailPage() {
 
       // Create client if not found
       if (!clientId) {
+        // Build full address from parts
+        const fullAddress = [
+          request.client_address,
+          request.client_city,
+          request.client_state
+        ].filter(Boolean).join(', ')
+
         const { data: newClient, error: clientErr } = await supabase
           .from('clients')
           .insert({
@@ -125,7 +141,7 @@ export default function RequestDetailPage() {
             name: request.client_name,
             email: request.client_email || null,
             phone: request.client_phone || null,
-            address: request.client_address || null,
+            address: fullAddress || null,
           })
           .select('id')
           .single()
@@ -156,11 +172,16 @@ export default function RequestDetailPage() {
   }
 
   const openDirections = () => {
-    if (!request?.client_address) {
+    if (!request?.client_address && !request?.client_city) {
       alert('No address available')
       return
     }
-    const encoded = encodeURIComponent(request.client_address)
+    const fullAddress = [
+      request.client_address,
+      request.client_city,
+      request.client_state
+    ].filter(Boolean).join(', ')
+    const encoded = encodeURIComponent(fullAddress)
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encoded}`, '_blank')
   }
 
@@ -206,9 +227,16 @@ export default function RequestDetailPage() {
         </div>
 
         {/* Address & Directions */}
-        {request.client_address && (
+        {(request.client_address || request.client_city) && (
           <div className="mb-4">
-            <p className="text-lg text-neutral-900 mb-3 whitespace-pre-wrap break-words">{request.client_address}</p>
+            {request.client_address && (
+              <p className="text-lg text-neutral-900">{request.client_address}</p>
+            )}
+            {(request.client_city || request.client_state) && (
+              <p className="text-lg text-neutral-900 mb-3">
+                {[request.client_city, request.client_state].filter(Boolean).join(', ')}
+              </p>
+            )}
             <button
               onClick={openDirections}
               className="w-full py-3 bg-white border border-neutral-300 rounded-lg text-neutral-900 font-medium hover:bg-neutral-50 transition"
@@ -239,14 +267,6 @@ export default function RequestDetailPage() {
         {/* Request Details */}
         <div className="bg-white rounded-lg border border-neutral-200 p-6 space-y-4">
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">Request Details</h2>
-
-          {/* Service Type */}
-          {request.service_type && (
-            <div>
-              <div className="text-xs text-neutral-600 mb-1">Service Type</div>
-              <p className="text-neutral-900">{request.service_type}</p>
-            </div>
-          )}
 
           {/* Description */}
           {request.description && (
