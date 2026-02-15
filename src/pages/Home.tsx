@@ -32,6 +32,7 @@ export default function HomePage() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
         const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        const next2days = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
         // Fetch company details (revenue goal)
         const { data: companyData } = await supabase
@@ -55,13 +56,15 @@ export default function HomePage() {
             .lte('date_scheduled', next30days)
             .order('date_scheduled', { ascending: true })
             .limit(5),
-          // Pending quotes
+          // Pending quotes (next 2 days)
           supabase
             .from('quotes')
             .select('id, title, amount, status, created_at, expires_at, clients(name, avatar_url)')
             .eq('company_id', cid)
             .eq('status', 'pending')
-            .order('created_at', { ascending: false })
+            .gte('expires_at', now.toISOString().split('T')[0])
+            .lte('expires_at', next2days)
+            .order('expires_at', { ascending: true })
             .limit(5),
           // New requests (status = pending)
           supabase
