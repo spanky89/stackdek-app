@@ -113,6 +113,20 @@ export default function QuoteListPage() {
     return `${daysAgo} days ago`
   }
 
+  const handleDelete = async (quoteId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this quote? This cannot be undone.')) return
+
+    try {
+      const { error } = await supabase.from('quotes').delete().eq('id', quoteId)
+      if (error) throw error
+      setRefreshKey(k => k + 1)
+    } catch (err) {
+      console.error('Error deleting quote:', err)
+      alert('Failed to delete quote')
+    }
+  }
+
   if (loading) return <div className="p-6">Loading…</div>
 
   return (
@@ -175,25 +189,34 @@ export default function QuoteListPage() {
           ) : (
             <div className="space-y-3">
               {pendingQuotes.map(q => (
-                <button
-                  key={q.id}
-                  onClick={() => nav(`/quote/${q.id}`)}
-                  className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-neutral-900 mb-1">{q.title}</h3>
-                      <p className="text-sm text-neutral-600">{q.clients?.name || 'Unknown Client'}</p>
+                <div key={q.id} className="relative">
+                  <button
+                    onClick={() => nav(`/quote/${q.id}`)}
+                    className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1 min-w-0 pr-8">
+                        <h3 className="font-semibold text-neutral-900 mb-1">{q.title}</h3>
+                        <p className="text-sm text-neutral-600">{q.clients?.name || 'Unknown Client'}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toLocaleString()}</span>
                     </div>
-                    <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-neutral-600">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <div className="flex items-center gap-1 text-xs text-neutral-600">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Sent {formatDaysAgo(q.created_at)}</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(q.id, e)}
+                    className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-red-600 transition"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    <span>Sent {formatDaysAgo(q.created_at)}</span>
-                  </div>
-                </button>
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -215,35 +238,44 @@ export default function QuoteListPage() {
                 const clientInitial = q.clients?.name?.[0]?.toUpperCase() || '?'
                 
                 return (
-                  <button
-                    key={q.id}
-                    onClick={() => nav(`/quote/${q.id}`)}
-                    className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-neutral-700">
-                        {clientInitial}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                          <div>
-                            <p className="font-semibold text-neutral-900">{q.clients?.name || 'Unknown Client'}</p>
-                            <p className="text-sm text-neutral-600">{q.title}</p>
-                          </div>
-                          <span className="text-sm text-neutral-600 ml-3">{q.scheduled_date ? formatDate(q.scheduled_date) : ''}</span>
+                  <div key={q.id} className="relative">
+                    <button
+                      onClick={() => nav(`/quote/${q.id}`)}
+                      className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-neutral-700">
+                          {clientInitial}
                         </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-1 text-xs text-neutral-600">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>{formatTime(q.scheduled_time)}</span>
+                        <div className="flex-1 min-w-0 pr-8">
+                          <div className="flex justify-between items-start mb-1">
+                            <div>
+                              <p className="font-semibold text-neutral-900">{q.clients?.name || 'Unknown Client'}</p>
+                              <p className="text-sm text-neutral-600">{q.title}</p>
+                            </div>
+                            <span className="text-sm text-neutral-600 ml-3">{q.scheduled_date ? formatDate(q.scheduled_date) : ''}</span>
                           </div>
-                          <span className="text-sm font-semibold text-neutral-900">${q.amount.toLocaleString()}</span>
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-1 text-xs text-neutral-600">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>{formatTime(q.scheduled_time)}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-neutral-900">${q.amount.toLocaleString()}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(q.id, e)}
+                      className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-red-600 transition"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 )
               })}
             </div>
