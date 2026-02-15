@@ -200,14 +200,21 @@ export default function JobStackPage() {
               >
                 {/* Title & Status */}
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
-                  <span
-                    className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
-                      job.status
-                    )}`}
-                  >
-                    {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                  </span>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 ml-3">
+                    <span
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ${getStatusBadgeColor(
+                        job.status
+                      )}`}
+                    >
+                      {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                    </span>
+                    <span className="text-sm font-semibold text-neutral-900">
+                      ${job.estimate_amount.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Address */}
