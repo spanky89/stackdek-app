@@ -18,6 +18,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [requestName, setRequestName] = useState('')
   const [requestEmail, setRequestEmail] = useState('')
   const [requestPhone, setRequestPhone] = useState('')
+  const [requestAddress, setRequestAddress] = useState('')
   const [requestServiceType, setRequestServiceType] = useState('')
   const [requestDescription, setRequestDescription] = useState('')
   const [requestDate, setRequestDate] = useState('')
@@ -59,6 +60,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             name: requestName,
             email: requestEmail || null,
             phone: requestPhone || null,
+            address: requestAddress || null,
           })
           .select('id')
           .single()
@@ -79,6 +81,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           client_name: requestName,
           client_email: requestEmail,
           client_phone: requestPhone,
+          client_address: requestAddress,
           service_type: requestServiceType,
           description: requestDescription,
           requested_date: requestDate || new Date().toISOString().split('T')[0],
@@ -93,6 +96,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setRequestName('')
       setRequestEmail('')
       setRequestPhone('')
+      setRequestAddress('')
       setRequestServiceType('')
       setRequestDescription('')
       setRequestDate('')
@@ -146,6 +150,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 onChange={e => setRequestPhone(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
                 placeholder="Phone"
+              />
+              <input
+                type="text"
+                value={requestAddress}
+                onChange={e => setRequestAddress(e.target.value)}
+                className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20"
+                placeholder="Address"
               />
               <input
                 type="text"
