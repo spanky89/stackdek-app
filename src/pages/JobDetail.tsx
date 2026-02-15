@@ -7,7 +7,7 @@ type Job = {
   id: string; title: string; description: string | null; date_scheduled: string
   location: string | null; estimate_amount: number; status: string
   client_id: string | null; quote_id: string | null; completed_at: string | null
-  clients: { id: string; name: string } | null
+  clients: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null
 }
 
 type QuoteLineItem = {
@@ -43,7 +43,7 @@ export default function JobDetailPage() {
     ;(async () => {
       try {
         const { data, error: fetchErr } = await supabase
-          .from('jobs').select('*, clients(id, name)').eq('id', id).single()
+          .from('jobs').select('*, clients(id, name, email, phone, address)').eq('id', id).single()
         if (fetchErr) { setError(fetchErr.message); return }
         setJob(data as any)
         const ds = data.date_scheduled || ''
@@ -301,71 +301,192 @@ export default function JobDetailPage() {
             </div>
           ) : (
             <>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold">{job.title}</h2>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[job.status] || 'bg-neutral-100 text-neutral-800'}`}>{job.status.replace('_', ' ')}</span>
+              {/* Header with Status Badge */}
+              <div className="mb-6">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">{job.title}</h2>
+                    <span className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${statusColors[job.status] || 'bg-neutral-100 text-neutral-800'}`}>
+                      {job.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditing(true)} className="text-sm px-4 py-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors">
+                      Quick Edit
+                    </button>
+                    <button onClick={() => nav(`/job/${id}/edit`)} className="text-sm px-4 py-2 bg-white border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors">
+                      Full Edit
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setEditing(true)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg">Quick Edit</button>
-                  <button onClick={() => nav(`/job/${id}/edit`)} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Full Edit</button>
-                </div>
+                {job.description && (
+                  <p className="text-sm text-neutral-600 leading-relaxed">{job.description}</p>
+                )}
               </div>
-              {job.description && <p className="text-sm text-neutral-700 mb-4">{job.description}</p>}
-              
-              {/* Quote Line Items */}
-              {quoteLineItems.length > 0 && (
-                <div className="mb-4 p-3 bg-neutral-50 rounded-lg">
-                  <h3 className="text-sm font-semibold text-neutral-700 mb-2">Quote Line Items</h3>
-                  <div className="space-y-2">
-                    {quoteLineItems.map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm">
-                        <span className="text-neutral-700">{item.description}</span>
-                        <span className="text-neutral-900 font-medium">
-                          {item.quantity} × ${item.unit_price?.toFixed(2) ?? '0'} = ${((item.quantity || 0) * (item.unit_price || 0)).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+
+              {/* Client Contact Card */}
+              {job.clients && (
+                <div className="mb-6 p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+                  <h3 className="text-sm font-semibold text-neutral-700 mb-3">Client</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-neutral-900 mb-1">{job.clients.name}</p>
+                      {job.clients.phone && <p className="text-sm text-neutral-600">{job.clients.phone}</p>}
+                      {job.clients.email && <p className="text-sm text-neutral-600">{job.clients.email}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      {job.clients.phone && (
+                        <>
+                          <a 
+                            href={`tel:${job.clients.phone}`}
+                            className="flex items-center justify-center w-10 h-10 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors"
+                            title="Call"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                          </a>
+                          <a 
+                            href={`sms:${job.clients.phone}`}
+                            className="flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+                            title="Message"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                          </a>
+                        </>
+                      )}
+                      {job.location && (
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-10 h-10 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                          title="Navigate"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-1 text-sm text-neutral-600">
-                <p>Date: {new Date(job.date_scheduled).toLocaleString()}</p>
-                <p>Location: {job.location || '—'}</p>
-                <p>Estimate: ${job.estimate_amount}</p>
-                {job.clients && <p>Client: <span className="text-blue-600 cursor-pointer" onClick={() => nav(`/client/${job.clients!.id}`)}>{job.clients.name}</span></p>}
-                {job.completed_at && <p>Completed: {new Date(job.completed_at).toLocaleString()}</p>}
+              {/* Job Details Card */}
+              <div className="mb-6 p-4 bg-white rounded-xl border border-neutral-200">
+                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Job Details</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-neutral-600">Scheduled</span>
+                    <span className="text-sm font-medium text-neutral-900">
+                      {new Date(job.date_scheduled).toLocaleString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  {job.location && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-neutral-600">Location</span>
+                      <span className="text-sm font-medium text-neutral-900 text-right max-w-[60%]">{job.location}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-neutral-600">Estimate</span>
+                    <span className="text-lg font-bold text-neutral-900">${job.estimate_amount?.toLocaleString() ?? '0'}</span>
+                  </div>
+                  {job.completed_at && (
+                    <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
+                      <span className="text-sm text-neutral-600">Completed</span>
+                      <span className="text-sm font-medium text-green-600">
+                        {new Date(job.completed_at).toLocaleString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              <div className="mt-6 border-t border-neutral-200 pt-6">
-                <label className="text-sm font-medium text-neutral-600 block mb-2">Job Completion</label>
+
+              {/* Quote Line Items Card */}
+              {quoteLineItems.length > 0 && (
+                <div className="mb-6 p-4 bg-white rounded-xl border border-neutral-200">
+                  <h3 className="text-sm font-semibold text-neutral-700 mb-3">Quote Breakdown</h3>
+                  <div className="space-y-3">
+                    {quoteLineItems.map((item, idx) => (
+                      <div key={item.id} className={`${idx !== 0 ? 'pt-3 border-t border-neutral-100' : ''}`}>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-sm font-medium text-neutral-900">{item.description}</span>
+                          <span className="text-sm font-bold text-neutral-900">
+                            ${((item.quantity || 0) * (item.unit_price || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-neutral-500">
+                            Qty: {item.quantity} × ${item.unit_price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-3 border-t-2 border-neutral-200 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-neutral-700">Total</span>
+                      <span className="text-lg font-bold text-neutral-900">
+                        ${quoteLineItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unit_price || 0)), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Status Management Card */}
+              <div className="mb-6 p-4 bg-white rounded-xl border border-neutral-200">
+                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Status</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {['scheduled', 'in_progress', 'completed'].map(s => (
+                    <button 
+                      key={s} 
+                      onClick={() => changeStatus(s)}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        job.status === s 
+                          ? 'bg-neutral-900 text-white' 
+                          : 'bg-neutral-50 text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                      }`}
+                    >
+                      {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Completion Actions Card */}
+              <div className="p-4 bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border border-neutral-200">
+                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Complete Job</h3>
                 <div className="flex gap-2 flex-wrap">
                   <button 
                     onClick={() => changeStatus('completed')}
                     disabled={job.status === 'completed'}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex-1 min-w-[140px] px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-green-600"
                   >
                     Mark Complete
                   </button>
                   <button 
                     onClick={openInvoiceModal}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                    className="flex-1 min-w-[140px] px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
                   >
-                    Mark Complete & Generate Invoice
+                    Complete & Invoice
                   </button>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="text-sm font-medium text-neutral-600 block mb-2">Change Status</label>
-                <div className="flex gap-2">
-                  {['scheduled', 'in_progress', 'completed'].map(s => (
-                    <button key={s} onClick={() => changeStatus(s)}
-                      className={`px-3 py-1.5 rounded-lg text-sm ${job.status === s ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200'}`}>
-                      {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
-                    </button>
-                  ))}
                 </div>
               </div>
             </>
