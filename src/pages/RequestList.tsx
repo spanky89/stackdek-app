@@ -101,12 +101,8 @@ export default function RequestListPage() {
     <AppLayout>
       <>
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <button className="text-2xl text-neutral-700">☰</button>
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-neutral-900">Requests</h1>
-          <div className="flex-1" />
-          <button className="text-neutral-500">➕</button>
-          <button className="text-neutral-500">🔍</button>
         </div>
 
         {/* Stats Bar */}
