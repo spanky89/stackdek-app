@@ -202,7 +202,7 @@ export default function JobStackPage() {
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
                   <span className="text-base font-semibold text-neutral-900 ml-3 whitespace-nowrap">
-                    ${job.estimate_amount.toLocaleString()}
+                    ${job.estimate_amount?.toLocaleString() ?? '0'}
                   </span>
                 </div>
 

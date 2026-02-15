@@ -240,7 +240,7 @@ export default function HomePage() {
                       <p className="text-sm font-semibold text-neutral-900 truncate">{job.clients?.name || 'Client'}</p>
                       <p className="text-xs text-neutral-600">{job.title}</p>
                     </div>
-                    <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${job.estimate_amount.toLocaleString()}</p>
+                    <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${job.estimate_amount?.toLocaleString() ?? '0'}</p>
                   </div>
                 </div>
               ))}
@@ -267,7 +267,7 @@ export default function HomePage() {
                       <p className="text-sm font-semibold text-neutral-900 truncate">{quote.clients?.name || 'Client'}</p>
                       <p className="text-xs text-neutral-600">{quote.title}</p>
                     </div>
-                    <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${quote.amount.toLocaleString()}</p>
+                    <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${quote.amount?.toLocaleString() ?? '0'}</p>
                   </div>
                 </div>
               ))}

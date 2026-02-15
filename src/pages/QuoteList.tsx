@@ -185,7 +185,7 @@ export default function QuoteListPage() {
                       <h3 className="font-semibold text-neutral-900 mb-1">{q.title}</h3>
                       <p className="text-sm text-neutral-600">{q.clients?.name || 'Unknown Client'}</p>
                     </div>
-                    <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount?.toLocaleString() ?? '0'}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-neutral-600">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +239,7 @@ export default function QuoteListPage() {
                             </svg>
                             <span>{formatTime(q.scheduled_time)}</span>
                           </div>
-                          <span className="text-sm font-semibold text-neutral-900">${q.amount.toLocaleString()}</span>
+                          <span className="text-sm font-semibold text-neutral-900">${q.amount?.toLocaleString() ?? '0'}</span>
                         </div>
                       </div>
                     </div>
