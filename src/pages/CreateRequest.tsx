@@ -13,6 +13,7 @@ export default function CreateRequestPage() {
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
+  const [clientAddress, setClientAddress] = useState('')
   const [serviceType, setServiceType] = useState('')
   const [description, setDescription] = useState('')
   const [requestedDate, setRequestedDate] = useState('')
@@ -107,6 +108,7 @@ export default function CreateRequestPage() {
           client_name: clientName,
           client_email: clientEmail || null,
           client_phone: clientPhone || null,
+          client_address: clientAddress || null,
           service_type: serviceType,
           description: description || null,
           requested_date: requestedDate || new Date().toISOString().split('T')[0],
@@ -173,6 +175,17 @@ export default function CreateRequestPage() {
                 onChange={e => setClientPhone(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 placeholder="(555) 123-4567"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Address</label>
+              <input
+                type="text"
+                value={clientAddress}
+                onChange={e => setClientAddress(e.target.value)}
+                className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                placeholder="123 Main St, City, State 12345"
               />
             </div>
 
