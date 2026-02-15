@@ -208,7 +208,7 @@ export default function RequestDetailPage() {
         {/* Address & Directions */}
         {request.client_address && (
           <div className="mb-4">
-            <p className="text-lg text-neutral-900 mb-3">{request.client_address}</p>
+            <p className="text-lg text-neutral-900 mb-3 whitespace-pre-wrap break-words">{request.client_address}</p>
             <button
               onClick={openDirections}
               className="w-full py-3 bg-white border border-neutral-300 rounded-lg text-neutral-900 font-medium hover:bg-neutral-50 transition"
