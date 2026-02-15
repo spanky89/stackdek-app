@@ -22,10 +22,18 @@ type Job = {
 }
 
 type LineItem = { 
+  id: string
   title?: string
   description: string
   quantity: number
   unit_price: number
+}
+
+type SavedService = { 
+  id: string
+  name: string
+  price: number
+  description?: string 
 }
 
 export default function CreateInvoicePage() {
@@ -40,7 +48,10 @@ export default function CreateInvoicePage() {
   const [selectedJobId, setSelectedJobId] = useState(jobId || '')
   const [clientName, setClientName] = useState('')
   const [clientId, setClientId] = useState<string | null>(null)
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ title: '', description: '', quantity: 1, unit_price: 0 }])
+  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [savedServices, setSavedServices] = useState<SavedService[]>([])
+  const [savedProducts, setSavedProducts] = useState<SavedService[]>([])
+  const [showServiceSelector, setShowServiceSelector] = useState(false)
   const [taxAmount, setTaxAmount] = useState('0')
   const [depositPaidAmount, setDepositPaidAmount] = useState(0)
   const [companyId, setCompanyId] = useState<string | null>(null)
@@ -64,6 +75,20 @@ export default function CreateInvoicePage() {
           .eq('company_id', company.id)
           .order('name')
         setClients((clientData as Client[]) || [])
+
+        // Fetch services and products
+        const { data: services } = await supabase
+          .from('services')
+          .select('id, name, price, description')
+          .eq('company_id', company.id)
+          .order('name')
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, name, price, description')
+          .eq('company_id', company.id)
+          .order('name')
+        setSavedServices(services || [])
+        setSavedProducts(products || [])
 
         const { data: jobs } = await supabase
           .from('jobs')
@@ -105,6 +130,7 @@ export default function CreateInvoicePage() {
     if (jobLineItems && jobLineItems.length > 0) {
       // Pre-fill from job line items
       setLineItems(jobLineItems.map((item: any) => ({
+        id: Date.now().toString() + Math.random(),
         title: item.title || '',
         description: item.description,
         quantity: item.quantity,
@@ -113,6 +139,7 @@ export default function CreateInvoicePage() {
     } else {
       // Fallback to estimate amount (legacy jobs without line items)
       setLineItems([{ 
+        id: Date.now().toString(),
         title: job.title,
         description: job.description || '', 
         quantity: 1, 
@@ -132,6 +159,22 @@ export default function CreateInvoicePage() {
         setDepositPaidAmount(quote.deposit_amount)
       }
     }
+  }
+
+  function addServiceFromLibrary(service: SavedService) {
+    const newItem: LineItem = {
+      id: Date.now().toString(),
+      title: service.name,
+      description: service.description || '',
+      quantity: 1,
+      unit_price: service.price,
+    }
+    setLineItems([...lineItems, newItem])
+    setShowServiceSelector(false)
+  }
+
+  function removeLineItem(id: string) {
+    setLineItems(lineItems.filter(item => item.id !== id))
   }
 
   async function handleClientSelect(cid: string) {
@@ -159,18 +202,8 @@ export default function CreateInvoicePage() {
     if (job) await populateFromJob(job)
   }
 
-  function updateLine(idx: number, field: keyof LineItem, value: string | number) {
-    const updated = [...lineItems]
-    updated[idx] = { ...updated[idx], [field]: value }
-    setLineItems(updated)
-  }
-
-  function addLine() { 
-    setLineItems([...lineItems, { title: '', description: '', quantity: 1, unit_price: 0 }]) 
-  }
-  
-  function removeLine(idx: number) { 
-    if (lineItems.length > 1) setLineItems(lineItems.filter((_, i) => i !== idx)) 
+  function updateLine(id: string, field: keyof LineItem, value: string | number) {
+    setLineItems(lineItems.map(item => item.id === id ? { ...item, [field]: value } : item))
   }
 
   const subtotal = lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)
@@ -201,10 +234,10 @@ export default function CreateInvoicePage() {
       if (invErr) { setError(invErr.message); return }
 
       // Insert line items
-      const items = lineItems.filter(li => li.description.trim()).map((li, idx) => ({
+      const items = lineItems.map((li, idx) => ({
         invoice_id: invoice.id,
         title: li.title || null,
-        description: li.description.trim(),
+        description: li.description || '',
         quantity: li.quantity,
         unit_price: li.unit_price,
         sort_order: idx,
@@ -307,62 +340,117 @@ export default function CreateInvoicePage() {
 
           <div>
             <label className="block text-sm mb-2 font-medium">Line Items</label>
-            <div className="space-y-3">
-              {lineItems.map((li, idx) => (
-                <div key={idx} className="space-y-2 p-3 bg-gray-50 rounded-lg">
+            <div className="space-y-3 mb-4">
+              {lineItems.map((li) => (
+                <div key={li.id} className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{li.title}</p>
+                      {li.description && <p className="text-xs text-neutral-600">{li.description}</p>}
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => removeLineItem(li.id)} 
+                      className="text-neutral-400 hover:text-red-600 text-lg leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
                   <input 
                     className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
                     value={li.title || ''} 
-                    onChange={e => updateLine(idx, 'title', e.target.value)} 
-                    placeholder="Item Title (optional)"
+                    onChange={e => updateLine(li.id, 'title', e.target.value)} 
+                    placeholder="Item Title"
                   />
                   <textarea 
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm resize-none" 
                     value={li.description} 
-                    onChange={e => updateLine(idx, 'description', e.target.value)} 
+                    onChange={e => updateLine(li.id, 'description', e.target.value)} 
                     placeholder="Description"
                     rows={2}
                   />
                   <div className="flex gap-2 items-center">
-                    <input 
-                      type="number" 
-                      min="1" 
-                      className="w-20 rounded-lg border border-neutral-200 px-2 py-2 text-sm text-center" 
-                      value={li.quantity} 
-                      onChange={e => updateLine(idx, 'quantity', parseInt(e.target.value) || 1)} 
-                      placeholder="Qty"
-                    />
-                    <span className="text-sm text-gray-500">×</span>
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      min="0" 
-                      className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
-                      value={li.unit_price} 
-                      onChange={e => updateLine(idx, 'unit_price', parseFloat(e.target.value) || 0)} 
-                      placeholder="Unit Price"
-                    />
-                    <span className="text-sm text-gray-500">=</span>
-                    <span className="font-medium text-sm w-24 text-right">
-                      ${(li.quantity * li.unit_price).toFixed(2)}
-                    </span>
-                    {lineItems.length > 1 && (
-                      <button 
-                        type="button" 
-                        onClick={() => removeLine(idx)} 
-                        className="text-red-500 text-sm px-2 py-2 hover:bg-red-50 rounded"
-                      >
-                        ✕
-                      </button>
-                    )}
+                    <div className="w-20">
+                      <label className="block text-xs text-neutral-600 mb-1">Qty</label>
+                      <input 
+                        type="number" 
+                        min="1" 
+                        className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm text-center" 
+                        value={li.quantity} 
+                        onChange={e => updateLine(li.id, 'quantity', parseInt(e.target.value) || 1)} 
+                      />
+                    </div>
+                    <span className="text-sm text-gray-500 mt-5">×</span>
+                    <div className="flex-1">
+                      <label className="block text-xs text-neutral-600 mb-1">Price</label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
+                        value={li.unit_price} 
+                        onChange={e => updateLine(li.id, 'unit_price', parseFloat(e.target.value) || 0)} 
+                      />
+                    </div>
+                    <span className="text-sm text-gray-500 mt-5">=</span>
+                    <div className="w-24">
+                      <label className="block text-xs text-neutral-600 mb-1">Total</label>
+                      <div className="font-medium text-sm text-right py-2">
+                        ${(li.quantity * li.unit_price).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={addLine} className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-              + Add line item
+            <button 
+              type="button" 
+              onClick={() => setShowServiceSelector(true)} 
+              className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium"
+            >
+              + Add Service/Product
             </button>
           </div>
+
+          {/* Service Selector Modal */}
+          {showServiceSelector && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowServiceSelector(false)}>
+              <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-96 flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+                  <h3 className="font-semibold">Select Service or Product</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowServiceSelector(false)}
+                    className="text-neutral-400 hover:text-neutral-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {[...savedServices, ...savedProducts].length === 0 ? (
+                    <div className="p-4 text-center text-sm text-neutral-600">
+                      No services or products yet. Add some in Settings.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-neutral-200">
+                      {[...savedServices, ...savedProducts].map(service => (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => addServiceFromLibrary(service)}
+                          className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-neutral-900">{service.name}</p>
+                          <p className="text-xs text-neutral-600">${service.price.toFixed(2)}</p>
+                          {service.description && <p className="text-xs text-neutral-500 mt-1">{service.description}</p>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-1">Tax Amount ($)</label>
@@ -389,7 +477,7 @@ export default function CreateInvoicePage() {
 
           <button 
             className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60 font-medium" 
-            disabled={busy || !clientId || lineItems.every(li => !li.description.trim())} 
+            disabled={busy || !clientId || lineItems.length === 0} 
             type="submit"
           >
             {busy ? 'Creating…' : 'Create Invoice (Draft)'}
