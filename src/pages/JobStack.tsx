@@ -198,27 +198,25 @@ export default function JobStackPage() {
                 onClick={() => nav(`/job/${job.id}`)}
                 className="bg-white rounded-xl border border-neutral-200 p-5 cursor-pointer hover:border-neutral-300 transition"
               >
-                {/* Title & Status */}
+                {/* Title & Price */}
                 <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 ml-3">
-                    <span
-                      className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ${getStatusBadgeColor(
-                        job.status
-                      )}`}
-                    >
-                      {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                    </span>
-                    <span className="text-sm font-semibold text-neutral-900">
-                      ${job.estimate_amount.toLocaleString()}
-                    </span>
-                  </div>
+                  <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
+                  <span className="text-base font-semibold text-neutral-900 ml-3 whitespace-nowrap">
+                    ${job.estimate_amount.toLocaleString()}
+                  </span>
                 </div>
 
-                {/* Address */}
-                <p className="text-sm text-neutral-500 mb-4">{job.location}</p>
+                {/* Address & Status */}
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-neutral-500">{job.location}</p>
+                  <span
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
+                      job.status
+                    )}`}
+                  >
+                    {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                  </span>
+                </div>
 
                 {/* Date & Time */}
                 <div className="flex items-center justify-between text-sm text-neutral-600 mb-5">
