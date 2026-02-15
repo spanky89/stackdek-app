@@ -36,7 +36,10 @@ export default function RequestListPage() {
           .eq('company_id', companyId)
           .order('created_at', { ascending: false })
 
-        if (filter !== 'all') {
+        if (filter === 'all') {
+          // Exclude converted requests from default view
+          query = query.neq('status', 'converted')
+        } else {
           query = query.eq('status', filter)
         }
 

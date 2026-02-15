@@ -30,6 +30,7 @@ export default function RequestDetailPage() {
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
   const [scheduleNotes, setScheduleNotes] = useState('')
+  const [scheduleService, setScheduleService] = useState('')
 
   useEffect(() => {
     const loadRequest = async () => {
@@ -58,6 +59,7 @@ export default function RequestDetailPage() {
   }, [id, companyId, companyLoading])
 
   const handleScheduleQuote = () => {
+    setScheduleService(request?.service_type || '')
     setShowScheduleModal(true)
   }
 
@@ -122,7 +124,7 @@ export default function RequestDetailPage() {
         .insert({
           company_id: companyId,
           client_id: clientId,
-          title: request.service_type || 'Service Request',
+          title: scheduleService || 'Service Request',
           status: 'pending',
           amount: 0,
           scheduled_date: scheduleDate,
@@ -412,10 +414,10 @@ export default function RequestDetailPage() {
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Service Type</label>
                 <input
                   type="text"
-                  value={request?.service_type || ''}
-                  disabled
+                  value={scheduleService}
+                  onChange={e => setScheduleService(e.target.value)}
                   placeholder="e.g., Kitchen Remodel, Deck Installation"
-                  className="w-full px-3 py-2 bg-neutral-100 border border-neutral-300 rounded-lg text-neutral-700"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
               </div>
 
