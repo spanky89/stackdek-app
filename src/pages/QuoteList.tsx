@@ -236,6 +236,7 @@ export default function QuoteListPage() {
             onClose={() => setShowSchedule(false)} 
             onSuccess={() => { 
               setShowSchedule(false)
+              setLoading(true)
               setRefreshKey(k => k + 1)
             }} 
           />
@@ -270,7 +271,6 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    console.log('Form submitted with data:', formData)
     
     if (!formData.client_id || !formData.title || !formData.scheduled_date || !formData.scheduled_time) {
       alert('Please fill in all required fields')
@@ -284,23 +284,18 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
       if (!company) throw new Error('No company found')
 
-      const newQuote = {
+      const { error } = await supabase.from('quotes').insert({
         company_id: company.id,
         client_id: formData.client_id,
         title: formData.title,
-        amount: 0, // Placeholder, will be updated after appointment
+        amount: 0,
         status: 'draft',
         scheduled_date: formData.scheduled_date,
         scheduled_time: formData.scheduled_time,
         expiration_date: null
-      }
-      
-      console.log('Inserting quote:', newQuote)
-      const { data, error } = await supabase.from('quotes').insert(newQuote).select()
+      })
 
       if (error) throw error
-      console.log('Quote created successfully:', data)
-      alert('Quote appointment scheduled!')
       onSuccess()
     } catch (err) {
       console.error('Error scheduling quote:', err)
