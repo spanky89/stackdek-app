@@ -2,30 +2,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import CreateQuoteForm from '../components/CreateQuoteForm'
-import ListToolbar from '../components/ListToolbar'
-import { useListFilter } from '../hooks/useListFilter'
 import AppLayout from '../components/AppLayout'
 
 type Quote = {
   id: string; title: string; status: string; amount: number
-  expiration_date: string | null; created_at?: string; clients: { name: string; id: string } | null
+  expiration_date: string | null; created_at?: string
+  scheduled_date?: string | null; scheduled_time?: string | null
+  clients: { name: string; id: string; avatar_url?: string } | null
 }
-
-const FILTERS = [
-  { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Accepted', value: 'accepted' },
-  { label: 'Declined', value: 'declined' },
-  { label: 'Expired', value: 'expired' },
-]
-
-const SORT_OPTIONS = [
-  { label: 'Newest', fn: (a: Quote, b: Quote) => (b.created_at ?? '').localeCompare(a.created_at ?? '') },
-  { label: 'Oldest', fn: (a: Quote, b: Quote) => (a.created_at ?? '').localeCompare(b.created_at ?? '') },
-  { label: 'Title A-Z', fn: (a: Quote, b: Quote) => a.title.localeCompare(b.title) },
-  { label: 'Amount ↑', fn: (a: Quote, b: Quote) => a.amount - b.amount },
-  { label: 'Amount ↓', fn: (a: Quote, b: Quote) => b.amount - a.amount },
-]
 
 export default function QuoteListPage() {
   const nav = useNavigate()
@@ -34,12 +18,6 @@ export default function QuoteListPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const list = useListFilter(quotes, {
-    searchKeys: ['title', (q) => q.clients?.name ?? ''],
-    filterKey: 'status',
-    sortOptions: SORT_OPTIONS,
-  })
-
   useEffect(() => {
     ;(async () => {
       try {
@@ -47,76 +25,143 @@ export default function QuoteListPage() {
         if (!user) return
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
         if (!company) return
-        // Exclude accepted and approved quotes from main list (they move to jobs)
-        const { data } = await supabase.from('quotes').select('id, title, status, amount, expiration_date, created_at, clients(id, name)').eq('company_id', company.id).neq('status', 'accepted').neq('status', 'approved').order('created_at', { ascending: false })
+        // Fetch all quotes (exclude accepted/approved as they move to jobs)
+        const { data } = await supabase
+          .from('quotes')
+          .select('id, title, status, amount, expiration_date, created_at, scheduled_date, scheduled_time, clients(id, name, avatar_url)')
+          .eq('company_id', company.id)
+          .neq('status', 'accepted')
+          .neq('status', 'approved')
+          .order('created_at', { ascending: false })
         setQuotes((data as any) || [])
       } finally { setLoading(false) }
     })()
   }, [refreshKey])
 
+  // Split quotes into scheduled (has scheduled_date) and pending (status = pending)
+  const scheduledQuotes = quotes.filter(q => q.scheduled_date).sort((a, b) => {
+    const dateA = a.scheduled_date || ''
+    const dateB = b.scheduled_date || ''
+    return dateA.localeCompare(dateB)
+  })
+  
+  const pendingQuotes = quotes.filter(q => q.status === 'pending' && !q.scheduled_date)
+
+  const formatTime = (timeStr?: string | null) => {
+    if (!timeStr) return ''
+    const [hours, minutes] = timeStr.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minutes} ${ampm}`
+  }
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const formatDaysAgo = (dateStr?: string) => {
+    if (!dateStr) return 'Recently'
+    const createdDate = new Date(dateStr)
+    const daysAgo = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+    if (daysAgo === 0) return 'Today'
+    if (daysAgo === 1) return 'Yesterday'
+    return `${daysAgo} days ago`
+  }
+
   if (loading) return <div className="p-6">Loading…</div>
 
   return (
     <AppLayout>
-      <>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Quotes</h1>
-          <div className="flex gap-2">
-            <button onClick={() => setShowCreate(true)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg font-medium">+ New Quote</button>
+      <div className="space-y-6">
+        {/* Pending Quotes Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-neutral-900">Pending Quotes</h2>
           </div>
-        </div>
-
-        <ListToolbar
-          search={list.search} onSearch={list.setSearch}
-          placeholder="Search quotes…"
-          filters={FILTERS} activeFilter={list.filter} onFilter={list.setFilter}
-          count={list.count} total={list.total}
-          sortOptions={SORT_OPTIONS.map(s => ({ label: s.label }))}
-          sortIdx={list.sortIdx} onSort={list.setSortIdx}
-        />
-
-        {list.filtered.length === 0 ? (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6 text-center text-neutral-600">
-            {quotes.length === 0 ? 'No quotes yet.' : 'No matching quotes.'}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {list.filtered.map(q => {
-              const createdDate = q.created_at ? new Date(q.created_at) : null
-              const daysAgo = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
-              const timeLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`
-              const clientInitial = q.clients?.name?.[0]?.toUpperCase() || '?'
-              
-              return (
+          
+          {pendingQuotes.length === 0 ? (
+            <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center text-sm text-neutral-600">
+              No pending quotes
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendingQuotes.map(q => (
                 <button
                   key={q.id}
                   onClick={() => nav(`/quote/${q.id}`)}
                   className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
                 >
-                  {/* Top row: Title + Amount */}
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-neutral-900 flex-1">{q.title}</h3>
-                    <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toFixed(2)}</span>
-                  </div>
-                  
-                  {/* Middle row: Client avatar + name + info */}
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-neutral-700">
-                      {clientInitial}
-                    </div>
+                  <div className="flex justify-between items-start mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-900">{q.clients?.name || 'Unknown'}</p>
-                      <div className="flex items-center gap-1 text-xs text-neutral-600 mt-1">
-                        <span>🕐</span>
-                        <span>Sent {timeLabel}</span>
-                      </div>
+                      <h3 className="font-semibold text-neutral-900 mb-1">{q.title}</h3>
+                      <p className="text-sm text-neutral-600">{q.clients?.name || 'Unknown Client'}</p>
                     </div>
+                    <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-neutral-600">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Sent {formatDaysAgo(q.created_at)}</span>
                   </div>
                 </button>
-              )
-            })}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Scheduled Quotes Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-neutral-900">Scheduled Quotes</h2>
           </div>
-        )}
+          
+          {scheduledQuotes.length === 0 ? (
+            <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center text-sm text-neutral-600">
+              No scheduled quotes
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {scheduledQuotes.map(q => {
+                const clientInitial = q.clients?.name?.[0]?.toUpperCase() || '?'
+                
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => nav(`/quote/${q.id}`)}
+                    className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-neutral-300 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-neutral-700">
+                        {clientInitial}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                          <div>
+                            <p className="font-semibold text-neutral-900">{q.clients?.name || 'Unknown Client'}</p>
+                            <p className="text-sm text-neutral-600">{q.title}</p>
+                          </div>
+                          <span className="text-sm text-neutral-600 ml-3">{q.scheduled_date ? formatDate(q.scheduled_date) : ''}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-1 text-xs text-neutral-600">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{formatTime(q.scheduled_time)}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-neutral-900">${q.amount.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {showCreate && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
@@ -129,7 +174,7 @@ export default function QuoteListPage() {
             </div>
           </div>
         )}
-      </>
+      </div>
     </AppLayout>
   )
 }
