@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import CreateQuoteForm from '../components/CreateQuoteForm'
@@ -268,7 +268,7 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
     })()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!formData.client_id || !formData.title || !formData.scheduled_date || !formData.scheduled_time) return
 
