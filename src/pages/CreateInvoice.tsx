@@ -4,6 +4,13 @@ import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
 import { DocumentSummary } from '../components/DocumentSummary'
 
+type Client = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+}
+
 type Job = { 
   id: string
   title: string
@@ -27,6 +34,8 @@ export default function CreateInvoicePage() {
   const jobId = searchParams.get('job_id')
   const urlClientId = searchParams.get('clientId')
 
+  const [clients, setClients] = useState<Client[]>([])
+  const [clientSearch, setClientSearch] = useState('')
   const [completedJobs, setCompletedJobs] = useState<Job[]>([])
   const [selectedJobId, setSelectedJobId] = useState(jobId || '')
   const [clientName, setClientName] = useState('')
@@ -47,6 +56,15 @@ export default function CreateInvoicePage() {
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
         if (!company) return
         setCompanyId(company.id)
+
+        // Fetch all clients
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('id, name, email, phone')
+          .eq('company_id', company.id)
+          .order('name')
+        setClients((clientData as Client[]) || [])
+
         const { data: jobs } = await supabase
           .from('jobs')
           .select('id, title, estimate_amount, description, client_id, quote_id, clients(id, name)')
@@ -62,9 +80,11 @@ export default function CreateInvoicePage() {
         // Pre-populate if clientId provided (from URL query)
         else if (urlClientId) {
           setClientId(urlClientId)
-          // Optionally fetch client name
-          const { data: client } = await supabase.from('clients').select('name').eq('id', urlClientId).single()
-          if (client) setClientName(client.name)
+          const client = clientData?.find((c: Client) => c.id === urlClientId)
+          if (client) {
+            setClientName(client.name)
+            setClientSearch(client.name)
+          }
         }
       } finally { setLoading(false) }
     })()
@@ -112,6 +132,25 @@ export default function CreateInvoicePage() {
         setDepositPaidAmount(quote.deposit_amount)
       }
     }
+  }
+
+  async function handleClientSelect(cid: string) {
+    const client = clients.find(c => c.id === cid)
+    if (!client) return
+    setClientId(cid)
+    setClientName(client.name)
+    setClientSearch(client.name)
+    
+    // Fetch completed jobs for this client
+    if (!companyId) return
+    const { data: jobs } = await supabase
+      .from('jobs')
+      .select('id, title, estimate_amount, description, client_id, quote_id, clients(id, name)')
+      .eq('company_id', companyId)
+      .eq('client_id', cid)
+      .eq('status', 'completed')
+    setCompletedJobs((jobs as any) || [])
+    setSelectedJobId('') // Reset job selection
   }
 
   async function handleJobSelect(jid: string) {
@@ -193,14 +232,67 @@ export default function CreateInvoicePage() {
 
         <form onSubmit={onSubmit} className="bg-white rounded-lg border border-neutral-200 p-6 space-y-4">
           <div>
-            <label className="block text-sm mb-1 font-medium">From Completed Job</label>
-            <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={selectedJobId} onChange={e => handleJobSelect(e.target.value)}>
-              <option value="">— Select a job (optional) —</option>
-              {completedJobs.map(j => <option key={j.id} value={j.id}>{j.title} — ${j.estimate_amount}</option>)}
-            </select>
+            <label className="block text-sm mb-1 font-medium">Select a Client</label>
+            <input
+              type="text"
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+              placeholder="Search clients..."
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+            />
+            {clientSearch && (
+              <div className="mt-2 max-h-48 overflow-y-auto border border-neutral-200 rounded-lg bg-white">
+                {clients
+                  .filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()) || 
+                              c.email?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                              c.phone?.includes(clientSearch))
+                  .map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => handleClientSelect(c.id)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-neutral-100 last:border-b-0"
+                    >
+                      <div className="font-medium text-sm">{c.name}</div>
+                      {(c.email || c.phone) && (
+                        <div className="text-xs text-gray-500">
+                          {c.email} {c.phone && `• ${c.phone}`}
+                        </div>
+                      )}
+                    </button>
+                  ))
+                }
+              </div>
+            )}
           </div>
 
-          {clientName && <p className="text-sm text-neutral-600">Client: <strong>{clientName}</strong></p>}
+          {clientName && (
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-700 font-medium">
+                  📋 Client: {clientName}
+                </p>
+              </div>
+
+              {completedJobs.length > 0 && (
+                <div>
+                  <label className="block text-sm mb-1 font-medium">From Completed Job (Optional)</label>
+                  <select 
+                    className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" 
+                    value={selectedJobId} 
+                    onChange={e => handleJobSelect(e.target.value)}
+                  >
+                    <option value="">— Start from scratch —</option>
+                    {completedJobs.map(j => (
+                      <option key={j.id} value={j.id}>
+                        {j.title} — ${j.estimate_amount?.toLocaleString() ?? '0'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
 
           {depositPaidAmount > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -297,7 +389,7 @@ export default function CreateInvoicePage() {
 
           <button 
             className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60 font-medium" 
-            disabled={busy || lineItems.every(li => !li.description.trim())} 
+            disabled={busy || !clientId || lineItems.every(li => !li.description.trim())} 
             type="submit"
           >
             {busy ? 'Creating…' : 'Create Invoice (Draft)'}
