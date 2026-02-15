@@ -78,23 +78,45 @@ export default function HomePage() {
             .eq('status', 'paid')
             .gte('created_at', monthStart)
             .lte('created_at', monthEnd),
-          // Recent tasks (pending/in_progress) - fetch more initially for filtering
+          // Tasks: today, tomorrow, or high priority this week
           supabase
             .from('tasks')
             .select('id, title, status, priority, due_date, created_at, parent_task_id')
             .eq('company_id', cid)
             .in('status', ['pending', 'in_progress'])
-            .order('created_at', { ascending: false })
-            .limit(20),
+            .order('due_date', { ascending: true })
+            .limit(50),
         ])
 
         setUpcomingJobs((jobsRes.data as any) || [])
         setPendingQuotes((quotesRes.data as any) || [])
         setNewRequestsCount(requestsRes.data?.length || 0)
         
-        // Filter to show only next occurrence per recurring series, then limit to 5
+        // Filter tasks: show today, tomorrow, or high priority within 7 days
         const allTasks = (tasksRes.data as any) || []
-        const filteredTasks = filterToNextOccurrence(allTasks).slice(0, 5)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const weekEnd = new Date(today)
+        weekEnd.setDate(weekEnd.getDate() + 7)
+        
+        const relevantTasks = allTasks.filter((task: Task) => {
+          if (!task.due_date) return false
+          const dueDate = new Date(task.due_date)
+          dueDate.setHours(0, 0, 0, 0)
+          
+          // Show if due today
+          if (dueDate.getTime() === today.getTime()) return true
+          // Show if due tomorrow
+          if (dueDate.getTime() === tomorrow.getTime()) return true
+          // Show if high priority and due within week
+          if (task.priority === 'high' && dueDate >= today && dueDate <= weekEnd) return true
+          
+          return false
+        })
+        
+        const filteredTasks = filterToNextOccurrence(relevantTasks).slice(0, 5)
         setRecentTasks(filteredTasks)
 
         const revenue = (invoicesRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
@@ -119,6 +141,23 @@ export default function HomePage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  const formatTaskDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    date.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    const diffTime = date.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Tomorrow'
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`
+    return formatDate(dateStr)
+  }
+
   const revenuePercentage = Math.round((monthlyRevenue / revenueGoal) * 100)
 
   if (loading) {
@@ -140,7 +179,7 @@ export default function HomePage() {
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-sm font-semibold text-neutral-900">Revenue Goal</h2>
             <span className="text-xs text-neutral-600">
-              ${(monthlyRevenue / 1000).toFixed(0)}k / ${(revenueGoal / 1000).toFixed(0)}k
+              ${monthlyRevenue.toLocaleString()} / ${revenueGoal.toLocaleString()}
             </span>
           </div>
           <div className="w-full bg-neutral-200 rounded-full h-2">
@@ -166,11 +205,17 @@ export default function HomePage() {
               <span className="text-neutral-400 ml-auto">→</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => nav('/quotes/create')} className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition">
-                📋 New Quote
+              <button onClick={() => nav('/quotes/create')} className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                New Quote
               </button>
-              <button className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition">
-                📅 Schedule Job
+              <button className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Schedule Job
               </button>
             </div>
           </div>
@@ -190,18 +235,12 @@ export default function HomePage() {
             <div className="space-y-3">
               {upcomingJobs.map(job => (
                 <div key={job.id} className="pb-3 border-b border-neutral-100 last:border-b-0 last:pb-0">
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex-shrink-0 flex items-center justify-center text-xs font-bold text-neutral-700">
-                      {job.clients?.name?.charAt(0).toUpperCase() || 'C'}
-                    </div>
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-neutral-900 truncate">{job.clients?.name || 'Client'}</p>
                       <p className="text-xs text-neutral-600">{job.title}</p>
                     </div>
                     <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${job.estimate_amount.toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-neutral-600 ml-11">
-                    <span>🕐 {formatDate(job.date_scheduled)} {formatTime(job.time_scheduled)}</span>
                   </div>
                 </div>
               ))}
@@ -223,31 +262,23 @@ export default function HomePage() {
             <div className="space-y-3">
               {pendingQuotes.map(quote => (
                 <div key={quote.id} className="pb-3 border-b border-neutral-100 last:border-b-0 last:pb-0">
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex-shrink-0 flex items-center justify-center text-xs font-bold text-neutral-700">
-                      {quote.clients?.name?.charAt(0).toUpperCase() || 'C'}
-                    </div>
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-neutral-900 truncate">{quote.clients?.name || 'Client'}</p>
                       <p className="text-xs text-neutral-600">{quote.title}</p>
                     </div>
                     <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${quote.amount.toLocaleString()}</p>
                   </div>
-                  {quote.expires_at && (
-                    <div className="text-xs text-neutral-600 ml-11">
-                      Expires: {formatDate(quote.expires_at)}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Recent Tasks */}
+        {/* Task Reminders */}
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-semibold text-neutral-900">Recent Tasks</h2>
+            <h2 className="text-sm font-semibold text-neutral-900">Task Reminders</h2>
             <button onClick={() => nav('/tasks')} className="text-xs text-blue-600 hover:underline">
               View all
             </button>
@@ -262,32 +293,13 @@ export default function HomePage() {
                   onClick={() => nav(`/task/${task.id}`)}
                   className="pb-3 border-b border-neutral-100 last:border-b-0 last:pb-0 cursor-pointer hover:bg-neutral-50 -mx-2 px-2 py-2 rounded transition"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-semibold text-neutral-900 truncate">{task.title}</p>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                          task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                          task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
-                          {task.priority}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-neutral-600">
-                        <span className={`capitalize ${
-                          task.status === 'in_progress' ? 'text-blue-600' : 'text-neutral-600'
-                        }`}>
-                          {task.status.replace('_', ' ')}
-                        </span>
-                        {task.due_date && (
-                          <>
-                            <span>•</span>
-                            <span>Due: {formatDate(task.due_date)}</span>
-                          </>
-                        )}
-                      </div>
+                      <p className="text-sm font-semibold text-neutral-900 truncate">{task.title}</p>
                     </div>
+                    {task.due_date && (
+                      <span className="text-xs text-neutral-600 flex-shrink-0">{formatTaskDate(task.due_date)}</span>
+                    )}
                   </div>
                 </div>
               ))}
