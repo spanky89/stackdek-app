@@ -22,6 +22,7 @@ export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [job, setJob] = useState<Job | null>(null)
+  const [quoteLineItems, setQuoteLineItems] = useState<QuoteLineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -53,6 +54,19 @@ export default function JobDetailPage() {
           location: data.location || '', estimate_amount: String(data.estimate_amount || ''),
           status: data.status,
         })
+
+        // Fetch quote line items if this job was created from a quote
+        if (data.quote_id) {
+          const { data: items, error: itemsErr } = await supabase
+            .from('quote_line_items')
+            .select('id, description, quantity, unit_price')
+            .eq('quote_id', data.quote_id)
+            .order('sort_order')
+          
+          if (!itemsErr && items) {
+            setQuoteLineItems(items)
+          }
+        }
       } catch (e: any) { setError(e?.message ?? 'Unknown error') }
       finally { setLoading(false) }
     })()
@@ -260,88 +274,128 @@ export default function JobDetailPage() {
   return (
     <AppLayout>
       <>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Job Detail</h1>
-          <button onClick={() => nav('/jobs')} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Back</button>
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => nav('/jobs')} className="text-lg">←</button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-neutral-900 truncate">{job.clients?.name || 'Job Details'}</h1>
+            <p className="text-xs text-neutral-600 truncate">{job.title}</p>
+          </div>
+          <button onClick={() => setEditing(true)} className="text-xs px-2 py-1 bg-neutral-900 text-white rounded">Edit</button>
         </div>
 
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          {editing ? (
-            <div className="space-y-3">
-              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Title" />
-              <textarea className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.date_scheduled} onChange={e => setForm({ ...form, date_scheduled: e.target.value })} />
-                <input type="time" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.time_scheduled} onChange={e => setForm({ ...form, time_scheduled: e.target.value })} />
+        {editing ? (
+          <div className="bg-white rounded border border-neutral-200 p-4 space-y-3 mb-4">
+            <input className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Title" />
+            <textarea className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description" />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="date" className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" value={form.date_scheduled} onChange={e => setForm({ ...form, date_scheduled: e.target.value })} />
+              <input type="time" className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" value={form.time_scheduled} onChange={e => setForm({ ...form, time_scheduled: e.target.value })} />
+            </div>
+            <input className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Location" />
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" step="0.01" className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" value={form.estimate_amount} onChange={e => setForm({ ...form, estimate_amount: e.target.value })} placeholder="Estimate" />
+              <select className="w-full rounded border border-neutral-200 px-3 py-2 text-sm" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <option value="scheduled">Scheduled</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={saveEdit} disabled={saving} className="bg-neutral-900 text-white rounded px-4 py-2 text-xs disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
+              <button onClick={() => setEditing(false)} className="bg-white border border-neutral-200 rounded px-4 py-2 text-xs">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Status Badge */}
+            <div className="mb-3">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[job.status] || 'bg-neutral-100 text-neutral-800'}`}>
+                {job.status.replace('_', ' ')}
+              </span>
+            </div>
+
+            {/* Line Items (if from quote) */}
+            {quoteLineItems.length > 0 && (
+              <div className="space-y-2 mb-4">
+                <h2 className="text-xs font-semibold text-neutral-700 mb-2">LINE ITEMS ({quoteLineItems.length})</h2>
+                {quoteLineItems.map((item) => (
+                  <div key={item.id} className="bg-white rounded border border-neutral-200 p-3">
+                    <div className="font-semibold text-sm text-neutral-900 mb-1">{item.description}</div>
+                    <div className="flex justify-between items-center text-xs text-neutral-600">
+                      <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
+                      <span className="font-semibold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Location" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" step="0.01" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.estimate_amount} onChange={e => setForm({ ...form, estimate_amount: e.target.value })} placeholder="Estimate" />
-                <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={saveEdit} disabled={saving} className="bg-neutral-900 text-white rounded-xl px-4 py-2 text-sm disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
-                <button onClick={() => setEditing(false)} className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm">Cancel</button>
+            )}
+
+            {/* Job Details Card */}
+            <div className="bg-white rounded border border-neutral-200 p-3 mb-3">
+              {job.description && <p className="text-xs text-neutral-700 mb-3">{job.description}</p>}
+              <div className="space-y-1 text-xs text-neutral-600">
+                <div className="flex justify-between">
+                  <span>Date</span>
+                  <span className="text-neutral-900">{new Date(job.date_scheduled).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Location</span>
+                  <span className="text-neutral-900">{job.location || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Estimate</span>
+                  <span className="font-semibold text-neutral-900">${job.estimate_amount}</span>
+                </div>
+                {job.clients && (
+                  <div className="flex justify-between">
+                    <span>Client</span>
+                    <span className="text-blue-600 cursor-pointer" onClick={() => nav(`/client/${job.clients!.id}`)}>{job.clients.name}</span>
+                  </div>
+                )}
+                {job.completed_at && (
+                  <div className="flex justify-between">
+                    <span>Completed</span>
+                    <span className="text-green-600">{new Date(job.completed_at).toLocaleString()}</span>
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold">{job.title}</h2>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[job.status] || 'bg-neutral-100 text-neutral-800'}`}>{job.status.replace('_', ' ')}</span>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setEditing(true)} className="text-sm px-3 py-1.5 bg-neutral-900 text-white rounded-lg">Quick Edit</button>
-                  <button onClick={() => nav(`/job/${id}/edit`)} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Full Edit</button>
-                </div>
-              </div>
-              {job.description && <p className="text-sm text-neutral-700 mb-4">{job.description}</p>}
-              <div className="space-y-1 text-sm text-neutral-600">
-                <p>Date: {new Date(job.date_scheduled).toLocaleString()}</p>
-                <p>Location: {job.location || '—'}</p>
-                <p>Estimate: ${job.estimate_amount}</p>
-                {job.clients && <p>Client: <span className="text-blue-600 cursor-pointer" onClick={() => nav(`/client/${job.clients!.id}`)}>{job.clients.name}</span></p>}
-                {job.completed_at && <p>Completed: {new Date(job.completed_at).toLocaleString()}</p>}
-              </div>
-              
-              <div className="mt-6 border-t border-neutral-200 pt-6">
-                <label className="text-sm font-medium text-neutral-600 block mb-2">Job Completion</label>
-                <div className="flex gap-2 flex-wrap">
-                  <button 
-                    onClick={() => changeStatus('completed')}
-                    disabled={job.status === 'completed'}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Mark Complete
-                  </button>
-                  <button 
-                    onClick={openInvoiceModal}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                  >
-                    Mark Complete & Generate Invoice
-                  </button>
-                </div>
-              </div>
 
-              <div className="mt-4">
-                <label className="text-sm font-medium text-neutral-600 block mb-2">Change Status</label>
-                <div className="flex gap-2">
-                  {['scheduled', 'in_progress', 'completed'].map(s => (
-                    <button key={s} onClick={() => changeStatus(s)}
-                      className={`px-3 py-1.5 rounded-lg text-sm ${job.status === s ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200'}`}>
-                      {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
-                    </button>
-                  ))}
-                </div>
+            {/* Job Actions */}
+            <div className="bg-white rounded border border-neutral-200 p-4 mb-3">
+              <h3 className="text-xs font-semibold text-neutral-700 mb-2">JOB COMPLETION</h3>
+              <div className="flex gap-2 flex-wrap">
+                <button 
+                  onClick={() => changeStatus('completed')}
+                  disabled={job.status === 'completed'}
+                  className="px-4 py-2 bg-green-600 text-white rounded text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Mark Complete
+                </button>
+                <button 
+                  onClick={openInvoiceModal}
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                >
+                  Mark Complete & Generate Invoice
+                </button>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+
+            {/* Status Change */}
+            <div className="bg-white rounded border border-neutral-200 p-4">
+              <h3 className="text-xs font-semibold text-neutral-700 mb-2">CHANGE STATUS</h3>
+              <div className="flex gap-2">
+                {['scheduled', 'in_progress', 'completed'].map(s => (
+                  <button key={s} onClick={() => changeStatus(s)}
+                    className={`px-3 py-1.5 rounded text-xs ${job.status === s ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200'}`}>
+                    {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Invoice Generation Modal */}
         {showInvoiceModal && (
