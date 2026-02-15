@@ -58,6 +58,11 @@ export default function QuoteListPage() {
   })
   
   const pendingQuotes = quotes.filter(q => q.status === 'pending' && !q.scheduled_date)
+  
+  // Debug logging
+  console.log('All quotes:', quotes)
+  console.log('Scheduled quotes:', scheduledQuotes)
+  console.log('Pending quotes:', pendingQuotes)
 
   const formatTime = (timeStr?: string | null) => {
     if (!timeStr) return ''
