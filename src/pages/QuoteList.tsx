@@ -43,7 +43,6 @@ export default function QuoteListPage() {
             .from('quotes')
             .select('*, clients(id, name, avatar_url)')
             .eq('company_id', company.id)
-            .not('status', 'in', '(accepted,approved)')
             .order('created_at', { ascending: false }),
           supabase
             .from('requests')
@@ -54,7 +53,12 @@ export default function QuoteListPage() {
         
         console.log('Quotes query result:', quotesRes)
         if (quotesRes.error) console.error('Quotes query error:', quotesRes.error)
-        setQuotes((quotesRes.data as any) || [])
+        
+        // Filter out accepted/approved quotes in JS
+        const allQuotes = (quotesRes.data as any) || []
+        const filteredQuotes = allQuotes.filter((q: any) => q.status !== 'accepted' && q.status !== 'approved')
+        
+        setQuotes(filteredQuotes)
         setNewRequestsCount(requestsRes.data?.length || 0)
       } finally { setLoading(false) }
     })()
