@@ -22,6 +22,7 @@ export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [job, setJob] = useState<Job | null>(null)
+  const [quoteLineItems, setQuoteLineItems] = useState<QuoteLineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -53,6 +54,16 @@ export default function JobDetailPage() {
           location: data.location || '', estimate_amount: String(data.estimate_amount || ''),
           status: data.status,
         })
+
+        // Fetch quote line items if job was created from a quote
+        if (data.quote_id) {
+          const { data: items } = await supabase
+            .from('quote_line_items')
+            .select('*')
+            .eq('quote_id', data.quote_id)
+            .order('sort_order')
+          if (items) setQuoteLineItems(items)
+        }
       } catch (e: any) { setError(e?.message ?? 'Unknown error') }
       finally { setLoading(false) }
     })()
@@ -301,6 +312,24 @@ export default function JobDetailPage() {
                 </div>
               </div>
               {job.description && <p className="text-sm text-neutral-700 mb-4">{job.description}</p>}
+              
+              {/* Quote Line Items */}
+              {quoteLineItems.length > 0 && (
+                <div className="mb-4 p-3 bg-neutral-50 rounded-lg">
+                  <h3 className="text-sm font-semibold text-neutral-700 mb-2">Quote Line Items</h3>
+                  <div className="space-y-2">
+                    {quoteLineItems.map((item) => (
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-neutral-700">{item.description}</span>
+                        <span className="text-neutral-900 font-medium">
+                          {item.quantity} × ${item.unit_price?.toFixed(2) ?? '0'} = ${((item.quantity || 0) * (item.unit_price || 0)).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1 text-sm text-neutral-600">
                 <p>Date: {new Date(job.date_scheduled).toLocaleString()}</p>
                 <p>Location: {job.location || '—'}</p>
