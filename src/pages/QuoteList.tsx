@@ -17,6 +17,7 @@ export default function QuoteListPage() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [newRequestsCount, setNewRequestsCount] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -25,15 +26,25 @@ export default function QuoteListPage() {
         if (!user) return
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
         if (!company) return
-        // Fetch all quotes (exclude accepted/approved as they move to jobs)
-        const { data } = await supabase
-          .from('quotes')
-          .select('id, title, status, amount, expiration_date, created_at, scheduled_date, scheduled_time, clients(id, name, avatar_url)')
-          .eq('company_id', company.id)
-          .neq('status', 'accepted')
-          .neq('status', 'approved')
-          .order('created_at', { ascending: false })
-        setQuotes((data as any) || [])
+        
+        // Fetch quotes and requests in parallel
+        const [quotesRes, requestsRes] = await Promise.all([
+          supabase
+            .from('quotes')
+            .select('id, title, status, amount, expiration_date, created_at, scheduled_date, scheduled_time, clients(id, name, avatar_url)')
+            .eq('company_id', company.id)
+            .neq('status', 'accepted')
+            .neq('status', 'approved')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('requests')
+            .select('id')
+            .eq('company_id', company.id)
+            .eq('status', 'pending')
+        ])
+        
+        setQuotes((quotesRes.data as any) || [])
+        setNewRequestsCount(requestsRes.data?.length || 0)
       } finally { setLoading(false) }
     })()
   }, [refreshKey])
@@ -75,6 +86,49 @@ export default function QuoteListPage() {
   return (
     <AppLayout>
       <div className="space-y-6">
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            New Quote
+          </button>
+          <button
+            className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Schedule Quote
+          </button>
+        </div>
+
+        {/* New Requests */}
+        {newRequestsCount > 0 && (
+          <div className="bg-white rounded-lg border border-neutral-200 p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-sm font-semibold text-neutral-900">New Requests</h2>
+              <button onClick={() => nav('/requests')} className="text-xs text-blue-600 hover:underline">
+                View all
+              </button>
+            </div>
+            <button
+              onClick={() => nav('/requests')}
+              className="w-full flex items-center justify-between py-3 px-4 bg-neutral-50 hover:bg-neutral-100 rounded-lg transition"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">●</span>
+                <span className="text-sm font-medium text-neutral-900">{newRequestsCount} new request{newRequestsCount !== 1 ? 's' : ''}</span>
+              </div>
+              <span className="text-neutral-400">→</span>
+            </button>
+          </div>
+        )}
+
         {/* Pending Quotes Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
