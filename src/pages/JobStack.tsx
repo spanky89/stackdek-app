@@ -4,6 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import { useCompany } from '../context/CompanyContext'
 
+type Client = {
+  id: string
+  name: string
+  created_at: string
+}
+
 type Job = {
   id: string
   title: string
@@ -14,6 +20,7 @@ type Job = {
   time_scheduled?: string
   client_id?: string
   created_at?: string
+  client?: Client
 }
 
 export default function JobStackPage() {
@@ -39,10 +46,10 @@ export default function JobStackPage() {
           .toISOString()
           .split('T')[0]
 
-        // Load jobs (simplified query without nested relationships)
+        // Load jobs with client data
         let query = supabase
           .from('jobs')
-          .select('*')
+          .select('*, client:clients(id, name, created_at)')
           .eq('company_id', companyId)
           .order('date_scheduled', { ascending: true })
 
@@ -189,16 +196,13 @@ export default function JobStackPage() {
               <div
                 key={job.id}
                 onClick={() => nav(`/job/${job.id}`)}
-                className="bg-white rounded-lg border border-neutral-200 p-4 cursor-pointer hover:border-neutral-300 transition"
+                className="bg-white rounded-xl border border-neutral-200 p-5 cursor-pointer hover:border-neutral-300 transition"
               >
                 {/* Title & Status */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-neutral-900">{job.title}</h3>
-                    <p className="text-sm text-neutral-600">{job.location}</p>
-                  </div>
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
                   <span
-                    className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
                       job.status
                     )}`}
                   >
@@ -206,28 +210,35 @@ export default function JobStackPage() {
                   </span>
                 </div>
 
+                {/* Address */}
+                <p className="text-sm text-neutral-500 mb-4">{job.location}</p>
+
                 {/* Date & Time */}
-                <div className="flex gap-6 text-sm text-neutral-600 mb-4">
+                <div className="flex items-center justify-between text-sm text-neutral-600 mb-5">
                   <div className="flex items-center gap-2">
-                    <span className="text-neutral-400">📅</span>
+                    <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2" strokeLinecap="round"/>
+                      <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" strokeLinecap="round"/>
+                      <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2"/>
+                    </svg>
                     <span>{formatDate(job.date_scheduled)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-neutral-400">🕐</span>
+                    <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                      <polyline points="12 6 12 12 16 14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                     <span>{formatTime(job.time_scheduled)}</span>
                   </div>
                 </div>
 
-                {/* Client Info Placeholder */}
-                <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
-                  <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-600 flex-shrink-0">
-                    C
+                {/* Client Info */}
+                {job.client && (
+                  <div className="pt-3 border-t border-neutral-100">
+                    <p className="text-sm font-medium text-neutral-900">{job.client.name}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">Client</p>
-                    <p className="text-xs text-neutral-500">Customer since 2024</p>
-                  </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
