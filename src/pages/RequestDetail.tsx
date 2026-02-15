@@ -187,7 +187,7 @@ export default function RequestDetailPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
   }
 
   if (loading || companyLoading) {
@@ -206,115 +206,134 @@ export default function RequestDetailPage() {
     )
   }
 
+  const fullAddress = [
+    request.client_address,
+    [request.client_city, request.client_state].filter(Boolean).join(', ')
+  ].filter(Boolean).join('\n')
+
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => nav('/requests')} className="text-2xl text-neutral-700">←</button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-neutral-900">Request for {request.client_name}</h1>
-            <p className="text-sm text-neutral-600 mt-1">Created {formatDate(request.created_at)}</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => nav('/requests')} className="text-2xl text-neutral-700">←</button>
+            <h1 className="text-xl font-semibold text-neutral-900">Request Profile</h1>
           </div>
-          {request.client_phone && (
-            <a
-              href={`tel:${request.client_phone}`}
-              className="p-2 text-2xl hover:bg-neutral-100 rounded-lg transition"
-            >
-              📞
-            </a>
-          )}
         </div>
 
-        {/* Address & Directions */}
-        {(request.client_address || request.client_city) && (
-          <div className="mb-4">
-            {request.client_address && (
-              <p className="text-lg text-neutral-900">{request.client_address}</p>
+        {/* Main Card */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+          {/* Client Name & Date */}
+          <h2 className="text-3xl font-bold text-neutral-900 mb-2">{request.client_name}</h2>
+          <p className="text-neutral-600 mb-6">Request received {formatDate(request.created_at)}</p>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {request.client_phone && (
+              <a
+                href={`tel:${request.client_phone}`}
+                className="py-3 bg-neutral-900 text-white rounded-lg font-medium text-center hover:bg-neutral-800 transition"
+              >
+                Call
+              </a>
             )}
-            {(request.client_city || request.client_state) && (
-              <p className="text-lg text-neutral-900 mb-3">
-                {[request.client_city, request.client_state].filter(Boolean).join(', ')}
-              </p>
+            {request.client_email && (
+              <a
+                href={`mailto:${request.client_email}`}
+                className="py-3 bg-neutral-900 text-white rounded-lg font-medium text-center hover:bg-neutral-800 transition"
+              >
+                Message
+              </a>
             )}
+            {(request.client_address || request.client_city) && (
+              <button
+                onClick={openDirections}
+                className="py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition"
+              >
+                Navigate
+              </button>
+            )}
+          </div>
+
+          {/* Quote Action Buttons */}
+          <div className="space-y-3 mb-6">
             <button
-              onClick={openDirections}
-              className="w-full py-3 bg-white border border-neutral-300 rounded-lg text-neutral-900 font-medium hover:bg-neutral-50 transition"
+              onClick={handleScheduleQuote}
+              disabled={processing}
+              className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition disabled:opacity-50"
             >
-              Directions
+              Schedule Quote
+            </button>
+            <button
+              onClick={handleCreateQuote}
+              disabled={processing}
+              className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition disabled:opacity-50"
+            >
+              Create Quote
             </button>
           </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            onClick={handleScheduleQuote}
-            disabled={processing}
-            className="py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50"
-          >
-            Schedule Quote
-          </button>
-          <button
-            onClick={handleCreateQuote}
-            disabled={processing}
-            className="py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50"
-          >
-            Create Quote
-          </button>
-        </div>
+          {/* Details Section */}
+          <div className="border-t border-neutral-200 pt-6 space-y-4">
+            {/* Email */}
+            {request.client_email && (
+              <div className="flex justify-between items-start">
+                <span className="text-neutral-600">Email</span>
+                <a href={`mailto:${request.client_email}`} className="text-neutral-900 font-medium text-right">
+                  {request.client_email}
+                </a>
+              </div>
+            )}
 
-        {/* Request Details */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-4">Request Details</h2>
+            {/* Phone */}
+            {request.client_phone && (
+              <div className="flex justify-between items-start">
+                <span className="text-neutral-600">Phone</span>
+                <a href={`tel:${request.client_phone}`} className="text-neutral-900 font-medium text-right">
+                  {request.client_phone}
+                </a>
+              </div>
+            )}
 
-          {/* Description */}
-          {request.description && (
-            <div>
-              <div className="text-xs text-neutral-600 mb-1">Description</div>
-              <p className="text-neutral-900 whitespace-pre-wrap">{request.description}</p>
+            {/* Address */}
+            {fullAddress && (
+              <div className="flex justify-between items-start">
+                <span className="text-neutral-600">Address</span>
+                <p className="text-neutral-900 font-medium text-right whitespace-pre-line">{fullAddress}</p>
+              </div>
+            )}
+
+            {/* Description */}
+            {request.description && (
+              <div className="flex justify-between items-start">
+                <span className="text-neutral-600">Description</span>
+                <p className="text-neutral-900 font-medium text-right max-w-xs whitespace-pre-wrap">{request.description}</p>
+              </div>
+            )}
+
+            {/* Requested Date */}
+            {request.requested_date && (
+              <div className="flex justify-between items-start">
+                <span className="text-neutral-600">Requested Date</span>
+                <span className="text-neutral-900 font-medium">
+                  {new Date(request.requested_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="flex justify-between items-start">
+              <span className="text-neutral-600">Status</span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                request.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                request.status === 'converted' ? 'bg-green-100 text-green-800' :
+                'bg-neutral-100 text-neutral-800'
+              }`}>
+                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+              </span>
             </div>
-          )}
-
-          {/* Email */}
-          {request.client_email && (
-            <div>
-              <div className="text-xs text-neutral-600 mb-1">Email</div>
-              <a href={`mailto:${request.client_email}`} className="text-blue-600 hover:underline">
-                {request.client_email}
-              </a>
-            </div>
-          )}
-
-          {/* Phone */}
-          {request.client_phone && (
-            <div>
-              <div className="text-xs text-neutral-600 mb-1">Phone</div>
-              <a href={`tel:${request.client_phone}`} className="text-blue-600 hover:underline">
-                {request.client_phone}
-              </a>
-            </div>
-          )}
-
-          {/* Requested Date */}
-          {request.requested_date && (
-            <div>
-              <div className="text-xs text-neutral-600 mb-1">Requested Date</div>
-              <p className="text-neutral-900">{formatDate(request.requested_date)}</p>
-            </div>
-          )}
-
-          {/* Status */}
-          <div>
-            <div className="text-xs text-neutral-600 mb-1">Status</div>
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-              request.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
-              request.status === 'converted' ? 'bg-green-100 text-green-800' :
-              'bg-neutral-100 text-neutral-800'
-            }`}>
-              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-            </span>
           </div>
         </div>
       </div>
