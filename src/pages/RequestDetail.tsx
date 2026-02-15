@@ -58,27 +58,61 @@ export default function RequestDetailPage() {
     
     setProcessing(true)
     try {
-      // Build full address from parts
-      const fullAddress = [
-        request.client_address,
-        request.client_city,
-        request.client_state
-      ].filter(Boolean).join(', ')
+      // Find or create client
+      let clientId = null
+
+      // Try to find existing client by email or phone
+      if (request.client_email || request.client_phone) {
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('company_id', companyId)
+          .or(`email.eq.${request.client_email || ''},phone.eq.${request.client_phone || ''}`)
+          .maybeSingle()
+
+        if (existingClient) {
+          clientId = existingClient.id
+        }
+      }
+
+      // Create client if not found
+      if (!clientId) {
+        // Build full address from parts
+        const fullAddress = [
+          request.client_address,
+          request.client_city,
+          request.client_state
+        ].filter(Boolean).join(', ')
+
+        const { data: newClient, error: clientErr } = await supabase
+          .from('clients')
+          .insert({
+            company_id: companyId,
+            name: request.client_name,
+            email: request.client_email || null,
+            phone: request.client_phone || null,
+            address: fullAddress || null,
+          })
+          .select('id')
+          .single()
+
+        if (clientErr) {
+          console.error('Client creation error:', clientErr)
+          alert('Failed to create client')
+          return
+        }
+
+        clientId = newClient.id
+      }
 
       // Create quote with scheduled status
       const { error: quoteErr } = await supabase
         .from('quotes')
         .insert({
           company_id: companyId,
-          client_name: request.client_name,
-          client_email: request.client_email || null,
-          client_phone: request.client_phone || null,
-          client_address: fullAddress || null,
-          service_type: request.service_type || 'General Service',
-          description: request.description || '',
+          client_id: clientId,
           status: 'scheduled',
-          estimate_amount: 0,
-          deposit_amount: 0,
+          amount: 0,
         })
 
       if (quoteErr) {
