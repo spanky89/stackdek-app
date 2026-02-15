@@ -206,20 +206,11 @@ export default function JobStackPage() {
                   </span>
                 </div>
 
-                {/* Address & Status */}
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-neutral-500">{job.location}</p>
-                  <span
-                    className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
-                      job.status
-                    )}`}
-                  >
-                    {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                  </span>
-                </div>
+                {/* Address */}
+                <p className="text-sm text-neutral-500 mb-3">{job.location}</p>
 
                 {/* Date & Time */}
-                <div className="flex items-center justify-between text-sm text-neutral-600 mb-5">
+                <div className="flex items-center justify-between text-sm text-neutral-600 mb-4">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -238,10 +229,17 @@ export default function JobStackPage() {
                   </div>
                 </div>
 
-                {/* Client Info */}
+                {/* Client Info & Status */}
                 {job.client && (
-                  <div className="pt-3 border-t border-neutral-100">
+                  <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
                     <p className="text-sm font-medium text-neutral-900">{job.client.name}</p>
+                    <span
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap ml-3 ${getStatusBadgeColor(
+                        job.status
+                      )}`}
+                    >
+                      {job.status === 'in_progress' ? 'In Progress' : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                    </span>
                   </div>
                 )}
               </div>
