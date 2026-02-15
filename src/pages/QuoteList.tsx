@@ -41,7 +41,7 @@ export default function QuoteListPage() {
         const [quotesRes, requestsRes] = await Promise.all([
           supabase
             .from('quotes')
-            .select('*, clients(id, name, avatar_url)')
+            .select('*')
             .eq('company_id', company.id)
             .order('created_at', { ascending: false }),
           supabase
