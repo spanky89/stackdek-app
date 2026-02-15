@@ -265,6 +265,20 @@ export default function QuoteDetailPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  async function handleDelete() {
+    if (!confirm('Are you sure you want to delete this quote? This cannot be undone.')) return
+
+    setBusy(true)
+    try {
+      const { error: delErr } = await supabase.from('quotes').delete().eq('id', id)
+      if (delErr) throw delErr
+      nav('/quotes')
+    } catch (err: any) {
+      setError(err?.message || 'Failed to delete quote')
+      setBusy(false)
+    }
+  }
+
   if (loading) return <div className="p-6">Loading…</div>
   if (error) return <div className="p-6 text-red-600">{error}</div>
   if (!quote) return <div className="p-6">Quote not found.</div>
@@ -294,6 +308,7 @@ export default function QuoteDetailPage() {
             <p className="text-xs text-neutral-600 truncate">{quote.title}</p>
           </div>
           <button onClick={() => nav(`/quote/${id}/edit`)} className="text-xs px-2 py-1 bg-neutral-900 text-white rounded">Edit</button>
+          <button onClick={handleDelete} disabled={busy} className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-40">Delete</button>
         </div>
 
         {/* Line Items */}
