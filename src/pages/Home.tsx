@@ -248,16 +248,16 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Pending Quotes */}
+        {/* Scheduled Quotes */}
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-semibold text-neutral-900">Pending Quotes</h2>
+            <h2 className="text-sm font-semibold text-neutral-900">Scheduled Quotes</h2>
             <button onClick={() => nav('/quotes')} className="text-xs text-blue-600 hover:underline">
               View all
             </button>
           </div>
           {pendingQuotes.length === 0 ? (
-            <p className="text-xs text-neutral-600">No pending quotes</p>
+            <p className="text-xs text-neutral-600">No scheduled quotes</p>
           ) : (
             <div className="space-y-3">
               {pendingQuotes.map(quote => (
