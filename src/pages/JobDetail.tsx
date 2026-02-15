@@ -310,14 +310,9 @@ export default function JobDetailPage() {
                       {job.status.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditing(true)} className="text-sm px-4 py-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors">
-                      Quick Edit
-                    </button>
-                    <button onClick={() => nav(`/job/${id}/edit`)} className="text-sm px-4 py-2 bg-white border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors">
-                      Full Edit
-                    </button>
-                  </div>
+                  <button onClick={() => nav(`/job/${id}/edit`)} className="text-sm px-4 py-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors">
+                    Edit Job
+                  </button>
                 </div>
                 {job.description && (
                   <p className="text-sm text-neutral-600 leading-relaxed">{job.description}</p>
