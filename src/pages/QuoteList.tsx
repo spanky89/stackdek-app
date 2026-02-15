@@ -41,10 +41,9 @@ export default function QuoteListPage() {
         const [quotesRes, requestsRes] = await Promise.all([
           supabase
             .from('quotes')
-            .select('id, title, status, amount, expiration_date, created_at, scheduled_date, scheduled_time, clients(id, name, avatar_url)')
+            .select('*, clients(id, name, avatar_url)')
             .eq('company_id', company.id)
-            .neq('status', 'accepted')
-            .neq('status', 'approved')
+            .not('status', 'in', '(accepted,approved)')
             .order('created_at', { ascending: false }),
           supabase
             .from('requests')
@@ -54,6 +53,7 @@ export default function QuoteListPage() {
         ])
         
         console.log('Quotes query result:', quotesRes)
+        if (quotesRes.error) console.error('Quotes query error:', quotesRes.error)
         setQuotes((quotesRes.data as any) || [])
         setNewRequestsCount(requestsRes.data?.length || 0)
       } finally { setLoading(false) }
