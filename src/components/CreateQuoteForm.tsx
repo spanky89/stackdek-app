@@ -4,7 +4,7 @@ import { supabase } from '../api/supabaseClient'
 import { useCompany } from '../context/CompanyContext'
 
 type Client = { id: string; name: string; address: string }
-type ServiceItem = { id: string; sourceId?: string; name: string; description: string; price: number; quantity: number }
+type ServiceItem = { id: string; sourceId?: string; title?: string; name: string; description: string; price: number; quantity: number }
 type SavedService = { id: string; name: string; price: number; description?: string }
 
 export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSuccess?: () => void; prefilledClientId?: string }) {
@@ -23,8 +23,8 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [taxRate, setTaxRate] = useState('10') // Editable tax rate
-  const [depositPercentage, setDepositPercentage] = useState('25') // Editable deposit percentage
+  const [taxRate, setTaxRate] = useState('0') // Editable tax rate (default 0)
+  const [depositPercentage, setDepositPercentage] = useState('0') // Editable deposit percentage (default 0)
 
   useEffect(() => {
     const loadClients = async () => {
@@ -139,6 +139,7 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
           title: lineItems.map(item => item.name).join(', '),
           amount: total,
           tax_rate: parseFloat(taxRate),
+          tax_amount: taxAmount,
           status: saveDraft ? 'draft' : 'pending',
           expiration_date: startDate ? new Date(new Date(startDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : null,
           deposit_amount: deposit,
@@ -151,11 +152,13 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
 
       // Store line items
       const quoteId = newQuote[0].id
-      const itemsToInsert = lineItems.map(item => ({
+      const itemsToInsert = lineItems.map((item, index) => ({
         quote_id: quoteId,
+        title: item.title || null,
         description: item.name,
         quantity: item.quantity,
         unit_price: item.price,
+        sort_order: index,
         notes: item.description,
       }))
 
@@ -171,8 +174,8 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       setDuration('')
       setStartDate('')
       setClientMessage('')
-      setTaxRate('10')
-      setDepositPercentage('25')
+      setTaxRate('0')
+      setDepositPercentage('0')
       
       // Call onSuccess after a short delay
       setTimeout(() => onSuccess?.(), 1000)
@@ -234,6 +237,19 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                     ×
                   </button>
                 </div>
+                
+                {/* Title field (optional) */}
+                <div className="mb-2">
+                  <label className="block text-xs text-neutral-600 mb-1">Item Title (optional)</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                    placeholder="e.g., Lawn Mowing"
+                    value={item.title || ''}
+                    onChange={e => updateLineItem(item.id, 'title', e.target.value)}
+                  />
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-xs text-neutral-600 mb-1">Qty</label>

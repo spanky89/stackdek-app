@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
+import { LineItemCard } from '../components/LineItemCard'
+import { DocumentSummary } from '../components/DocumentSummary'
+import { UnifiedLineItem } from '../types/lineItems'
 
 type Quote = {
   id: string; title: string; status: string; amount: number
@@ -14,24 +17,17 @@ type Quote = {
   clients: { id: string; name: string; email?: string } | null
 }
 
-type LineItem = {
-  id: string
-  description: string
-  quantity: number
-  unit_price: number
-}
-
 export default function QuoteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const [quote, setQuote] = useState<Quote | null>(null)
-  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [lineItems, setLineItems] = useState<UnifiedLineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [depositAmount, setDepositAmount] = useState<string>('')
+  const [depositAmount, setDepositAmount] = useState<string>('0')
   const [processingPayment, setProcessingPayment] = useState(false)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [checkingStripe, setCheckingStripe] = useState(true)
@@ -42,7 +38,6 @@ export default function QuoteDetailPage() {
     // Check for payment success/cancel in URL
     const paymentStatus = searchParams.get('payment')
     if (paymentStatus === 'success') {
-      // Show success message (could be a toast notification)
       console.log('Payment successful!')
     } else if (paymentStatus === 'cancelled') {
       console.log('Payment cancelled')
@@ -60,28 +55,26 @@ export default function QuoteDetailPage() {
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
         
-        // Set tax amount if already exists
-        if (data.tax_amount !== null && data.tax_amount !== undefined) {
-          setTaxAmount(data.tax_amount.toString())
-        }
+        // Set tax amount (default to 0)
+        setTaxAmount((data.tax_amount ?? 0).toString())
         
-        // Fetch line items
+        // Fetch line items with title field
         const { data: items, error: itemsErr } = await supabase
           .from('quote_line_items')
-          .select('id, description, quantity, unit_price')
+          .select('id, title, description, quantity, unit_price, sort_order')
           .eq('quote_id', id)
-          .order('created_at', { ascending: true })
+          .order('sort_order', { ascending: true })
         if (itemsErr) { 
           console.error('Line items error:', itemsErr)
-          // Don't return error - line items are optional
         }
-        console.log('Fetched line items:', items)
-        setLineItems(items || [])
+        setLineItems((items || []).map((item, index) => ({
+          ...item,
+          sort_order: item.sort_order ?? index
+        })))
         
-        // Set deposit amount if already exists
-        if (data.deposit_amount) {
-          setDepositAmount(data.deposit_amount.toString())
-        }
+        // Set deposit amount (default to 0)
+        setDepositAmount((data.deposit_amount ?? 0).toString())
+        
         // Check Stripe connection status
         await checkStripeConnection()
       } catch (e: any) { setError(e?.message ?? 'Unknown error') }
@@ -100,7 +93,6 @@ export default function QuoteDetailPage() {
         .eq('owner_id', user.id)
         .single()
       
-      // Check if both keys are configured
       setStripeConnected(!!(company?.stripe_publishable_key && company?.stripe_secret_key))
     } catch (e) {
       console.error('Error checking Stripe connection:', e)
@@ -118,7 +110,8 @@ export default function QuoteDetailPage() {
   }
 
   async function saveDepositAmount() {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+    const parsedDeposit = parseFloat(depositAmount)
+    if (isNaN(parsedDeposit) || parsedDeposit < 0) {
       setError('Please enter a valid deposit amount')
       return
     }
@@ -126,7 +119,7 @@ export default function QuoteDetailPage() {
     setBusy(true)
     const { error: upErr } = await supabase
       .from('quotes')
-      .update({ deposit_amount: parseFloat(depositAmount) })
+      .update({ deposit_amount: parsedDeposit })
       .eq('id', id)
     
     setBusy(false)
@@ -135,7 +128,7 @@ export default function QuoteDetailPage() {
       return 
     }
     
-    setQuote({ ...quote!, deposit_amount: parseFloat(depositAmount) })
+    setQuote({ ...quote!, deposit_amount: parsedDeposit })
   }
 
   async function saveTaxAmount() {
@@ -161,6 +154,81 @@ export default function QuoteDetailPage() {
     setEditingTax(false)
   }
 
+  async function updateLineItem(updated: UnifiedLineItem) {
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('quote_line_items')
+      .update({
+        title: updated.title,
+        description: updated.description,
+        quantity: updated.quantity,
+        unit_price: updated.unit_price
+      })
+      .eq('id', updated.id)
+    
+    setBusy(false)
+    if (upErr) { 
+      setError(upErr.message)
+      return 
+    }
+    
+    setLineItems(lineItems.map(item => item.id === updated.id ? updated : item))
+  }
+
+  async function deleteLineItem(itemId: string) {
+    if (!confirm('Delete this line item?')) return
+    
+    setBusy(true)
+    const { error: delErr } = await supabase
+      .from('quote_line_items')
+      .delete()
+      .eq('id', itemId)
+    
+    setBusy(false)
+    if (delErr) { 
+      setError(delErr.message)
+      return 
+    }
+    
+    setLineItems(lineItems.filter(item => item.id !== itemId))
+  }
+
+  async function moveLineItem(index: number, direction: 'up' | 'down') {
+    const newItems = [...lineItems]
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    
+    if (targetIndex < 0 || targetIndex >= newItems.length) return
+    
+    // Swap items
+    const temp = newItems[index]
+    newItems[index] = newItems[targetIndex]
+    newItems[targetIndex] = temp
+    
+    // Update sort_order for both items
+    newItems[index].sort_order = index
+    newItems[targetIndex].sort_order = targetIndex
+    
+    setBusy(true)
+    
+    // Update both items in database
+    const updates = [
+      supabase.from('quote_line_items').update({ sort_order: index }).eq('id', newItems[index].id),
+      supabase.from('quote_line_items').update({ sort_order: targetIndex }).eq('id', newItems[targetIndex].id)
+    ]
+    
+    const results = await Promise.all(updates)
+    const errors = results.filter(r => r.error)
+    
+    setBusy(false)
+    
+    if (errors.length > 0) {
+      setError('Failed to reorder items')
+      return
+    }
+    
+    setLineItems(newItems)
+  }
+
   async function handleStripePayment() {
     if (!quote?.deposit_amount || quote.deposit_amount <= 0) {
       setError('Please set a deposit amount first')
@@ -174,7 +242,6 @@ export default function QuoteDetailPage() {
 
     setProcessingPayment(true)
     try {
-      // Get auth session for API call
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setError('Not authenticated')
@@ -182,7 +249,6 @@ export default function QuoteDetailPage() {
         return
       }
 
-      // Get company info for better payment description
       const { data: { user } } = await supabase.auth.getUser()
       const { data: company } = await supabase
         .from('companies')
@@ -194,7 +260,7 @@ export default function QuoteDetailPage() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`, // Pass auth token
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           quoteId: id,
@@ -211,7 +277,6 @@ export default function QuoteDetailPage() {
         throw new Error(data.message || data.error || 'Failed to create checkout session')
       }
 
-      // Redirect to Stripe checkout
       if (data.url) {
         window.location.href = data.url
       }
@@ -222,18 +287,12 @@ export default function QuoteDetailPage() {
   }
 
   async function markOfflinePayment() {
-    console.log('[markOfflinePayment] Called with quote:', quote)
-    if (!quote) {
-      console.log('[markOfflinePayment] Quote is null, returning')
-      return
-    }
+    if (!quote) return
     
     setBusy(true)
     setError(null)
     
     try {
-      console.log('[markOfflinePayment] Step 1: Marking deposit as paid...')
-      // 1. Mark deposit as paid
       const { error: upErr } = await supabase
         .from('quotes')
         .update({ 
@@ -243,16 +302,7 @@ export default function QuoteDetailPage() {
         .eq('id', id)
       
       if (upErr) throw new Error(`Failed to mark deposit paid: ${upErr.message}`)
-      console.log('[markOfflinePayment] Step 1 complete: Deposit marked as paid')
 
-      // 2. Create job from quote
-      console.log('[markOfflinePayment] Step 2: Creating job with data:', {
-        quote_id: quote.id,
-        title: quote.title,
-        client_id: quote.client_id,
-        company_id: quote.company_id,
-      })
-      
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const jobData = {
@@ -260,7 +310,7 @@ export default function QuoteDetailPage() {
         title: quote.title,
         client_id: quote.client_id,
         company_id: quote.company_id,
-        status: 'scheduled',  // Use 'scheduled' instead of 'pending'
+        status: 'scheduled',
         date_scheduled: tomorrow.toISOString().split('T')[0],
         created_at: new Date().toISOString(),
       }
@@ -273,13 +323,10 @@ export default function QuoteDetailPage() {
 
       if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`)
       if (!newJob) throw new Error('Job created but no data returned')
-      
-      console.log('[markOfflinePayment] Step 2 complete: Job created:', newJob.id)
 
       setQuote({ ...quote, deposit_paid: true })
       setBusy(false)
       
-      // Show success and navigate
       alert(`✓ Deposit marked as paid. Job created!`)
       nav('/jobs')
     } catch (err: any) {
@@ -302,7 +349,6 @@ export default function QuoteDetailPage() {
     setBusy(true)
     setError(null)
     try {
-      // Delete line items first
       const { error: itemsErr } = await supabase
         .from('quote_line_items')
         .delete()
@@ -313,7 +359,6 @@ export default function QuoteDetailPage() {
         throw new Error(`Failed to delete line items: ${itemsErr.message}`)
       }
 
-      // Then delete the quote
       const { error: delErr } = await supabase
         .from('quotes')
         .delete()
@@ -347,11 +392,7 @@ export default function QuoteDetailPage() {
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
-  // Use tax_amount if set, otherwise fall back to tax_rate calculation
-  const tax = quote?.tax_amount !== null && quote?.tax_amount !== undefined 
-    ? quote.tax_amount 
-    : subtotal * ((quote?.tax_rate || 0) / 100)
-  const total = subtotal + tax
+  const tax = quote?.tax_amount ?? 0
 
   return (
     <AppLayout>
@@ -371,41 +412,41 @@ export default function QuoteDetailPage() {
         {lineItems.length > 0 && (
           <div className="space-y-2 mb-4">
             <h2 className="text-xs font-semibold text-neutral-700 mb-2">LINE ITEMS ({lineItems.length})</h2>
-            {lineItems.map((item) => (
-              <div key={item.id} className="bg-white rounded border border-neutral-200 p-3">
-                <div className="font-semibold text-sm text-neutral-900 mb-1">{item.description}</div>
-                <div className="flex justify-between items-center text-xs text-neutral-600">
-                  <span>{item.quantity} × ${item.unit_price.toFixed(2)}</span>
-                  <span className="font-semibold text-neutral-900">${(item.quantity * item.unit_price).toFixed(2)}</span>
-                </div>
-              </div>
+            {lineItems.map((item, index) => (
+              <LineItemCard
+                key={item.id}
+                item={item}
+                mode="edit"
+                onUpdate={updateLineItem}
+                onDelete={() => deleteLineItem(item.id)}
+                onMoveUp={index > 0 ? () => moveLineItem(index, 'up') : undefined}
+                onMoveDown={index < lineItems.length - 1 ? () => moveLineItem(index, 'down') : undefined}
+                isFirst={index === 0}
+                isLast={index === lineItems.length - 1}
+              />
             ))}
           </div>
         ) || <div className="text-xs text-neutral-500 mb-4">No line items</div>}
 
-        {/* Summary Section */}
-        <div className="bg-white rounded border border-neutral-200 p-3 space-y-1 mb-3">
-          <div className="flex justify-between text-xs">
-            <span className="text-neutral-600">Subtotal</span>
-            <span className="font-semibold text-neutral-900">${subtotal.toFixed(2)}</span>
-          </div>
-          {/* Tax Amount - Editable */}
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-neutral-600">Tax</span>
+        {/* Tax Amount - Editable */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-700">Tax Amount</span>
             {editingTax ? (
               <div className="flex gap-2 items-center">
+                <span className="text-sm text-gray-600">$</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  className="w-20 px-2 py-1 text-xs rounded border border-neutral-300"
+                  className="w-24 px-2 py-1 text-sm rounded border border-neutral-300"
                   value={taxAmount}
                   onChange={(e) => setTaxAmount(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') saveTaxAmount()
                     if (e.key === 'Escape') {
                       setEditingTax(false)
-                      setTaxAmount((quote?.tax_amount || 0).toString())
+                      setTaxAmount((quote?.tax_amount ?? 0).toString())
                     }
                   }}
                   autoFocus
@@ -413,43 +454,40 @@ export default function QuoteDetailPage() {
                 <button
                   onClick={saveTaxAmount}
                   disabled={busy}
-                  className="text-green-600 hover:text-green-700 font-semibold"
+                  className="px-2 py-1 bg-black text-white rounded text-sm hover:bg-gray-800"
                 >
-                  ✓
+                  Save
                 </button>
                 <button
                   onClick={() => {
                     setEditingTax(false)
-                    setTaxAmount((quote?.tax_amount || 0).toString())
+                    setTaxAmount((quote?.tax_amount ?? 0).toString())
                   }}
-                  className="text-red-600 hover:text-red-700"
+                  className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
                 >
-                  ✕
+                  Cancel
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setEditingTax(true)}
-                className="text-green-600 font-semibold hover:underline flex items-center gap-1"
+                className="text-blue-600 font-semibold hover:underline flex items-center gap-1"
               >
                 ${tax.toFixed(2)} <span className="text-xs">✏️</span>
               </button>
             )}
           </div>
-          <div className="border-t border-neutral-200 pt-1 flex justify-between font-semibold text-sm">
-            <span className="text-neutral-900">Total</span>
-            <span className="text-neutral-900">${total.toFixed(2)}</span>
-          </div>
-          {quote.deposit_amount && quote.deposit_amount > 0 && (
-            <div className="bg-neutral-50 rounded p-2 flex justify-between mt-1">
-              <span className="font-semibold text-xs text-neutral-900">Deposit</span>
-              <span className="font-bold text-sm text-green-600">${quote.deposit_amount.toFixed(2)}</span>
-            </div>
-          )}
         </div>
 
+        {/* Summary Section */}
+        <DocumentSummary
+          subtotal={subtotal}
+          tax={tax}
+          showDepositPaid={false}
+        />
+
         {/* Status & Deposit Section */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-6">
+        <div className="bg-white rounded-lg border border-neutral-200 p-4 my-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <span className="text-sm text-neutral-600">Status: </span>
@@ -463,6 +501,31 @@ export default function QuoteDetailPage() {
               <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">Pending Payment</span>
             ) : null}
           </div>
+
+          {/* Deposit Amount Editor */}
+          {!quote.deposit_paid && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Deposit Amount</label>
+              <div className="flex gap-2">
+                <span className="text-sm text-gray-600 py-2">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="flex-1 px-3 py-2 text-sm rounded border border-neutral-300"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                />
+                <button
+                  onClick={saveDepositAmount}
+                  disabled={busy}
+                  className="px-4 py-2 bg-black text-white rounded text-sm hover:bg-gray-800 disabled:opacity-40"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
+          )}
 
           {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
             <>
