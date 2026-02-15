@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
+import { LineItemCard } from '../components/LineItemCard'
+import { DocumentSummary } from '../components/DocumentSummary'
+import { UnifiedLineItem } from '../types/lineItems'
 
 type Invoice = {
   id: string
@@ -10,6 +13,8 @@ type Invoice = {
   total_amount: number
   amount: number
   tax_rate: number | null
+  tax_amount: number | null
+  deposit_paid_amount: number | null
   notes: string | null
   due_date: string | null
   created_at: string
@@ -18,59 +23,152 @@ type Invoice = {
   jobs: { id: string; title: string } | null
 }
 
-type LineItem = {
-  id: string
-  description: string
-  quantity: number
-  unit_price: number
-}
-
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
-  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [lineItems, setLineItems] = useState<UnifiedLineItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [marking, setMarking] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const isPaid = invoice?.status === 'paid'
 
   useEffect(() => {
-    ;(async () => {
-      try {
-        // Fetch invoice
-        const { data: invoiceData, error: invErr } = await supabase
-          .from('invoices')
-          .select('*, clients(id, name, email), jobs(id, title)')
-          .eq('id', id)
-          .single()
-
-        if (invErr) {
-          setError(invErr.message)
-          return
-        }
-
-        setInvoice(invoiceData as any)
-
-        // Fetch line items
-        const { data: itemsData, error: itemsErr } = await supabase
-          .from('invoice_line_items')
-          .select('*')
-          .eq('invoice_id', id)
-          .order('sort_order')
-
-        if (itemsErr) {
-          setError(itemsErr.message)
-          return
-        }
-
-        setLineItems((itemsData as any) || [])
-      } catch (e: any) {
-        setError(e?.message ?? 'Unknown error')
-      } finally {
-        setLoading(false)
-      }
-    })()
+    loadInvoice()
   }, [id])
+
+  async function loadInvoice() {
+    try {
+      // Fetch invoice
+      const { data: invoiceData, error: invErr } = await supabase
+        .from('invoices')
+        .select('*, clients(id, name, email), jobs(id, title)')
+        .eq('id', id)
+        .single()
+
+      if (invErr) {
+        setError(invErr.message)
+        return
+      }
+
+      setInvoice(invoiceData as any)
+
+      // Fetch line items
+      const { data: itemsData, error: itemsErr } = await supabase
+        .from('invoice_line_items')
+        .select('*')
+        .eq('invoice_id', id)
+        .order('sort_order')
+
+      if (itemsErr) {
+        setError(itemsErr.message)
+        return
+      }
+
+      setLineItems((itemsData as any) || [])
+    } catch (e: any) {
+      setError(e?.message ?? 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleUpdateItem(updated: UnifiedLineItem) {
+    const { error: updateErr } = await supabase
+      .from('invoice_line_items')
+      .update({
+        title: updated.title,
+        description: updated.description,
+        quantity: updated.quantity,
+        unit_price: updated.unit_price,
+      })
+      .eq('id', updated.id)
+
+    if (updateErr) {
+      setError(updateErr.message)
+      return
+    }
+
+    // Update local state
+    setLineItems(lineItems.map(item => item.id === updated.id ? updated : item))
+  }
+
+  async function handleDeleteItem(itemId: string) {
+    if (!confirm('Delete this line item?')) return
+
+    const { error: deleteErr } = await supabase
+      .from('invoice_line_items')
+      .delete()
+      .eq('id', itemId)
+
+    if (deleteErr) {
+      setError(deleteErr.message)
+      return
+    }
+
+    // Update local state
+    setLineItems(lineItems.filter(item => item.id !== itemId))
+  }
+
+  async function handleMoveItem(itemId: string, direction: 'up' | 'down') {
+    const currentIndex = lineItems.findIndex(item => item.id === itemId)
+    if (currentIndex === -1) return
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (newIndex < 0 || newIndex >= lineItems.length) return
+
+    const reordered = [...lineItems]
+    const [movedItem] = reordered.splice(currentIndex, 1)
+    reordered.splice(newIndex, 0, movedItem)
+
+    // Update sort_order for all items
+    const updates = reordered.map((item, index) => ({
+      id: item.id,
+      sort_order: index,
+    }))
+
+    // Batch update
+    for (const update of updates) {
+      await supabase
+        .from('invoice_line_items')
+        .update({ sort_order: update.sort_order })
+        .eq('id', update.id)
+    }
+
+    // Update local state
+    setLineItems(reordered.map((item, index) => ({ ...item, sort_order: index })))
+  }
+
+  async function handleAddItem() {
+    setSaving(true)
+    try {
+      const newItem = {
+        invoice_id: id,
+        title: '',
+        description: 'New item',
+        quantity: 1,
+        unit_price: 0,
+        sort_order: lineItems.length,
+      }
+
+      const { data, error: insertErr } = await supabase
+        .from('invoice_line_items')
+        .insert(newItem)
+        .select()
+        .single()
+
+      if (insertErr) {
+        setError(insertErr.message)
+        return
+      }
+
+      setLineItems([...lineItems, data as any])
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function markAsPaid() {
     setMarking(true)
@@ -106,12 +204,10 @@ export default function InvoiceDetailPage() {
   }
 
   const calculateTax = () => {
+    // Use tax_amount if set, otherwise calculate from tax_rate
+    if (invoice?.tax_amount != null) return invoice.tax_amount
     if (!invoice?.tax_rate) return 0
     return calculateSubtotal() * (invoice.tax_rate / 100)
-  }
-
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax()
   }
 
   const statusColor = (status: string) => {
@@ -202,44 +298,47 @@ export default function InvoiceDetailPage() {
 
           {/* Line Items */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3">Items</h3>
-            <div className="space-y-2">
-              <div className="grid grid-cols-12 gap-2 text-xs font-medium text-neutral-600 pb-2 border-b border-neutral-200">
-                <div className="col-span-6">Description</div>
-                <div className="col-span-2 text-center">Quantity</div>
-                <div className="col-span-2 text-right">Rate</div>
-                <div className="col-span-2 text-right">Amount</div>
-              </div>
-              {lineItems.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-2 text-sm">
-                  <div className="col-span-6">{item.description}</div>
-                  <div className="col-span-2 text-center">{item.quantity}</div>
-                  <div className="col-span-2 text-right">${item.unit_price.toFixed(2)}</div>
-                  <div className="col-span-2 text-right font-medium">
-                    ${(item.quantity * item.unit_price).toFixed(2)}
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-neutral-700">Items</h3>
+              {!isPaid && (
+                <button
+                  onClick={handleAddItem}
+                  disabled={saving}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {saving ? 'Adding...' : '+ Add Item'}
+                </button>
+              )}
             </div>
-          </div>
-
-          {/* Totals */}
-          <div className="border-t border-neutral-200 pt-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Subtotal</span>
-              <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
-            </div>
-            {invoice.tax_rate && invoice.tax_rate > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-600">Tax ({invoice.tax_rate}%)</span>
-                <span className="font-medium">${calculateTax().toFixed(2)}</span>
+            
+            {lineItems.length === 0 ? (
+              <p className="text-sm text-neutral-500 italic">No line items</p>
+            ) : (
+              <div className="space-y-2">
+                {lineItems.map((item, index) => (
+                  <LineItemCard
+                    key={item.id}
+                    item={item}
+                    mode={isPaid ? 'view' : 'edit'}
+                    onUpdate={handleUpdateItem}
+                    onDelete={() => handleDeleteItem(item.id)}
+                    onMoveUp={() => handleMoveItem(item.id, 'up')}
+                    onMoveDown={() => handleMoveItem(item.id, 'down')}
+                    isFirst={index === 0}
+                    isLast={index === lineItems.length - 1}
+                  />
+                ))}
               </div>
             )}
-            <div className="flex justify-between pt-2 border-t border-neutral-200">
-              <span className="text-lg font-semibold">Total</span>
-              <span className="text-2xl font-bold">${calculateTotal().toFixed(2)}</span>
-            </div>
           </div>
+
+          {/* Document Summary */}
+          <DocumentSummary
+            subtotal={calculateSubtotal()}
+            tax={calculateTax()}
+            depositPaid={invoice.deposit_paid_amount || 0}
+            showDepositPaid={true}
+          />
 
           {/* Notes */}
           {invoice.notes && (
@@ -250,7 +349,7 @@ export default function InvoiceDetailPage() {
           )}
 
           {/* Actions */}
-          {invoice.status !== 'paid' && (
+          {!isPaid && (
             <div className="mt-6 pt-6 border-t border-neutral-200">
               <button
                 onClick={markAsPaid}

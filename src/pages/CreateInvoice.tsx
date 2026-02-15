@@ -2,9 +2,24 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
+import { DocumentSummary } from '../components/DocumentSummary'
 
-type Job = { id: string; title: string; estimate_amount: number; description: string | null; client_id: string | null; clients: { id: string; name: string } | null }
-type LineItem = { description: string; quantity: number; unit_price: number }
+type Job = { 
+  id: string
+  title: string
+  estimate_amount: number
+  description: string | null
+  client_id: string | null
+  quote_id: string | null
+  clients: { id: string; name: string } | null
+}
+
+type LineItem = { 
+  title?: string
+  description: string
+  quantity: number
+  unit_price: number
+}
 
 export default function CreateInvoicePage() {
   const nav = useNavigate()
@@ -16,8 +31,9 @@ export default function CreateInvoicePage() {
   const [selectedJobId, setSelectedJobId] = useState(jobId || '')
   const [clientName, setClientName] = useState('')
   const [clientId, setClientId] = useState<string | null>(null)
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }])
-  const [depositPercentage, setDepositPercentage] = useState('25')
+  const [lineItems, setLineItems] = useState<LineItem[]>([{ title: '', description: '', quantity: 1, unit_price: 0 }])
+  const [taxAmount, setTaxAmount] = useState('0')
+  const [depositPaidAmount, setDepositPaidAmount] = useState(0)
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,13 +47,17 @@ export default function CreateInvoicePage() {
         const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
         if (!company) return
         setCompanyId(company.id)
-        const { data: jobs } = await supabase.from('jobs').select('id, title, estimate_amount, description, client_id, clients(id, name)').eq('company_id', company.id).eq('status', 'completed')
+        const { data: jobs } = await supabase
+          .from('jobs')
+          .select('id, title, estimate_amount, description, client_id, quote_id, clients(id, name)')
+          .eq('company_id', company.id)
+          .eq('status', 'completed')
         setCompletedJobs((jobs as any) || [])
 
         // Pre-populate if job_id provided
         if (jobId) {
           const job = (jobs as any)?.find((j: Job) => j.id === jobId)
-          if (job) populateFromJob(job)
+          if (job) await populateFromJob(job)
         }
         // Pre-populate if clientId provided (from URL query)
         else if (urlClientId) {
@@ -50,17 +70,54 @@ export default function CreateInvoicePage() {
     })()
   }, [])
 
-  function populateFromJob(job: Job) {
+  async function populateFromJob(job: Job) {
     setSelectedJobId(job.id)
     setClientId(job.client_id)
     setClientName(job.clients?.name || '')
-    setLineItems([{ description: job.title + (job.description ? ` — ${job.description}` : ''), quantity: 1, unit_price: job.estimate_amount }])
+
+    // Fetch job_line_items if they exist
+    const { data: jobLineItems } = await supabase
+      .from('job_line_items')
+      .select('*')
+      .eq('job_id', job.id)
+      .order('sort_order')
+
+    if (jobLineItems && jobLineItems.length > 0) {
+      // Pre-fill from job line items
+      setLineItems(jobLineItems.map((item: any) => ({
+        title: item.title || '',
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      })))
+    } else {
+      // Fallback to estimate amount (legacy jobs without line items)
+      setLineItems([{ 
+        title: job.title,
+        description: job.description || '', 
+        quantity: 1, 
+        unit_price: job.estimate_amount 
+      }])
+    }
+
+    // Check if job came from a quote with paid deposit
+    if (job.quote_id) {
+      const { data: quote } = await supabase
+        .from('quotes')
+        .select('deposit_amount, deposit_paid')
+        .eq('id', job.quote_id)
+        .single()
+
+      if (quote && quote.deposit_paid && quote.deposit_amount) {
+        setDepositPaidAmount(quote.deposit_amount)
+      }
+    }
   }
 
-  function handleJobSelect(jid: string) {
+  async function handleJobSelect(jid: string) {
     setSelectedJobId(jid)
     const job = completedJobs.find(j => j.id === jid)
-    if (job) populateFromJob(job)
+    if (job) await populateFromJob(job)
   }
 
   function updateLine(idx: number, field: keyof LineItem, value: string | number) {
@@ -69,11 +126,17 @@ export default function CreateInvoicePage() {
     setLineItems(updated)
   }
 
-  function addLine() { setLineItems([...lineItems, { description: '', quantity: 1, unit_price: 0 }]) }
-  function removeLine(idx: number) { if (lineItems.length > 1) setLineItems(lineItems.filter((_, i) => i !== idx)) }
+  function addLine() { 
+    setLineItems([...lineItems, { title: '', description: '', quantity: 1, unit_price: 0 }]) 
+  }
+  
+  function removeLine(idx: number) { 
+    if (lineItems.length > 1) setLineItems(lineItems.filter((_, i) => i !== idx)) 
+  }
 
-  const total = lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)
-  const depositAmount = Math.round(total * (parseFloat(depositPercentage) / 100) * 100) / 100
+  const subtotal = lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)
+  const tax = parseFloat(taxAmount) || 0
+  const totalDue = subtotal + tax - depositPaidAmount
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -90,8 +153,9 @@ export default function CreateInvoicePage() {
         client_id: clientId,
         job_id: selectedJobId || null,
         invoice_number: invoiceNumber,
-        total_amount: total,
-        deposit_percentage: parseFloat(depositPercentage) || 25,
+        total_amount: totalDue,
+        tax_amount: tax,
+        deposit_paid_amount: depositPaidAmount,
         status: 'draft',
       }).select().single()
 
@@ -100,6 +164,7 @@ export default function CreateInvoicePage() {
       // Insert line items
       const items = lineItems.filter(li => li.description.trim()).map((li, idx) => ({
         invoice_id: invoice.id,
+        title: li.title || null,
         description: li.description.trim(),
         quantity: li.quantity,
         unit_price: li.unit_price,
@@ -137,50 +202,104 @@ export default function CreateInvoicePage() {
 
           {clientName && <p className="text-sm text-neutral-600">Client: <strong>{clientName}</strong></p>}
 
+          {depositPaidAmount > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-700 font-medium">
+                💰 Deposit already paid: ${depositPaidAmount.toFixed(2)}
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                This will be deducted from the total due.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm mb-2 font-medium">Line Items</label>
             <div className="space-y-3">
               {lineItems.map((li, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
-                  <input className="flex-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={li.description} onChange={e => updateLine(idx, 'description', e.target.value)} placeholder="Description" />
-                  <input type="number" min="1" className="w-16 rounded-xl border border-neutral-200 px-2 py-2 text-sm text-center" value={li.quantity} onChange={e => updateLine(idx, 'quantity', parseInt(e.target.value) || 1)} />
-                  <input type="number" step="0.01" min="0" className="w-24 rounded-xl border border-neutral-200 px-2 py-2 text-sm text-right" value={li.unit_price} onChange={e => updateLine(idx, 'unit_price', parseFloat(e.target.value) || 0)} placeholder="Price" />
-                  {lineItems.length > 1 && <button type="button" onClick={() => removeLine(idx)} className="text-red-500 text-sm px-2 py-2">✕</button>}
+                <div key={idx} className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                  <input 
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
+                    value={li.title || ''} 
+                    onChange={e => updateLine(idx, 'title', e.target.value)} 
+                    placeholder="Item Title (optional)"
+                  />
+                  <textarea 
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
+                    value={li.description} 
+                    onChange={e => updateLine(idx, 'description', e.target.value)} 
+                    placeholder="Description"
+                    rows={2}
+                  />
+                  <div className="flex gap-2 items-center">
+                    <input 
+                      type="number" 
+                      min="1" 
+                      className="w-20 rounded-lg border border-neutral-200 px-2 py-2 text-sm text-center" 
+                      value={li.quantity} 
+                      onChange={e => updateLine(idx, 'quantity', parseInt(e.target.value) || 1)} 
+                      placeholder="Qty"
+                    />
+                    <span className="text-sm text-gray-500">×</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      min="0" 
+                      className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
+                      value={li.unit_price} 
+                      onChange={e => updateLine(idx, 'unit_price', parseFloat(e.target.value) || 0)} 
+                      placeholder="Unit Price"
+                    />
+                    <span className="text-sm text-gray-500">=</span>
+                    <span className="font-medium text-sm w-24 text-right">
+                      ${(li.quantity * li.unit_price).toFixed(2)}
+                    </span>
+                    {lineItems.length > 1 && (
+                      <button 
+                        type="button" 
+                        onClick={() => removeLine(idx)} 
+                        className="text-red-500 text-sm px-2 py-2 hover:bg-red-50 rounded"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={addLine} className="mt-2 text-sm text-blue-600">+ Add line item</button>
+            <button type="button" onClick={addLine} className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
+              + Add line item
+            </button>
           </div>
 
-          <div className="space-y-3 border-t border-neutral-200 pt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Deposit %</label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  max="100" 
-                  step="0.1"
-                  className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" 
-                  value={depositPercentage} 
-                  onChange={e => setDepositPercentage(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Deposit Amount</label>
-                <div className="px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-sm font-medium">
-                  ${depositAmount.toFixed(2)}
-                </div>
-              </div>
-            </div>
-            <div className="text-right text-lg font-bold">
-              Total: ${total.toFixed(2)}
-            </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Tax Amount ($)</label>
+            <input 
+              type="number" 
+              min="0" 
+              step="0.01"
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" 
+              value={taxAmount} 
+              onChange={e => setTaxAmount(e.target.value)}
+              placeholder="0.00"
+            />
           </div>
+
+          {/* Document Summary */}
+          <DocumentSummary
+            subtotal={subtotal}
+            tax={tax}
+            depositPaid={depositPaidAmount}
+            showDepositPaid={depositPaidAmount > 0}
+          />
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
-          <button className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60" disabled={busy || lineItems.every(li => !li.description.trim())} type="submit">
+          <button 
+            className="w-full bg-neutral-900 text-white rounded-xl py-2 text-sm disabled:opacity-60 font-medium" 
+            disabled={busy || lineItems.every(li => !li.description.trim())} 
+            type="submit"
+          >
             {busy ? 'Creating…' : 'Create Invoice (Draft)'}
           </button>
         </form>
