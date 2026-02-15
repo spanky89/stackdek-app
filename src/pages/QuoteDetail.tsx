@@ -10,6 +10,7 @@ type Quote = {
   deposit_amount: number | null; deposit_paid: boolean
   stripe_checkout_session_id: string | null
   tax_rate: number | null
+  tax_amount: number | null
   clients: { id: string; name: string; email?: string } | null
 }
 
@@ -34,6 +35,8 @@ export default function QuoteDetailPage() {
   const [processingPayment, setProcessingPayment] = useState(false)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [checkingStripe, setCheckingStripe] = useState(true)
+  const [taxAmount, setTaxAmount] = useState<string>('0')
+  const [editingTax, setEditingTax] = useState(false)
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -51,11 +54,16 @@ export default function QuoteDetailPage() {
       try {
         const { data, error: fetchErr } = await supabase
           .from('quotes')
-          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, clients(id, name, email)')
+          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, clients(id, name, email)')
           .eq('id', id)
           .single()
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
+        
+        // Set tax amount if already exists
+        if (data.tax_amount !== null && data.tax_amount !== undefined) {
+          setTaxAmount(data.tax_amount.toString())
+        }
         
         // Fetch line items
         const { data: items, error: itemsErr } = await supabase
@@ -128,6 +136,29 @@ export default function QuoteDetailPage() {
     }
     
     setQuote({ ...quote!, deposit_amount: parseFloat(depositAmount) })
+  }
+
+  async function saveTaxAmount() {
+    const parsedTax = parseFloat(taxAmount)
+    if (isNaN(parsedTax) || parsedTax < 0) {
+      setError('Please enter a valid tax amount')
+      return
+    }
+
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('quotes')
+      .update({ tax_amount: parsedTax })
+      .eq('id', id)
+    
+    setBusy(false)
+    if (upErr) { 
+      setError(upErr.message)
+      return 
+    }
+    
+    setQuote({ ...quote!, tax_amount: parsedTax })
+    setEditingTax(false)
   }
 
   async function handleStripePayment() {
@@ -316,8 +347,10 @@ export default function QuoteDetailPage() {
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
-  const taxRate = quote?.tax_rate || 0
-  const tax = subtotal * (taxRate / 100)
+  // Use tax_amount if set, otherwise fall back to tax_rate calculation
+  const tax = quote?.tax_amount !== null && quote?.tax_amount !== undefined 
+    ? quote.tax_amount 
+    : subtotal * ((quote?.tax_rate || 0) / 100)
   const total = subtotal + tax
 
   return (
@@ -356,12 +389,53 @@ export default function QuoteDetailPage() {
             <span className="text-neutral-600">Subtotal</span>
             <span className="font-semibold text-neutral-900">${subtotal.toFixed(2)}</span>
           </div>
-          {taxRate > 0 && (
-            <div className="flex justify-between text-xs">
-              <span className="text-neutral-600">Tax ({taxRate}%)</span>
-              <span className="text-green-600 font-semibold">${tax.toFixed(2)}</span>
-            </div>
-          )}
+          {/* Tax Amount - Editable */}
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-neutral-600">Tax</span>
+            {editingTax ? (
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-20 px-2 py-1 text-xs rounded border border-neutral-300"
+                  value={taxAmount}
+                  onChange={(e) => setTaxAmount(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveTaxAmount()
+                    if (e.key === 'Escape') {
+                      setEditingTax(false)
+                      setTaxAmount((quote?.tax_amount || 0).toString())
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  onClick={saveTaxAmount}
+                  disabled={busy}
+                  className="text-green-600 hover:text-green-700 font-semibold"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingTax(false)
+                    setTaxAmount((quote?.tax_amount || 0).toString())
+                  }}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingTax(true)}
+                className="text-green-600 font-semibold hover:underline flex items-center gap-1"
+              >
+                ${tax.toFixed(2)} <span className="text-xs">✏️</span>
+              </button>
+            )}
+          </div>
           <div className="border-t border-neutral-200 pt-1 flex justify-between font-semibold text-sm">
             <span className="text-neutral-900">Total</span>
             <span className="text-neutral-900">${total.toFixed(2)}</span>
