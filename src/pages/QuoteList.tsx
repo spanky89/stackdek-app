@@ -16,6 +16,7 @@ export default function QuoteListPage() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [showSchedule, setShowSchedule] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [newRequestsCount, setNewRequestsCount] = useState(0)
 
@@ -98,6 +99,7 @@ export default function QuoteListPage() {
             New Quote
           </button>
           <button
+            onClick={() => setShowSchedule(true)}
             className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,7 +230,165 @@ export default function QuoteListPage() {
             </div>
           </div>
         )}
+
+        {showSchedule && (
+          <ScheduleQuoteModal 
+            onClose={() => setShowSchedule(false)} 
+            onSuccess={() => { 
+              setShowSchedule(false)
+              setRefreshKey(k => k + 1)
+            }} 
+          />
+        )}
       </div>
     </AppLayout>
+  )
+}
+
+// Schedule Quote Modal Component
+function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([])
+  const [formData, setFormData] = useState({
+    client_id: '',
+    title: '',
+    scheduled_date: '',
+    scheduled_time: '',
+    notes: ''
+  })
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
+      if (!company) return
+      const { data } = await supabase.from('clients').select('id, name').eq('company_id', company.id).order('name')
+      setClients((data as any) || [])
+    })()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.client_id || !formData.title || !formData.scheduled_date || !formData.scheduled_time) return
+
+    setSubmitting(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+      const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
+      if (!company) throw new Error('No company found')
+
+      const { error } = await supabase.from('quotes').insert({
+        company_id: company.id,
+        client_id: formData.client_id,
+        title: formData.title,
+        amount: 0, // Placeholder, will be updated after appointment
+        status: 'draft',
+        scheduled_date: formData.scheduled_date,
+        scheduled_time: formData.scheduled_time,
+        expiration_date: null
+      })
+
+      if (error) throw error
+      onSuccess()
+    } catch (err) {
+      console.error(err)
+      alert('Failed to schedule quote appointment')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">Schedule Quote Appointment</h2>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
+            <select
+              value={formData.client_id}
+              onChange={e => setFormData({ ...formData, client_id: e.target.value })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              required
+            >
+              <option value="">Select a client</option>
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Service Type</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
+              placeholder="e.g., Kitchen Remodel, Deck Installation"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={formData.scheduled_date}
+                onChange={e => setFormData({ ...formData, scheduled_date: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Time</label>
+              <input
+                type="time"
+                value={formData.scheduled_time}
+                onChange={e => setFormData({ ...formData, scheduled_time: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Notes (optional)</label>
+            <textarea
+              value={formData.notes}
+              onChange={e => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Any special instructions or details..."
+              rows={3}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition disabled:opacity-50"
+            >
+              {submitting ? 'Scheduling...' : 'Schedule'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
