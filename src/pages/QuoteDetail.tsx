@@ -31,8 +31,11 @@ export default function QuoteDetailPage() {
   const [processingPayment, setProcessingPayment] = useState(false)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [checkingStripe, setCheckingStripe] = useState(true)
-  const [taxAmount, setTaxAmount] = useState<string>('0')
+  const [taxRateInput, setTaxRateInput] = useState<string>('0')
   const [editingTax, setEditingTax] = useState(false)
+  const [showDepositModal, setShowDepositModal] = useState(false)
+  const [depositType, setDepositType] = useState<'percentage' | 'dollar'>('percentage')
+  const [depositValue, setDepositValue] = useState<string>('0')
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -55,8 +58,11 @@ export default function QuoteDetailPage() {
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
         
-        // Set tax amount (default to 0)
-        setTaxAmount((data.tax_amount ?? 0).toString())
+        // Set tax rate (default to 0%)
+        setTaxRateInput((data.tax_rate ?? 0).toString())
+        
+        // Set deposit amount (default to 0)
+        setDepositAmount((data.deposit_amount ?? 0).toString())
         
         // Fetch line items with title field
         const { data: items, error: itemsErr } = await supabase
@@ -131,17 +137,17 @@ export default function QuoteDetailPage() {
     setQuote({ ...quote!, deposit_amount: parsedDeposit })
   }
 
-  async function saveTaxAmount() {
-    const parsedTax = parseFloat(taxAmount)
-    if (isNaN(parsedTax) || parsedTax < 0) {
-      setError('Please enter a valid tax amount')
+  async function saveTaxRate() {
+    const parsedRate = parseFloat(taxRateInput)
+    if (isNaN(parsedRate) || parsedRate < 0) {
+      setError('Please enter a valid tax rate')
       return
     }
 
     setBusy(true)
     const { error: upErr } = await supabase
       .from('quotes')
-      .update({ tax_amount: parsedTax })
+      .update({ tax_rate: parsedRate })
       .eq('id', id)
     
     setBusy(false)
@@ -150,8 +156,44 @@ export default function QuoteDetailPage() {
       return 
     }
     
-    setQuote({ ...quote!, tax_amount: parsedTax })
+    setQuote({ ...quote!, tax_rate: parsedRate })
     setEditingTax(false)
+  }
+
+  async function saveDeposit() {
+    const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+    let depositDollars = 0
+    
+    if (depositType === 'percentage') {
+      const pct = parseFloat(depositValue)
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        setError('Please enter a valid percentage (0-100)')
+        return
+      }
+      depositDollars = (subtotal * pct) / 100
+    } else {
+      depositDollars = parseFloat(depositValue)
+      if (isNaN(depositDollars) || depositDollars < 0) {
+        setError('Please enter a valid deposit amount')
+        return
+      }
+    }
+
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('quotes')
+      .update({ deposit_amount: depositDollars })
+      .eq('id', id)
+    
+    setBusy(false)
+    if (upErr) { 
+      setError(upErr.message)
+      return 
+    }
+    
+    setQuote({ ...quote!, deposit_amount: depositDollars })
+    setDepositAmount(depositDollars.toString())
+    setShowDepositModal(false)
   }
 
   async function updateLineItem(updated: UnifiedLineItem) {
@@ -392,7 +434,8 @@ export default function QuoteDetailPage() {
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
-  const tax = quote?.tax_amount ?? 0
+  const taxRate = quote?.tax_rate ?? 0
+  const tax = (subtotal * taxRate) / 100
   const total = subtotal + tax
   const depositRequired = quote?.deposit_amount ?? 0
 
@@ -445,13 +488,13 @@ export default function QuoteDetailPage() {
           <button 
             onClick={() => updateStatus('accepted')} 
             disabled={busy || quote.status === 'accepted'}
-            className="px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-40"
+            className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 disabled:opacity-40"
           >
             Approve
           </button>
           <button 
             onClick={copyShareableLink}
-            className="px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
+            className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
           >
             {copied ? 'Link Copied!' : 'Resend'}
           </button>
@@ -476,7 +519,7 @@ export default function QuoteDetailPage() {
         <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-neutral-900">Line items</h2>
-            <button onClick={() => nav(`/quote/${id}/edit`)} className="text-green-600 text-3xl leading-none font-light">+</button>
+            <button onClick={() => nav(`/quote/${id}/edit`)} className="text-neutral-900 text-3xl leading-none font-light">+</button>
           </div>
           
           {lineItems.length > 0 ? (
@@ -514,30 +557,31 @@ export default function QuoteDetailPage() {
             <span className="text-neutral-900 font-medium">Tax</span>
             {editingTax ? (
               <div className="flex gap-2 items-center">
-                <span className="text-sm text-neutral-600">$</span>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  className="w-24 px-2 py-1 text-sm rounded border border-neutral-300"
-                  value={taxAmount}
-                  onChange={(e) => setTaxAmount(e.target.value)}
+                  max="100"
+                  className="w-20 px-2 py-1 text-sm rounded border border-neutral-300"
+                  value={taxRateInput}
+                  onChange={(e) => setTaxRateInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveTaxAmount()
+                    if (e.key === 'Enter') saveTaxRate()
                     if (e.key === 'Escape') {
                       setEditingTax(false)
-                      setTaxAmount((quote?.tax_amount ?? 0).toString())
+                      setTaxRateInput((quote?.tax_rate ?? 0).toString())
                     }
                   }}
                   autoFocus
                 />
-                <button onClick={saveTaxAmount} disabled={busy} className="px-2 py-1 bg-neutral-900 text-white rounded text-xs">
+                <span className="text-sm text-neutral-600">%</span>
+                <button onClick={saveTaxRate} disabled={busy} className="px-2 py-1 bg-neutral-900 text-white rounded text-xs">
                   Save
                 </button>
               </div>
             ) : (
-              <button onClick={() => setEditingTax(true)} className="font-semibold text-green-600">
-                ${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              <button onClick={() => setEditingTax(true)} className="font-semibold text-neutral-900">
+                ${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({taxRate}%)
               </button>
             )}
           </div>
@@ -547,75 +591,110 @@ export default function QuoteDetailPage() {
             <span className="text-lg font-bold text-neutral-900">${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
           </div>
 
-          {depositRequired > 0 && (
-            <div className="bg-neutral-50 -mx-4 px-4 py-3 flex justify-between items-center border-t border-neutral-200">
-              <span className="font-bold text-neutral-900">Required deposit</span>
-              <span className="font-bold text-green-600">${depositRequired.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-            </div>
-          )}
+          <button
+            onClick={() => setShowDepositModal(true)}
+            className="bg-neutral-50 -mx-4 px-4 py-3 flex justify-between items-center border-t border-neutral-200 hover:bg-neutral-100 transition w-full text-left"
+          >
+            <span className="font-bold text-neutral-900">Required deposit</span>
+            <span className="font-bold text-neutral-900">${depositRequired.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          </button>
         </div>
 
-        {/* Deposit Payment Settings */}
-        {!quote.deposit_paid && (
+        {/* Payment Actions */}
+        {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
           <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
-            <h2 className="font-semibold text-neutral-900 mb-4">Deposit payment settings</h2>
-            
-            <div className="mb-4">
-              <label className="block text-sm text-neutral-600 mb-2">Set deposit amount</label>
-              <div className="flex gap-2">
-                <span className="text-sm text-neutral-600 py-2">$</span>
+            <h2 className="font-semibold text-neutral-900 mb-4">Accept Deposit Payment</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleStripePayment}
+                disabled={processingPayment || !stripeConnected}
+                className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {processingPayment ? 'Processing...' : 'Pay with Card'}
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="flex-1 px-3 py-2 text-sm rounded border border-neutral-300"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                />
-                <button
-                  onClick={saveDepositAmount}
+                  type="checkbox"
+                  onChange={markOfflinePayment}
                   disabled={busy}
-                  className="px-4 py-2 bg-neutral-900 text-white rounded text-sm hover:bg-neutral-800 disabled:opacity-40"
+                  className="w-4 h-4"
+                />
+                <span className="text-xs font-medium">Mark Paid</span>
+              </label>
+            </div>
+            {!stripeConnected && (
+              <p className="text-xs text-neutral-600 mt-2">
+                <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Deposit Modal */}
+        {showDepositModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowDepositModal(false)}>
+            <div className="bg-white rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-xl font-bold mb-4">Set Required Deposit</h2>
+              
+              <div className="mb-4">
+                <label className="block text-sm text-neutral-600 mb-2">Deposit Type</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDepositType('percentage')}
+                    className={`flex-1 px-4 py-2 rounded text-sm font-medium ${depositType === 'percentage' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-700'}`}
+                  >
+                    Percentage
+                  </button>
+                  <button
+                    onClick={() => setDepositType('dollar')}
+                    className={`flex-1 px-4 py-2 rounded text-sm font-medium ${depositType === 'dollar' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-700'}`}
+                  >
+                    Dollar Amount
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm text-neutral-600 mb-2">
+                  {depositType === 'percentage' ? 'Percentage of Subtotal' : 'Dollar Amount'}
+                </label>
+                <div className="flex gap-2 items-center">
+                  {depositType === 'dollar' && <span className="text-neutral-600">$</span>}
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={depositType === 'percentage' ? '100' : undefined}
+                    className="flex-1 px-3 py-2 rounded border border-neutral-300"
+                    value={depositValue}
+                    onChange={(e) => setDepositValue(e.target.value)}
+                    placeholder={depositType === 'percentage' ? '0' : '0.00'}
+                  />
+                  {depositType === 'percentage' && <span className="text-neutral-600">%</span>}
+                </div>
+                {depositType === 'percentage' && (
+                  <p className="text-xs text-neutral-500 mt-2">
+                    = ${((subtotal * parseFloat(depositValue || '0')) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDepositModal(false)}
+                  className="flex-1 px-4 py-2 bg-neutral-100 text-neutral-700 rounded-lg font-medium hover:bg-neutral-200"
                 >
-                  Set
+                  Cancel
+                </button>
+                <button
+                  onClick={saveDeposit}
+                  disabled={busy}
+                  className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 disabled:opacity-40"
+                >
+                  Save
                 </button>
               </div>
             </div>
-
-            {quote.deposit_amount && quote.deposit_amount > 0 && (
-              <>
-                <div className="space-y-2 mb-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-neutral-600">Accept card payments</span>
-                    <span className="font-medium">{stripeConnected ? 'Yes' : 'No'}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleStripePayment}
-                    disabled={processingPayment || !stripeConnected}
-                    className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {processingPayment ? 'Processing...' : 'Pay with Card'}
-                  </button>
-                  <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
-                    <input
-                      type="checkbox"
-                      onChange={markOfflinePayment}
-                      disabled={busy}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-xs font-medium">Mark Paid</span>
-                  </label>
-                </div>
-                {!stripeConnected && (
-                  <p className="text-xs text-neutral-600 mt-2">
-                    <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
-                  </p>
-                )}
-              </>
-            )}
           </div>
         )}
       </>
