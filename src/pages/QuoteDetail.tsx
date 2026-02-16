@@ -429,10 +429,14 @@ export default function QuoteDetailPage() {
         </div>
 
         {/* Metadata */}
-        <div className="flex gap-6 mb-6 text-sm">
+        <div className="grid grid-cols-2 gap-6 mb-6 text-sm">
           <div>
-            <span className="text-neutral-500">Created</span>
+            <span className="text-neutral-500 block mb-1">Created</span>
             <p className="font-medium">{new Date(quote.expiration_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          </div>
+          <div>
+            <span className="text-neutral-500 block mb-1">Viewed</span>
+            <p className="font-medium">—</p>
           </div>
         </div>
 
@@ -446,19 +450,33 @@ export default function QuoteDetailPage() {
             Approve
           </button>
           <button 
-            onClick={() => updateStatus('declined')} 
-            disabled={busy || quote.status === 'declined'}
-            className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 disabled:opacity-40"
+            onClick={copyShareableLink}
+            className="px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700"
           >
-            Decline
+            {copied ? 'Link Copied!' : 'Resend'}
           </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-neutral-200 mb-6">
+          <button className="px-6 py-3 text-sm font-semibold text-neutral-900 border-b-2 border-red-700">
+            Quote
+          </button>
+          <button className="px-6 py-3 text-sm font-medium text-neutral-500">
+            Notes
+          </button>
+        </div>
+
+        {/* Product / Service Label */}
+        <div className="mb-3">
+          <h3 className="text-sm text-neutral-500 font-medium">Product / Service</h3>
         </div>
 
         {/* Line Items Section */}
         <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-semibold text-neutral-900">Line items</h2>
-            <button onClick={() => nav(`/quote/${id}/edit`)} className="text-green-600 text-2xl leading-none">+</button>
+            <h2 className="text-lg font-bold text-neutral-900">Line items</h2>
+            <button onClick={() => nav(`/quote/${id}/edit`)} className="text-green-600 text-3xl leading-none font-light">+</button>
           </div>
           
           {lineItems.length > 0 ? (
@@ -600,29 +618,6 @@ export default function QuoteDetailPage() {
             )}
           </div>
         )}
-
-        {/* Share Link */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-4">
-          <h2 className="font-semibold text-neutral-900 mb-3">Share quote link</h2>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              value={`${window.location.origin}/quotes/view/${id}`}
-              readOnly
-              className="flex-1 px-3 py-2 rounded border border-neutral-200 text-xs text-neutral-600 bg-neutral-50"
-            />
-            <button 
-              onClick={copyShareableLink}
-              className={`px-4 py-2 rounded text-sm font-medium transition ${
-                copied 
-                  ? 'bg-neutral-800 text-white' 
-                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
-              }`}
-            >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-        </div>
       </>
     </AppLayout>
   )
