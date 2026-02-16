@@ -398,191 +398,226 @@ export default function QuoteDetailPage() {
     <AppLayout>
       <>
         {/* Header */}
-        <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => nav('/quotes')} className="text-lg">←</button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-neutral-900 truncate">{quote.clients?.name}</h1>
-            <p className="text-xs text-neutral-600 truncate">{quote.title}</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => nav('/quotes')} className="text-neutral-700 text-2xl leading-none">←</button>
+            <span className="font-semibold text-lg">Quote Details</span>
           </div>
-          <button onClick={() => nav(`/quote/${id}/edit`)} className="text-xs px-2 py-1 bg-neutral-900 text-white rounded">Edit</button>
-          <button onClick={handleDelete} disabled={busy} className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-40">Delete</button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => nav(`/quote/${id}/edit`)} className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium">
+              Edit
+            </button>
+            <button onClick={handleDelete} disabled={busy} className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40">
+              Delete
+            </button>
+          </div>
         </div>
 
-        {/* Line Items */}
-        {lineItems.length > 0 && (
-          <div className="space-y-2 mb-4">
-            <h2 className="text-xs font-semibold text-neutral-700 mb-2">LINE ITEMS ({lineItems.length})</h2>
-            {lineItems.map((item, index) => (
-              <LineItemCard
-                key={item.id}
-                item={item}
-                mode="edit"
-                onUpdate={updateLineItem}
-                onDelete={() => deleteLineItem(item.id)}
-                onMoveUp={index > 0 ? () => moveLineItem(index, 'up') : undefined}
-                onMoveDown={index < lineItems.length - 1 ? () => moveLineItem(index, 'down') : undefined}
-                isFirst={index === 0}
-                isLast={index === lineItems.length - 1}
-              />
-            ))}
+        {/* Main Content Card */}
+        <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
+          {/* Client & Title */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold mb-1">{quote.clients?.name}</h1>
+            <p className="text-sm text-neutral-600">{quote.title}</p>
           </div>
-        ) || <div className="text-xs text-neutral-500 mb-4">No line items</div>}
 
-        {/* Tax Amount - Editable */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4 mb-4">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">Tax Amount</span>
-            {editingTax ? (
-              <div className="flex gap-2 items-center">
-                <span className="text-sm text-gray-600">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="w-24 px-2 py-1 text-sm rounded border border-neutral-300"
-                  value={taxAmount}
-                  onChange={(e) => setTaxAmount(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveTaxAmount()
-                    if (e.key === 'Escape') {
-                      setEditingTax(false)
-                      setTaxAmount((quote?.tax_amount ?? 0).toString())
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  onClick={saveTaxAmount}
-                  disabled={busy}
-                  className="px-2 py-1 bg-black text-white rounded text-sm hover:bg-gray-800"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingTax(false)
-                    setTaxAmount((quote?.tax_amount ?? 0).toString())
-                  }}
-                  className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
+          {/* Status Badge */}
+          <div className="mb-6 pb-6 border-b border-neutral-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-neutral-600">Status: </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[quote.status] || 'bg-neutral-100 text-neutral-800'}`}>
+                  {quote.status}
+                </span>
+              </div>
+              {quote.deposit_paid && (
+                <span className="text-xs px-3 py-1.5 rounded-lg bg-neutral-800 text-white font-medium">Deposit Paid</span>
+              )}
+            </div>
+          </div>
+
+          {/* Line Items Section */}
+          <div className="mb-6 pb-6 border-b border-neutral-200">
+            <h2 className="text-base font-semibold mb-4">Line Items ({lineItems.length})</h2>
+            {lineItems.length > 0 ? (
+              <div className="space-y-2">
+                {lineItems.map((item, index) => (
+                  <LineItemCard
+                    key={item.id}
+                    item={item}
+                    mode="edit"
+                    onUpdate={updateLineItem}
+                    onDelete={() => deleteLineItem(item.id)}
+                    onMoveUp={index > 0 ? () => moveLineItem(index, 'up') : undefined}
+                    onMoveDown={index < lineItems.length - 1 ? () => moveLineItem(index, 'down') : undefined}
+                    isFirst={index === 0}
+                    isLast={index === lineItems.length - 1}
+                  />
+                ))}
               </div>
             ) : (
-              <button
-                onClick={() => setEditingTax(true)}
-                className="text-blue-600 font-semibold hover:underline flex items-center gap-1"
-              >
-                ${tax.toFixed(2)} <span className="text-xs">✏️</span>
-              </button>
+              <p className="text-sm text-neutral-500 text-center py-4">No line items</p>
             )}
           </div>
-        </div>
 
-        {/* Summary Section */}
-        <DocumentSummary
-          subtotal={subtotal}
-          tax={tax}
-          showDepositPaid={false}
-        />
-
-        {/* Status & Deposit Section */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4 my-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="text-sm text-neutral-600">Status: </span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[quote.status] || 'bg-neutral-100 text-neutral-800'}`}>
-                {quote.status}
-              </span>
+          {/* Tax Section */}
+          <div className="mb-6 pb-6 border-b border-neutral-200">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-neutral-600">Tax Amount</span>
+              {editingTax ? (
+                <div className="flex gap-2 items-center">
+                  <span className="text-sm text-neutral-600">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-24 px-2 py-1 text-sm rounded border border-neutral-300"
+                    value={taxAmount}
+                    onChange={(e) => setTaxAmount(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveTaxAmount()
+                      if (e.key === 'Escape') {
+                        setEditingTax(false)
+                        setTaxAmount((quote?.tax_amount ?? 0).toString())
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={saveTaxAmount}
+                    disabled={busy}
+                    className="px-3 py-1 bg-neutral-900 text-white rounded text-sm hover:bg-neutral-800"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingTax(false)
+                      setTaxAmount((quote?.tax_amount ?? 0).toString())
+                    }}
+                    className="px-3 py-1 bg-neutral-200 text-neutral-700 rounded text-sm hover:bg-neutral-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setEditingTax(true)}
+                  className="text-sm font-medium hover:text-neutral-900 flex items-center gap-1"
+                >
+                  ${tax.toFixed(2)} <span className="text-xs text-neutral-400">Edit</span>
+                </button>
+              )}
             </div>
-            {quote.deposit_paid ? (
-              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">✓ Deposit Paid</span>
-            ) : quote.deposit_amount && quote.deposit_amount > 0 ? (
-              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">Pending Payment</span>
-            ) : null}
           </div>
 
-          {/* Deposit Amount Editor */}
+          {/* Summary */}
+          <div className="mb-6">
+            <DocumentSummary
+              subtotal={subtotal}
+              tax={tax}
+              showDepositPaid={false}
+            />
+          </div>
+
+          {/* Deposit Section */}
           {!quote.deposit_paid && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Deposit Amount</label>
-              <div className="flex gap-2">
-                <span className="text-sm text-gray-600 py-2">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="flex-1 px-3 py-2 text-sm rounded border border-neutral-300"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                />
-                <button
-                  onClick={saveDepositAmount}
-                  disabled={busy}
-                  className="px-4 py-2 bg-black text-white rounded text-sm hover:bg-gray-800 disabled:opacity-40"
-                >
-                  Set
-                </button>
+            <div className="mb-6 pb-6 border-b border-neutral-200">
+              <h2 className="text-base font-semibold mb-4">Deposit Payment</h2>
+              <div className="mb-4">
+                <label className="block text-sm text-neutral-600 mb-2">Deposit Amount</label>
+                <div className="flex gap-2">
+                  <span className="text-sm text-neutral-600 py-2">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="flex-1 px-3 py-2 text-sm rounded border border-neutral-300"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                  />
+                  <button
+                    onClick={saveDepositAmount}
+                    disabled={busy}
+                    className="px-4 py-2 bg-neutral-900 text-white rounded text-sm hover:bg-neutral-800 disabled:opacity-40"
+                  >
+                    Set
+                  </button>
+                </div>
               </div>
+
+              {quote.deposit_amount && quote.deposit_amount > 0 && (
+                <>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={handleStripePayment}
+                      disabled={processingPayment || !stripeConnected}
+                      className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {processingPayment ? 'Processing...' : 'Pay with Card'}
+                    </button>
+                    <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
+                      <input
+                        type="checkbox"
+                        onChange={markOfflinePayment}
+                        disabled={busy}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-xs font-medium">Mark Paid</span>
+                    </label>
+                  </div>
+                  {!stripeConnected && (
+                    <p className="text-xs text-neutral-600 bg-neutral-50 p-3 rounded">
+                      <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           )}
 
-          {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
-            <>
-              <div className="flex gap-2 mb-3">
-                <button
-                  onClick={handleStripePayment}
-                  disabled={processingPayment || !stripeConnected}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {processingPayment ? 'Processing...' : '💳 Pay Deposit'}
-                </button>
-                <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
-                  <input
-                    type="checkbox"
-                    onChange={markOfflinePayment}
-                    disabled={busy}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-xs">Offline</span>
-                </label>
-              </div>
-              {!stripeConnected && (
-                <p className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded">
-                  ⚠️ <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure Stripe</button> to accept payments
-                </p>
-              )}
-            </>
-          )}
-        </div>
+          {/* Actions Section */}
+          <div className="mb-6">
+            <h2 className="text-base font-semibold mb-4">Actions</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => updateStatus('accepted')} 
+                disabled={busy || quote.status === 'accepted'}
+                className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+              >
+                Accept Quote
+              </button>
+              <button 
+                onClick={() => updateStatus('declined')} 
+                disabled={busy || quote.status === 'declined'}
+                className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+              >
+                Decline Quote
+              </button>
+            </div>
+          </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button onClick={() => updateStatus('accepted')} disabled={busy || quote.status === 'accepted'}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-40">✓ Accept</button>
-          <button onClick={() => updateStatus('declined')} disabled={busy || quote.status === 'declined'}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm disabled:opacity-40">✗ Decline</button>
-        </div>
-
-        {/* Share Link */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4">
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              value={`${window.location.origin}/quotes/view/${id}`}
-              readOnly
-              className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-600 bg-neutral-50"
-            />
-            <button 
-              onClick={copyShareableLink}
-              className={`px-4 py-2 rounded-lg text-xs font-medium transition ${
-                copied 
-                  ? 'bg-green-600 text-white' 
-                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
-              }`}
-            >
-              {copied ? '✓' : 'Copy'}
-            </button>
+          {/* Share Link Section */}
+          <div>
+            <h2 className="text-base font-semibold mb-4">Share Quote</h2>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={`${window.location.origin}/quotes/view/${id}`}
+                readOnly
+                className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-600 bg-neutral-50"
+              />
+              <button 
+                onClick={copyShareableLink}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  copied 
+                    ? 'bg-neutral-800 text-white' 
+                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                }`}
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
           </div>
         </div>
       </>
