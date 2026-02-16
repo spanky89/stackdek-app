@@ -206,7 +206,7 @@ export default function CreateInvoicePage() {
     setLineItems(lineItems.map(item => item.id === id ? { ...item, [field]: value } : item))
   }
 
-  const subtotal = lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0)
+  const subtotal = lineItems.reduce((sum, li) => sum + (li.quantity || 0) * (li.unit_price || 0), 0)
   const tax = parseFloat(taxAmount) || 0
   const totalDue = subtotal + tax - depositPaidAmount
 
@@ -343,11 +343,7 @@ export default function CreateInvoicePage() {
             <div className="space-y-3 mb-4">
               {lineItems.map((li) => (
                 <div key={li.id} className="space-y-2 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{li.title}</p>
-                      {li.description && <p className="text-xs text-neutral-600">{li.description}</p>}
-                    </div>
+                  <div className="flex justify-end items-start mb-2">
                     <button 
                       type="button" 
                       onClick={() => removeLineItem(li.id)} 
@@ -356,19 +352,25 @@ export default function CreateInvoicePage() {
                       ×
                     </button>
                   </div>
-                  <input 
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
-                    value={li.title || ''} 
-                    onChange={e => updateLine(li.id, 'title', e.target.value)} 
-                    placeholder="Item Title"
-                  />
-                  <textarea 
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm resize-none" 
-                    value={li.description} 
-                    onChange={e => updateLine(li.id, 'description', e.target.value)} 
-                    placeholder="Description"
-                    rows={2}
-                  />
+                  <div>
+                    <label className="block text-xs text-neutral-600 mb-1">Item Title</label>
+                    <input 
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
+                      value={li.title || ''} 
+                      onChange={e => updateLine(li.id, 'title', e.target.value)} 
+                      placeholder="Item Title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-neutral-600 mb-1">Description</label>
+                    <textarea 
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm resize-none" 
+                      value={li.description} 
+                      onChange={e => updateLine(li.id, 'description', e.target.value)} 
+                      placeholder="Description"
+                      rows={2}
+                    />
+                  </div>
                   <div className="flex gap-2 items-center">
                     <div className="w-20">
                       <label className="block text-xs text-neutral-600 mb-1">Qty</label>
@@ -377,7 +379,10 @@ export default function CreateInvoicePage() {
                         min="1" 
                         className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm text-center" 
                         value={li.quantity} 
-                        onChange={e => updateLine(li.id, 'quantity', parseInt(e.target.value) || 1)} 
+                        onChange={e => {
+                          const val = e.target.value
+                          updateLine(li.id, 'quantity', val === '' ? '' : parseInt(val) || 1)
+                        }} 
                       />
                     </div>
                     <span className="text-sm text-gray-500 mt-5">×</span>
@@ -389,14 +394,17 @@ export default function CreateInvoicePage() {
                         min="0" 
                         className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm" 
                         value={li.unit_price} 
-                        onChange={e => updateLine(li.id, 'unit_price', parseFloat(e.target.value) || 0)} 
+                        onChange={e => {
+                          const val = e.target.value
+                          updateLine(li.id, 'unit_price', val === '' ? '' : parseFloat(val) || 0)
+                        }} 
                       />
                     </div>
                     <span className="text-sm text-gray-500 mt-5">=</span>
                     <div className="w-24">
                       <label className="block text-xs text-neutral-600 mb-1">Total</label>
                       <div className="font-medium text-sm text-right py-2">
-                        ${(li.quantity * li.unit_price).toFixed(2)}
+                        ${((li.quantity || 0) * (li.unit_price || 0)).toFixed(2)}
                       </div>
                     </div>
                   </div>

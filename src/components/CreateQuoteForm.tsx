@@ -225,22 +225,18 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
             {lineItems.map((item) => (
               <div key={item.id} className="border border-neutral-200 rounded-lg p-4 bg-white">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-neutral-900">{item.name}</p>
-                    {item.description && <p className="text-xs text-neutral-600">{item.description}</p>}
-                  </div>
                   <button
                     type="button"
                     onClick={() => removeLineItem(item.id)}
-                    className="text-neutral-400 hover:text-red-600 text-lg leading-none"
+                    className="text-neutral-400 hover:text-red-600 text-lg leading-none ml-auto"
                   >
                     ×
                   </button>
                 </div>
                 
-                {/* Title field (optional) */}
+                {/* Title field */}
                 <div className="mb-2">
-                  <label className="block text-xs text-neutral-600 mb-1">Item Title (optional)</label>
+                  <label className="block text-xs text-neutral-600 mb-1">Item Title</label>
                   <input
                     type="text"
                     className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
@@ -259,7 +255,10 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                       step="1"
                       className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
                       value={item.quantity}
-                      onChange={e => updateLineItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                      onChange={e => {
+                        const val = e.target.value
+                        updateLineItem(item.id, 'quantity', val === '' ? '' : parseInt(val) || 1)
+                      }}
                     />
                   </div>
                   <div>
@@ -270,12 +269,15 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                       min="0"
                       className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
                       value={item.price}
-                      onChange={e => updateLineItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                      onChange={e => {
+                        const val = e.target.value
+                        updateLineItem(item.id, 'price', val === '' ? '' : parseFloat(val) || 0)
+                      }}
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-neutral-600 mb-1">Total</label>
-                    <div className="px-2 py-1.5 text-sm font-medium">${(item.quantity * item.price).toFixed(2)}</div>
+                    <div className="px-2 py-1.5 text-sm font-medium">${((item.quantity || 0) * (item.price || 0)).toFixed(2)}</div>
                   </div>
                 </div>
                 <textarea
