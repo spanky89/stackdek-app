@@ -613,35 +613,127 @@ export default function QuoteDetailPage() {
 
             {/* Line Items Section */}
         <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="mb-4">
             <h2 className="text-lg font-bold text-neutral-900">Line items</h2>
-            <button onClick={() => setShowServiceSelector(true)} className="text-neutral-900 text-3xl leading-none font-light">+</button>
           </div>
           
           {lineItems.length > 0 ? (
-            <div className="space-y-4">
-              {lineItems.map((item) => (
-                <div key={item.id} className="border-b border-neutral-100 last:border-b-0 pb-4 last:pb-0">
-                  {item.title && (
-                    <h3 className="font-semibold text-neutral-900 mb-1">{item.title}</h3>
-                  )}
-                  {item.description && (
-                    <p className="text-sm text-neutral-600 mb-2">{item.description}</p>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-600">
-                      {item.quantity} × ${item.unit_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="font-semibold text-neutral-900">
-                      ${(item.quantity * item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
+            <div className="space-y-3 mb-4">
+              {lineItems.map((item, index) => (
+                <div key={item.id} className="border border-neutral-200 rounded-lg p-3 bg-white">
+                  <div className="flex justify-between items-start mb-2">
+                    <button
+                      type="button"
+                      onClick={() => deleteLineItem(item.id)}
+                      className="text-neutral-400 hover:text-red-600 text-lg leading-none ml-auto"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  
+                  {/* Title field */}
+                  <div className="mb-2">
+                    <label className="block text-xs text-neutral-600 mb-1">Item Title</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                      placeholder="e.g., Lawn Mowing"
+                      value={item.title || ''}
+                      onChange={e => updateLineItem({...item, title: e.target.value})}
+                      onBlur={() => updateLineItem(item)}
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div className="mb-2">
+                    <label className="block text-xs text-neutral-600 mb-1">Description</label>
+                    <textarea
+                      className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs resize-none"
+                      placeholder="Additional notes…"
+                      rows={2}
+                      value={item.description || ''}
+                      onChange={e => updateLineItem({...item, description: e.target.value})}
+                      onBlur={() => updateLineItem(item)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs text-neutral-600 mb-1">Qty</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                        value={item.quantity}
+                        onChange={e => {
+                          const val = e.target.value
+                          const updated = {...item, quantity: val === '' ? 1 : parseInt(val) || 1}
+                          updateLineItem(updated)
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-600 mb-1">Price</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                        value={item.unit_price}
+                        onChange={e => {
+                          const val = e.target.value
+                          const updated = {...item, unit_price: val === '' ? 0 : parseFloat(val) || 0}
+                          updateLineItem(updated)
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-600 mb-1">Total</label>
+                      <div className="px-2 py-1.5 text-sm font-medium">
+                        ${((item.quantity || 0) * (item.unit_price || 0)).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Move up/down buttons */}
+                  <div className="flex gap-2 mt-2">
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => moveLineItem(index, 'up')}
+                        disabled={busy}
+                        className="text-xs px-2 py-1 bg-neutral-100 text-neutral-700 rounded hover:bg-neutral-200 disabled:opacity-40"
+                      >
+                        ↑ Move Up
+                      </button>
+                    )}
+                    {index < lineItems.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => moveLineItem(index, 'down')}
+                        disabled={busy}
+                        className="text-xs px-2 py-1 bg-neutral-100 text-neutral-700 rounded hover:bg-neutral-200 disabled:opacity-40"
+                      >
+                        ↓ Move Down
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-neutral-500 text-center py-4">No line items</p>
+            <p className="text-sm text-neutral-500 text-center py-4 mb-4">No line items</p>
           )}
+
+          {/* Add Service/Product Button */}
+          <button
+            type="button"
+            onClick={() => setShowServiceSelector(true)}
+            className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
+          >
+            + Add Service / Product
+          </button>
         </div>
 
         {/* Financial Summary */}
