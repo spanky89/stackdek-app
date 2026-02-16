@@ -14,6 +14,7 @@ type Quote = {
   stripe_checkout_session_id: string | null
   tax_rate: number | null
   tax_amount: number | null
+  notes: string | null
   clients: { id: string; name: string; email?: string } | null
 }
 
@@ -36,6 +37,9 @@ export default function QuoteDetailPage() {
   const [showDepositModal, setShowDepositModal] = useState(false)
   const [depositType, setDepositType] = useState<'percentage' | 'dollar'>('percentage')
   const [depositValue, setDepositValue] = useState<string>('0')
+  const [activeTab, setActiveTab] = useState<'quote' | 'notes'>('quote')
+  const [notes, setNotes] = useState<string>('')
+  const [editingNotes, setEditingNotes] = useState(false)
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -52,11 +56,12 @@ export default function QuoteDetailPage() {
       try {
         const { data, error: fetchErr } = await supabase
           .from('quotes')
-          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, clients(id, name, email)')
+          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, clients(id, name, email)')
           .eq('id', id)
           .single()
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
+        setNotes((data as any).notes || '')
         
         // Set tax rate (default to 0%)
         setTaxRateInput((data.tax_rate ?? 0).toString())
@@ -385,6 +390,23 @@ export default function QuoteDetailPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  async function saveNotes() {
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('quotes')
+      .update({ notes })
+      .eq('id', id)
+    
+    setBusy(false)
+    if (upErr) { 
+      setError(upErr.message)
+      return 
+    }
+    
+    setQuote({ ...quote!, notes })
+    setEditingNotes(false)
+  }
+
   async function handleDelete() {
     if (!confirm('Are you sure you want to delete this quote? This cannot be undone.')) return
 
@@ -502,20 +524,29 @@ export default function QuoteDetailPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-neutral-200 mb-6">
-          <button className="px-6 py-3 text-sm font-semibold text-neutral-900 border-b-2 border-red-700">
+          <button 
+            onClick={() => setActiveTab('quote')}
+            className={`px-6 py-3 text-sm font-semibold ${activeTab === 'quote' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+          >
             Quote
           </button>
-          <button className="px-6 py-3 text-sm font-medium text-neutral-500">
+          <button 
+            onClick={() => setActiveTab('notes')}
+            className={`px-6 py-3 text-sm font-semibold ${activeTab === 'notes' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+          >
             Notes
           </button>
         </div>
 
-        {/* Product / Service Label */}
-        <div className="mb-3">
-          <h3 className="text-sm text-neutral-500 font-medium">Product / Service</h3>
-        </div>
+        {/* Quote Tab Content */}
+        {activeTab === 'quote' && (
+          <>
+            {/* Product / Service Label */}
+            <div className="mb-3">
+              <h3 className="text-sm text-neutral-500 font-medium">Product / Service</h3>
+            </div>
 
-        {/* Line Items Section */}
+            {/* Line Items Section */}
         <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-neutral-900">Line items</h2>
@@ -628,6 +659,58 @@ export default function QuoteDetailPage() {
               <p className="text-xs text-neutral-600 mt-2">
                 <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
               </p>
+            )}
+          </div>
+        )}
+          </>
+        )}
+
+        {/* Notes Tab Content */}
+        {activeTab === 'notes' && (
+          <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-semibold text-neutral-900">Notes</h2>
+              {!editingNotes ? (
+                <button
+                  onClick={() => setEditingNotes(true)}
+                  className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
+                >
+                  Edit
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setNotes(quote?.notes || '')
+                      setEditingNotes(false)
+                    }}
+                    className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveNotes}
+                    disabled={busy}
+                    className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {editingNotes ? (
+              <textarea
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                rows={8}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add notes about this quote..."
+              />
+            ) : (
+              <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
+                {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
+              </div>
             )}
           </div>
         )}
