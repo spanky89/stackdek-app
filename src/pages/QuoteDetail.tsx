@@ -40,6 +40,9 @@ export default function QuoteDetailPage() {
   const [activeTab, setActiveTab] = useState<'quote' | 'notes'>('quote')
   const [notes, setNotes] = useState<string>('')
   const [editingNotes, setEditingNotes] = useState(false)
+  const [showServiceSelector, setShowServiceSelector] = useState(false)
+  const [savedServices, setSavedServices] = useState<any[]>([])
+  const [savedProducts, setSavedProducts] = useState<any[]>([])
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -50,6 +53,36 @@ export default function QuoteDetailPage() {
       console.log('Payment cancelled')
     }
   }, [searchParams])
+
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single()
+      
+      if (!company) return
+      
+      const { data: services } = await supabase
+        .from('services')
+        .select('id, name, price, description')
+        .eq('company_id', company.id)
+        .order('name')
+      
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name, price, description')
+        .eq('company_id', company.id)
+        .order('name')
+      
+      setSavedServices(services || [])
+      setSavedProducts(products || [])
+    })()
+  }, [])
 
   useEffect(() => {
     ;(async () => {
@@ -407,6 +440,38 @@ export default function QuoteDetailPage() {
     setEditingNotes(false)
   }
 
+  async function addServiceToQuote(service: any) {
+    setBusy(true)
+    setError(null)
+    
+    const maxSortOrder = lineItems.length > 0 
+      ? Math.max(...lineItems.map(item => item.sort_order ?? 0))
+      : -1
+    
+    const { data: newItem, error: insertErr } = await supabase
+      .from('quote_line_items')
+      .insert({
+        quote_id: id,
+        title: service.name,
+        description: service.description || '',
+        quantity: 1,
+        unit_price: service.price,
+        sort_order: maxSortOrder + 1
+      })
+      .select()
+      .single()
+    
+    setBusy(false)
+    
+    if (insertErr) {
+      setError(insertErr.message)
+      return
+    }
+    
+    setLineItems([...lineItems, newItem as UnifiedLineItem])
+    setShowServiceSelector(false)
+  }
+
   async function handleDelete() {
     if (!confirm('Are you sure you want to delete this quote? This cannot be undone.')) return
 
@@ -550,7 +615,7 @@ export default function QuoteDetailPage() {
         <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-neutral-900">Line items</h2>
-            <button onClick={() => nav(`/quote/${id}/edit`)} className="text-neutral-900 text-3xl leading-none font-light">+</button>
+            <button onClick={() => setShowServiceSelector(true)} className="text-neutral-900 text-3xl leading-none font-light">+</button>
           </div>
           
           {lineItems.length > 0 ? (
@@ -712,6 +777,47 @@ export default function QuoteDetailPage() {
                 {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Service Selector Modal */}
+        {showServiceSelector && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowServiceSelector(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-96 flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+                <h3 className="font-semibold">Select Service or Product</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowServiceSelector(false)}
+                  className="text-neutral-400 hover:text-neutral-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {[...savedServices, ...savedProducts].length === 0 ? (
+                  <div className="p-4 text-center text-sm text-neutral-600">
+                    No services or products yet. Add some in Settings.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-neutral-200">
+                    {[...savedServices, ...savedProducts].map(service => (
+                      <button
+                        key={service.id}
+                        type="button"
+                        onClick={() => addServiceToQuote(service)}
+                        disabled={busy}
+                        className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition-colors disabled:opacity-40"
+                      >
+                        <p className="text-sm font-medium text-neutral-900">{service.name}</p>
+                        <p className="text-xs text-neutral-600">${service.price.toFixed(2)}</p>
+                        {service.description && <p className="text-xs text-neutral-500 mt-1">{service.description}</p>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
