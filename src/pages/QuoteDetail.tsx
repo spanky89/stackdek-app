@@ -393,231 +393,234 @@ export default function QuoteDetailPage() {
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   const tax = quote?.tax_amount ?? 0
+  const total = subtotal + tax
+  const depositRequired = quote?.deposit_amount ?? 0
 
   return (
     <AppLayout>
       <>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => nav('/quotes')} className="text-neutral-700 text-2xl leading-none">←</button>
-            <span className="font-semibold text-lg">Quote Details</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => nav(`/quote/${id}/edit`)} className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium">
+        {/* Back Button & Menu */}
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => nav('/quotes')} className="text-neutral-700 text-2xl leading-none">←</button>
+          <div className="flex gap-2">
+            <button onClick={() => nav(`/quote/${id}/edit`)} className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium">
               Edit
             </button>
-            <button onClick={handleDelete} disabled={busy} className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40">
+            <button onClick={handleDelete} disabled={busy} className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40">
               Delete
             </button>
           </div>
         </div>
 
-        {/* Main Content Card */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
-          {/* Client & Title */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-1">{quote.clients?.name}</h1>
-            <p className="text-sm text-neutral-600">{quote.title}</p>
-          </div>
+        {/* Status Badge */}
+        <div className="mb-3">
+          <span className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full font-medium ${statusColors[quote.status] || 'bg-neutral-100 text-neutral-800'}`}>
+            <span className="w-2 h-2 rounded-full bg-current"></span>
+            {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
+          </span>
+        </div>
 
-          {/* Status Badge */}
-          <div className="mb-6 pb-6 border-b border-neutral-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm text-neutral-600">Status: </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[quote.status] || 'bg-neutral-100 text-neutral-800'}`}>
-                  {quote.status}
-                </span>
-              </div>
-              {quote.deposit_paid && (
-                <span className="text-xs px-3 py-1.5 rounded-lg bg-neutral-800 text-white font-medium">Deposit Paid</span>
-              )}
+        {/* Hero Header */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-neutral-900 mb-1">
+            Quote for {quote.clients?.name} for ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h1>
+          <p className="text-neutral-600">{quote.title}</p>
+        </div>
+
+        {/* Metadata */}
+        <div className="flex gap-6 mb-6 text-sm">
+          <div>
+            <span className="text-neutral-500">Created</span>
+            <p className="font-medium">{new Date(quote.expiration_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button 
+            onClick={() => updateStatus('accepted')} 
+            disabled={busy || quote.status === 'accepted'}
+            className="px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-40"
+          >
+            Approve
+          </button>
+          <button 
+            onClick={() => updateStatus('declined')} 
+            disabled={busy || quote.status === 'declined'}
+            className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 disabled:opacity-40"
+          >
+            Decline
+          </button>
+        </div>
+
+        {/* Line Items Section */}
+        <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold text-neutral-900">Line items</h2>
+            <button onClick={() => nav(`/quote/${id}/edit`)} className="text-green-600 text-2xl leading-none">+</button>
+          </div>
+          
+          {lineItems.length > 0 ? (
+            <div className="space-y-4">
+              {lineItems.map((item) => (
+                <div key={item.id} className="border-b border-neutral-100 last:border-b-0 pb-4 last:pb-0">
+                  <h3 className="font-semibold text-neutral-900 mb-1">{item.title || 'Untitled Item'}</h3>
+                  {item.description && (
+                    <p className="text-sm text-neutral-600 mb-2">{item.description}</p>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-neutral-600">
+                      {item.quantity} × ${item.unit_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="font-semibold text-neutral-900">
+                      ${(item.quantity * item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-neutral-500 text-center py-4">No line items</p>
+          )}
+        </div>
 
-          {/* Line Items Section */}
-          <div className="mb-6 pb-6 border-b border-neutral-200">
-            <h2 className="text-base font-semibold mb-4">Line Items ({lineItems.length})</h2>
-            {lineItems.length > 0 ? (
-              <div className="space-y-2">
-                {lineItems.map((item, index) => (
-                  <LineItemCard
-                    key={item.id}
-                    item={item}
-                    mode="edit"
-                    onUpdate={updateLineItem}
-                    onDelete={() => deleteLineItem(item.id)}
-                    onMoveUp={index > 0 ? () => moveLineItem(index, 'up') : undefined}
-                    onMoveDown={index < lineItems.length - 1 ? () => moveLineItem(index, 'down') : undefined}
-                    isFirst={index === 0}
-                    isLast={index === lineItems.length - 1}
-                  />
-                ))}
+        {/* Financial Summary */}
+        <div className="space-y-3 mb-6">
+          <div className="flex justify-between items-center">
+            <span className="text-neutral-900 font-medium">Subtotal</span>
+            <span className="font-semibold text-neutral-900">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <span className="text-neutral-900 font-medium">Tax</span>
+            {editingTax ? (
+              <div className="flex gap-2 items-center">
+                <span className="text-sm text-neutral-600">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-24 px-2 py-1 text-sm rounded border border-neutral-300"
+                  value={taxAmount}
+                  onChange={(e) => setTaxAmount(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveTaxAmount()
+                    if (e.key === 'Escape') {
+                      setEditingTax(false)
+                      setTaxAmount((quote?.tax_amount ?? 0).toString())
+                    }
+                  }}
+                  autoFocus
+                />
+                <button onClick={saveTaxAmount} disabled={busy} className="px-2 py-1 bg-neutral-900 text-white rounded text-xs">
+                  Save
+                </button>
               </div>
             ) : (
-              <p className="text-sm text-neutral-500 text-center py-4">No line items</p>
+              <button onClick={() => setEditingTax(true)} className="font-semibold text-green-600">
+                ${tax.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </button>
             )}
           </div>
 
-          {/* Tax Section */}
-          <div className="mb-6 pb-6 border-b border-neutral-200">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-neutral-600">Tax Amount</span>
-              {editingTax ? (
-                <div className="flex gap-2 items-center">
-                  <span className="text-sm text-neutral-600">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-24 px-2 py-1 text-sm rounded border border-neutral-300"
-                    value={taxAmount}
-                    onChange={(e) => setTaxAmount(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveTaxAmount()
-                      if (e.key === 'Escape') {
-                        setEditingTax(false)
-                        setTaxAmount((quote?.tax_amount ?? 0).toString())
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    onClick={saveTaxAmount}
-                    disabled={busy}
-                    className="px-3 py-1 bg-neutral-900 text-white rounded text-sm hover:bg-neutral-800"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingTax(false)
-                      setTaxAmount((quote?.tax_amount ?? 0).toString())
-                    }}
-                    className="px-3 py-1 bg-neutral-200 text-neutral-700 rounded text-sm hover:bg-neutral-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setEditingTax(true)}
-                  className="text-sm font-medium hover:text-neutral-900 flex items-center gap-1"
-                >
-                  ${tax.toFixed(2)} <span className="text-xs text-neutral-400">Edit</span>
-                </button>
-              )}
-            </div>
+          <div className="bg-neutral-50 -mx-4 px-4 py-3 flex justify-between items-center">
+            <span className="text-lg font-bold text-neutral-900">Total</span>
+            <span className="text-lg font-bold text-neutral-900">${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
           </div>
 
-          {/* Summary */}
-          <div className="mb-6">
-            <DocumentSummary
-              subtotal={subtotal}
-              tax={tax}
-              showDepositPaid={false}
-            />
-          </div>
-
-          {/* Deposit Section */}
-          {!quote.deposit_paid && (
-            <div className="mb-6 pb-6 border-b border-neutral-200">
-              <h2 className="text-base font-semibold mb-4">Deposit Payment</h2>
-              <div className="mb-4">
-                <label className="block text-sm text-neutral-600 mb-2">Deposit Amount</label>
-                <div className="flex gap-2">
-                  <span className="text-sm text-neutral-600 py-2">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="flex-1 px-3 py-2 text-sm rounded border border-neutral-300"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                  />
-                  <button
-                    onClick={saveDepositAmount}
-                    disabled={busy}
-                    className="px-4 py-2 bg-neutral-900 text-white rounded text-sm hover:bg-neutral-800 disabled:opacity-40"
-                  >
-                    Set
-                  </button>
-                </div>
-              </div>
-
-              {quote.deposit_amount && quote.deposit_amount > 0 && (
-                <>
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={handleStripePayment}
-                      disabled={processingPayment || !stripeConnected}
-                      className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {processingPayment ? 'Processing...' : 'Pay with Card'}
-                    </button>
-                    <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
-                      <input
-                        type="checkbox"
-                        onChange={markOfflinePayment}
-                        disabled={busy}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-xs font-medium">Mark Paid</span>
-                    </label>
-                  </div>
-                  {!stripeConnected && (
-                    <p className="text-xs text-neutral-600 bg-neutral-50 p-3 rounded">
-                      <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
-                    </p>
-                  )}
-                </>
-              )}
+          {depositRequired > 0 && (
+            <div className="bg-neutral-50 -mx-4 px-4 py-3 flex justify-between items-center border-t border-neutral-200">
+              <span className="font-bold text-neutral-900">Required deposit</span>
+              <span className="font-bold text-green-600">${depositRequired.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
             </div>
           )}
+        </div>
 
-          {/* Actions Section */}
-          <div className="mb-6">
-            <h2 className="text-base font-semibold mb-4">Actions</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => updateStatus('accepted')} 
-                disabled={busy || quote.status === 'accepted'}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
-              >
-                Accept Quote
-              </button>
-              <button 
-                onClick={() => updateStatus('declined')} 
-                disabled={busy || quote.status === 'declined'}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
-              >
-                Decline Quote
-              </button>
+        {/* Deposit Payment Settings */}
+        {!quote.deposit_paid && (
+          <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+            <h2 className="font-semibold text-neutral-900 mb-4">Deposit payment settings</h2>
+            
+            <div className="mb-4">
+              <label className="block text-sm text-neutral-600 mb-2">Set deposit amount</label>
+              <div className="flex gap-2">
+                <span className="text-sm text-neutral-600 py-2">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="flex-1 px-3 py-2 text-sm rounded border border-neutral-300"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                />
+                <button
+                  onClick={saveDepositAmount}
+                  disabled={busy}
+                  className="px-4 py-2 bg-neutral-900 text-white rounded text-sm hover:bg-neutral-800 disabled:opacity-40"
+                >
+                  Set
+                </button>
+              </div>
             </div>
+
+            {quote.deposit_amount && quote.deposit_amount > 0 && (
+              <>
+                <div className="space-y-2 mb-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600">Accept card payments</span>
+                    <span className="font-medium">{stripeConnected ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleStripePayment}
+                    disabled={processingPayment || !stripeConnected}
+                    className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {processingPayment ? 'Processing...' : 'Pay with Card'}
+                  </button>
+                  <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
+                    <input
+                      type="checkbox"
+                      onChange={markOfflinePayment}
+                      disabled={busy}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs font-medium">Mark Paid</span>
+                  </label>
+                </div>
+                {!stripeConnected && (
+                  <p className="text-xs text-neutral-600 mt-2">
+                    <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
+                  </p>
+                )}
+              </>
+            )}
           </div>
+        )}
 
-          {/* Share Link Section */}
-          <div>
-            <h2 className="text-base font-semibold mb-4">Share Quote</h2>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={`${window.location.origin}/quotes/view/${id}`}
-                readOnly
-                className="flex-1 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-600 bg-neutral-50"
-              />
-              <button 
-                onClick={copyShareableLink}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  copied 
-                    ? 'bg-neutral-800 text-white' 
-                    : 'bg-neutral-900 text-white hover:bg-neutral-800'
-                }`}
-              >
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
+        {/* Share Link */}
+        <div className="bg-white border border-neutral-200 rounded-lg p-4">
+          <h2 className="font-semibold text-neutral-900 mb-3">Share quote link</h2>
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              value={`${window.location.origin}/quotes/view/${id}`}
+              readOnly
+              className="flex-1 px-3 py-2 rounded border border-neutral-200 text-xs text-neutral-600 bg-neutral-50"
+            />
+            <button 
+              onClick={copyShareableLink}
+              className={`px-4 py-2 rounded text-sm font-medium transition ${
+                copied 
+                  ? 'bg-neutral-800 text-white' 
+                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
+              }`}
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
           </div>
         </div>
       </>
