@@ -76,7 +76,13 @@ export default function QuoteListPage() {
     })()
   }, [refreshKey])
 
-  // Split quotes into scheduled (has scheduled_date) and pending (status = pending)
+  // Split quotes into draft, scheduled, and pending
+  const draftQuotes = quotes.filter(q => q.status === 'draft').sort((a, b) => {
+    const dateA = a.created_at || ''
+    const dateB = b.created_at || ''
+    return dateB.localeCompare(dateA) // Most recent first
+  })
+  
   const scheduledQuotes = quotes.filter(q => q.scheduled_date).sort((a, b) => {
     const dateA = a.scheduled_date || ''
     const dateB = b.scheduled_date || ''
@@ -87,6 +93,7 @@ export default function QuoteListPage() {
   
   // Debug logging
   console.log('All quotes:', quotes)
+  console.log('Draft quotes:', draftQuotes)
   console.log('Scheduled quotes:', scheduledQuotes)
   console.log('Pending quotes:', pendingQuotes)
 
@@ -161,6 +168,50 @@ export default function QuoteListPage() {
             <span className="text-sm font-medium text-neutral-900">Schedule Quote</span>
           </button>
         </div>
+
+        {/* Draft Quotes Section */}
+        {draftQuotes.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-neutral-900">Draft Quotes</h2>
+              <span className="text-xs text-neutral-500">{draftQuotes.length} draft{draftQuotes.length !== 1 ? 's' : ''}</span>
+            </div>
+            
+            <div className="space-y-3">
+              {draftQuotes.map(q => (
+                <button
+                  key={q.id}
+                  onClick={() => nav(`/quote/${q.id}`)}
+                  className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-neutral-900">{q.title}</h3>
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">Draft</span>
+                      </div>
+                      <p className="text-sm text-neutral-600">{q.clients?.name || 'Unknown Client'}</p>
+                      {q.scheduled_date && (
+                        <p className="text-xs text-neutral-500 mt-1">
+                          Scheduled: {formatDate(q.scheduled_date)} {q.scheduled_time && `at ${formatTime(q.scheduled_time)}`}
+                        </p>
+                      )}
+                    </div>
+                    {q.amount > 0 && (
+                      <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toLocaleString()}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-neutral-600">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Created {formatDaysAgo(q.created_at)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Pending Quotes Section */}
         <div>

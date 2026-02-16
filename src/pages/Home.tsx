@@ -6,7 +6,7 @@ import { useCompany } from '../context/CompanyContext'
 import { filterToNextOccurrence } from '../utils/recurringTasks'
 
 type Job = { id: string; title: string; date_scheduled: string; time_scheduled?: string; status: string; estimate_amount: number; clients: { name: string; avatar_url?: string } | null }
-type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; expires_at?: string; clients: { name: string; avatar_url?: string } | null }
+type Quote = { id: string; title: string; amount: number; status: string; created_at?: string; expires_at?: string; scheduled_date?: string; scheduled_time?: string; clients: { name: string; avatar_url?: string } | null }
 type Request = { id: string; client_name: string; status: string; created_at: string }
 type Task = { id: string; title: string; status: string; priority: string; due_date?: string; created_at: string; parent_task_id?: string }
 
@@ -56,15 +56,15 @@ export default function HomePage() {
             .lte('date_scheduled', next30days)
             .order('date_scheduled', { ascending: true })
             .limit(5),
-          // Pending quotes (next 2 days)
+          // Scheduled quotes (has scheduled_date in next 30 days)
           supabase
             .from('quotes')
-            .select('id, title, amount, status, created_at, expires_at, clients(name, avatar_url)')
+            .select('id, title, amount, status, created_at, scheduled_date, scheduled_time, clients(name, avatar_url)')
             .eq('company_id', cid)
-            .eq('status', 'pending')
-            .gte('expires_at', now.toISOString().split('T')[0])
-            .lte('expires_at', next2days)
-            .order('expires_at', { ascending: true })
+            .not('scheduled_date', 'is', null)
+            .gte('scheduled_date', now.toISOString().split('T')[0])
+            .lte('scheduled_date', next30days)
+            .order('scheduled_date', { ascending: true })
             .limit(5),
           // New requests (status = pending)
           supabase
@@ -269,6 +269,11 @@ export default function HomePage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-neutral-900 truncate">{quote.clients?.name || 'Client'}</p>
                       <p className="text-xs text-neutral-600">{quote.title}</p>
+                      {quote.scheduled_date && (
+                        <p className="text-xs text-neutral-500 mt-1">
+                          {formatDate(quote.scheduled_date)} {quote.scheduled_time && `at ${formatTime(quote.scheduled_time)}`}
+                        </p>
+                      )}
                     </div>
                     <p className="text-sm font-semibold text-neutral-900 flex-shrink-0">${quote.amount?.toLocaleString() ?? '0'}</p>
                   </div>

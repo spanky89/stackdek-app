@@ -31,9 +31,9 @@ export default function QuoteDetailPage() {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [depositAmount, setDepositAmount] = useState<string>('0')
-  const [processingPayment, setProcessingPayment] = useState(false)
-  const [stripeConnected, setStripeConnected] = useState(false)
-  const [checkingStripe, setCheckingStripe] = useState(true)
+  // const [processingPayment, setProcessingPayment] = useState(false) // STRIPE - Commented out for beta
+  // const [stripeConnected, setStripeConnected] = useState(false) // STRIPE - Commented out for beta
+  // const [checkingStripe, setCheckingStripe] = useState(true) // STRIPE - Commented out for beta
   const [taxRateInput, setTaxRateInput] = useState<string>('0')
   const [editingTax, setEditingTax] = useState(false)
   const [showDepositModal, setShowDepositModal] = useState(false)
@@ -128,31 +128,31 @@ export default function QuoteDetailPage() {
         // Set deposit amount (default to 0)
         setDepositAmount((data.deposit_amount ?? 0).toString())
         
-        // Check Stripe connection status
-        await checkStripeConnection()
+        // Check Stripe connection status - COMMENTED OUT FOR BETA\n        // await checkStripeConnection()
       } catch (e: any) { setError(e?.message ?? 'Unknown error') }
       finally { setLoading(false) }
     })()
   }, [id])
 
-  async function checkStripeConnection() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      
-      const { data: company } = await supabase
-        .from('companies')
-        .select('stripe_publishable_key, stripe_secret_key')
-        .eq('owner_id', user.id)
-        .single()
-      
-      setStripeConnected(!!(company?.stripe_publishable_key && company?.stripe_secret_key))
-    } catch (e) {
-      console.error('Error checking Stripe connection:', e)
-    } finally {
-      setCheckingStripe(false)
-    }
-  }
+  // STRIPE - Commented out for beta (re-enable before public launch)
+  // async function checkStripeConnection() {
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser()
+  //     if (!user) return
+  //     
+  //     const { data: company } = await supabase
+  //       .from('companies')
+  //       .select('stripe_publishable_key, stripe_secret_key')
+  //       .eq('owner_id', user.id)
+  //       .single()
+  //     
+  //     setStripeConnected(!!(company?.stripe_publishable_key && company?.stripe_secret_key))
+  //   } catch (e) {
+  //     console.error('Error checking Stripe connection:', e)
+  //   } finally {
+  //     setCheckingStripe(false)
+  //   }
+  // }
 
   async function updateStatus(newStatus: string) {
     setBusy(true)
@@ -318,62 +318,63 @@ export default function QuoteDetailPage() {
     setLineItems(newItems)
   }
 
-  async function handleStripePayment() {
-    if (!quote?.deposit_amount || quote.deposit_amount <= 0) {
-      setError('Please set a deposit amount first')
-      return
-    }
+  // STRIPE - Commented out for beta (re-enable before public launch)
+  // async function handleStripePayment() {
+  //   if (!quote?.deposit_amount || quote.deposit_amount <= 0) {
+  //     setError('Please set a deposit amount first')
+  //     return
+  //   }
 
-    if (!stripeConnected) {
-      setError('Stripe not configured. Please configure in Settings > Payment Settings')
-      return
-    }
+  //   if (!stripeConnected) {
+  //     setError('Stripe not configured. Please configure in Settings > Payment Settings')
+  //     return
+  //   }
 
-    setProcessingPayment(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setError('Not authenticated')
-        setProcessingPayment(false)
-        return
-      }
+  //   setProcessingPayment(true)
+  //   try {
+  //     const { data: { session } } = await supabase.auth.getSession()
+  //     if (!session) {
+  //       setError('Not authenticated')
+  //       setProcessingPayment(false)
+  //       return
+  //     }
 
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: company } = await supabase
-        .from('companies')
-        .select('name')
-        .eq('owner_id', user?.id)
-        .single()
+  //     const { data: { user } } = await supabase.auth.getUser()
+  //     const { data: company } = await supabase
+  //       .from('companies')
+  //       .select('name')
+  //       .eq('owner_id', user?.id)
+  //       .single()
 
-      const response = await fetch('/api/create-checkout', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          quoteId: id,
-          depositAmount: quote.deposit_amount,
-          clientEmail: quote.clients?.email || '',
-          clientName: quote.clients?.name || '',
-          companyName: company?.name || 'StackDek Job',
-        }),
-      })
+  //     const response = await fetch('/api/create-checkout', {
+  //       method: 'POST',
+  //       headers: { 
+  //         'Content-Type': 'application/json',
+  //         'Authorization': `Bearer ${session.access_token}`,
+  //       },
+  //       body: JSON.stringify({
+  //         quoteId: id,
+  //         depositAmount: quote.deposit_amount,
+  //         clientEmail: quote.clients?.email || '',
+  //         clientName: quote.clients?.name || '',
+  //         companyName: company?.name || 'StackDek Job',
+  //       }),
+  //     })
 
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.message || data.error || 'Failed to create checkout session')
-      }
+  //     const data = await response.json()
+  //     
+  //     if (!response.ok) {
+  //       throw new Error(data.message || data.error || 'Failed to create checkout session')
+  //     }
 
-      if (data.url) {
-        window.location.href = data.url
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to initiate payment')
-      setProcessingPayment(false)
-    }
-  }
+  //     if (data.url) {
+  //       window.location.href = data.url
+  //     }
+  //   } catch (err: any) {
+  //     setError(err.message || 'Failed to initiate payment')
+  //     setProcessingPayment(false)
+  //   }
+  // }
 
   async function markOfflinePayment() {
     if (!quote) return
@@ -881,8 +882,8 @@ export default function QuoteDetailPage() {
           </button>
         </div>
 
-        {/* Payment Actions */}
-        {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
+        {/* Payment Actions - COMMENTED OUT FOR BETA */}
+        {/* {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
           <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
             <h2 className="font-semibold text-neutral-900 mb-4">Accept Deposit Payment</h2>
             <div className="flex gap-2">
@@ -909,7 +910,7 @@ export default function QuoteDetailPage() {
               </p>
             )}
           </div>
-        )}
+        )} */}
           </>
         )}
 
@@ -1075,3 +1076,5 @@ export default function QuoteDetailPage() {
     </AppLayout>
   )
 }
+
+
