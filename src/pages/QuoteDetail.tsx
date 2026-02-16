@@ -15,6 +15,8 @@ type Quote = {
   tax_rate: number | null
   tax_amount: number | null
   notes: string | null
+  discount_type: 'percentage' | 'dollar' | null
+  discount_amount: number | null
   clients: { id: string; name: string; email?: string } | null
 }
 
@@ -43,6 +45,9 @@ export default function QuoteDetailPage() {
   const [showServiceSelector, setShowServiceSelector] = useState(false)
   const [savedServices, setSavedServices] = useState<any[]>([])
   const [savedProducts, setSavedProducts] = useState<any[]>([])
+  const [editingDiscount, setEditingDiscount] = useState(false)
+  const [discountType, setDiscountType] = useState<'percentage' | 'dollar'>('percentage')
+  const [discountValue, setDiscountValue] = useState<string>('0')
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -89,12 +94,16 @@ export default function QuoteDetailPage() {
       try {
         const { data, error: fetchErr } = await supabase
           .from('quotes')
-          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, clients(id, name, email)')
+          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, discount_type, discount_amount, clients(id, name, email)')
           .eq('id', id)
           .single()
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
         setNotes((data as any).notes || '')
+        
+        // Set discount values
+        setDiscountType((data as any).discount_type || 'percentage')
+        setDiscountValue(((data as any).discount_amount || 0).toString())
         
         // Set tax rate (default to 0%)
         setTaxRateInput((data.tax_rate ?? 0).toString())
@@ -440,6 +449,32 @@ export default function QuoteDetailPage() {
     setEditingNotes(false)
   }
 
+  async function saveDiscount() {
+    const parsedValue = parseFloat(discountValue)
+    if (isNaN(parsedValue) || parsedValue < 0) {
+      setError('Please enter a valid discount amount')
+      return
+    }
+
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('quotes')
+      .update({ 
+        discount_type: discountType,
+        discount_amount: parsedValue
+      })
+      .eq('id', id)
+    
+    setBusy(false)
+    if (upErr) { 
+      setError(upErr.message)
+      return 
+    }
+    
+    setQuote({ ...quote!, discount_type: discountType, discount_amount: parsedValue })
+    setEditingDiscount(false)
+  }
+
   async function addServiceToQuote(service: any) {
     setBusy(true)
     setError(null)
@@ -521,9 +556,19 @@ export default function QuoteDetailPage() {
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+  
+  // Calculate discount
+  let discountAmount = 0
+  if (quote?.discount_type === 'percentage' && quote?.discount_amount) {
+    discountAmount = (subtotal * quote.discount_amount) / 100
+  } else if (quote?.discount_type === 'dollar' && quote?.discount_amount) {
+    discountAmount = quote.discount_amount
+  }
+  
+  const discountedSubtotal = subtotal - discountAmount
   const taxRate = quote?.tax_rate ?? 0
-  const tax = (subtotal * taxRate) / 100
-  const total = subtotal + tax
+  const tax = (discountedSubtotal * taxRate) / 100
+  const total = discountedSubtotal + tax
   const depositRequired = quote?.deposit_amount ?? 0
 
   return (
@@ -741,6 +786,52 @@ export default function QuoteDetailPage() {
           <div className="flex justify-between items-center">
             <span className="text-neutral-900 font-medium">Subtotal</span>
             <span className="font-semibold text-neutral-900">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          </div>
+
+          {/* Discount Line */}
+          <div className="flex justify-between items-center">
+            <span className="text-neutral-900 font-medium">Discount</span>
+            {editingDiscount ? (
+              <div className="flex gap-2 items-center">
+                <select
+                  className="px-2 py-1 text-xs rounded border border-neutral-300"
+                  value={discountType}
+                  onChange={(e) => setDiscountType(e.target.value as 'percentage' | 'dollar')}
+                >
+                  <option value="percentage">%</option>
+                  <option value="dollar">$</option>
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={discountType === 'percentage' ? '100' : undefined}
+                  className="w-20 px-2 py-1 text-sm rounded border border-neutral-300"
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveDiscount()
+                    if (e.key === 'Escape') {
+                      setEditingDiscount(false)
+                      setDiscountType(quote?.discount_type || 'percentage')
+                      setDiscountValue((quote?.discount_amount || 0).toString())
+                    }
+                  }}
+                  autoFocus
+                />
+                <button onClick={saveDiscount} disabled={busy} className="px-2 py-1 bg-neutral-900 text-white rounded text-xs">
+                  Save
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingDiscount(true)} className="font-semibold text-neutral-900">
+                {discountAmount > 0 ? (
+                  <>-${discountAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {quote?.discount_type === 'percentage' && `(${quote?.discount_amount}%)`}</>
+                ) : (
+                  '$0.00'
+                )}
+              </button>
+            )}
           </div>
           
           <div className="flex justify-between items-center">
