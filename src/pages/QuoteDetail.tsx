@@ -526,7 +526,9 @@ export default function QuoteDetailPage() {
             <div className="space-y-4">
               {lineItems.map((item) => (
                 <div key={item.id} className="border-b border-neutral-100 last:border-b-0 pb-4 last:pb-0">
-                  <h3 className="font-semibold text-neutral-900 mb-1">{item.title || 'Untitled Item'}</h3>
+                  {item.title && (
+                    <h3 className="font-semibold text-neutral-900 mb-1">{item.title}</h3>
+                  )}
                   {item.description && (
                     <p className="text-sm text-neutral-600 mb-2">{item.description}</p>
                   )}
