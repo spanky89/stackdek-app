@@ -17,14 +17,16 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
   const [savedServices, setSavedServices] = useState<SavedService[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedService[]>([])
   const [showServiceSelector, setShowServiceSelector] = useState(false)
+  const [showItemEditor, setShowItemEditor] = useState(false)
+  const [editingItem, setEditingItem] = useState<ServiceItem | null>(null)
   const [duration, setDuration] = useState('')
   const [startDate, setStartDate] = useState('')
   const [clientMessage, setClientMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [taxRate, setTaxRate] = useState('0') // Editable tax rate (default 0)
-  const [depositPercentage, setDepositPercentage] = useState('0') // Editable deposit percentage (default 0)
+  const [taxRate, setTaxRate] = useState('0')
+  const [depositPercentage, setDepositPercentage] = useState('0')
 
   useEffect(() => {
     const loadClients = async () => {
@@ -42,7 +44,6 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
         .eq('company_id', company.id)
       setClients(data || [])
 
-      // Pre-fill client ID if passed via URL params or prop
       const params = new URLSearchParams(routerLocation.search)
       const urlClientId = params.get('clientId')
       const finalClientId = prefilledClientId || urlClientId
@@ -89,17 +90,59 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       description: service.description || '',
       price: service.price,
       quantity: 1,
+      title: service.name,
     }
-    setLineItems([...lineItems, newItem])
+    setEditingItem(newItem)
     setShowServiceSelector(false)
+    setShowItemEditor(true)
+  }
+
+  const openNewItemEditor = () => {
+    setEditingItem({
+      id: Date.now().toString(),
+      name: '',
+      description: '',
+      price: 0,
+      quantity: 1,
+      title: '',
+    })
+    setShowItemEditor(true)
+  }
+
+  const openEditItemEditor = (item: ServiceItem) => {
+    setEditingItem({ ...item })
+    setShowItemEditor(true)
+  }
+
+  const saveItem = () => {
+    if (!editingItem) return
+    if (!editingItem.title) {
+      setError('Item title is required')
+      return
+    }
+    if (editingItem.price <= 0) {
+      setError('Price must be greater than 0')
+      return
+    }
+
+    const existingIndex = lineItems.findIndex(item => item.id === editingItem.id)
+    if (existingIndex >= 0) {
+      // Update existing
+      const updated = [...lineItems]
+      updated[existingIndex] = editingItem
+      setLineItems(updated)
+    } else {
+      // Add new
+      setLineItems([...lineItems, editingItem])
+    }
+    
+    setShowItemEditor(false)
+    setEditingItem(null)
+    setError(null)
   }
 
   const removeLineItem = (id: string) => {
     setLineItems(lineItems.filter(item => item.id !== id))
-  }
-
-  const updateLineItem = (id: string, field: keyof ServiceItem, value: any) => {
-    setLineItems(lineItems.map(item => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
   const subtotal = lineItems.reduce((sum, item) => sum + (item.price * item.quantity || 0), 0)
@@ -130,13 +173,12 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
         .single()
       if (!company) { setError('No company found'); return }
 
-      // Create quote record
       const { data: newQuote, error: insertErr } = await supabase
         .from('quotes')
         .insert({
           company_id: company.id,
           client_id: clientId,
-          title: lineItems.map(item => item.name).join(', '),
+          title: lineItems.map(item => item.title || item.name).join(', '),
           amount: total,
           tax_rate: parseFloat(taxRate),
           tax_amount: taxAmount,
@@ -150,7 +192,6 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       if (insertErr) { setError(insertErr.message); return }
       if (!newQuote || newQuote.length === 0) { setError('Failed to create quote'); return }
 
-      // Store line items
       const quoteId = newQuote[0].id
       const itemsToInsert = lineItems.map((item, index) => ({
         quote_id: quoteId,
@@ -177,7 +218,6 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       setTaxRate('0')
       setDepositPercentage('0')
       
-      // Call onSuccess after a short delay
       setTimeout(() => onSuccess?.(), 1000)
     } catch (e: any) {
       setError(e?.message ?? 'Unknown error')
@@ -210,7 +250,7 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
           </select>
         </div>
 
-        {/* Client Info Display (no avatar) */}
+        {/* Client Info Display */}
         {selectedClient && (
           <div className="bg-neutral-50 rounded-lg border border-neutral-100 p-4">
             <p className="text-sm font-semibold text-neutral-900">{selectedClient.name}</p>
@@ -218,47 +258,121 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
           </div>
         )}
 
-        {/* Services Section */}
+        {/* Line Items Section */}
         <div>
-          <h3 className="text-sm font-semibold mb-3">Services</h3>
-          <div className="space-y-2 mb-4">
-            {lineItems.map((item) => (
-              <div key={item.id} className="border border-neutral-200 rounded-lg p-4 bg-white">
-                <div className="flex justify-between items-start mb-2">
+          <h3 className="text-sm font-semibold mb-3">Line Items</h3>
+          
+          {/* Compact Line Items List */}
+          {lineItems.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {lineItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 p-3 bg-neutral-50 rounded-lg border border-neutral-100 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-neutral-900 truncate">{item.title || item.name}</p>
+                    {item.description && (
+                      <p className="text-xs text-neutral-600 truncate">{item.description}</p>
+                    )}
+                  </div>
+                  <div className="text-xs text-neutral-600 whitespace-nowrap">
+                    {item.quantity} × ${item.price.toFixed(2)}
+                  </div>
+                  <div className="font-medium text-neutral-900 whitespace-nowrap">
+                    ${(item.quantity * item.price).toFixed(2)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openEditItemEditor(item)}
+                    className="text-neutral-600 hover:text-neutral-900 text-xs px-2"
+                  >
+                    Edit
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeLineItem(item.id)}
-                    className="text-neutral-400 hover:text-red-600 text-lg leading-none ml-auto"
+                    className="text-neutral-400 hover:text-red-600 text-lg leading-none"
                   >
                     ×
                   </button>
                 </div>
-                
-                {/* Title field */}
-                <div className="mb-2">
+              ))}
+            </div>
+          )}
+
+          {/* Add Buttons */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowServiceSelector(true)}
+              className="flex-1 text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium"
+            >
+              + Add from Library
+            </button>
+            <button
+              type="button"
+              onClick={openNewItemEditor}
+              className="flex-1 text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium"
+            >
+              + Add Custom Item
+            </button>
+          </div>
+        </div>
+
+        {/* Line Item Editor Modal */}
+        {showItemEditor && editingItem && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowItemEditor(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+                <h3 className="font-semibold">
+                  {lineItems.find(i => i.id === editingItem.id) ? 'Edit Item' : 'Add Item'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowItemEditor(false)}
+                  className="text-neutral-400 hover:text-neutral-600"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="p-4 space-y-4">
+                {/* Title */}
+                <div>
                   <label className="block text-xs text-neutral-600 mb-1">Item Title</label>
                   <input
                     type="text"
-                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
                     placeholder="e.g., Lawn Mowing"
-                    value={item.title || ''}
-                    onChange={e => updateLineItem(item.id, 'title', e.target.value)}
+                    value={editingItem.title || ''}
+                    onChange={e => setEditingItem({ ...editingItem, title: e.target.value })}
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                {/* Description */}
+                <div>
+                  <label className="block text-xs text-neutral-600 mb-1">Description</label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                    placeholder="Brief description"
+                    value={editingItem.name}
+                    onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                  />
+                </div>
+
+                {/* Qty and Price */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-neutral-600 mb-1">Qty</label>
+                    <label className="block text-xs text-neutral-600 mb-1">Quantity</label>
                     <input
                       type="number"
                       min="1"
                       step="1"
-                      className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-                      value={item.quantity}
-                      onChange={e => {
-                        const val = e.target.value
-                        updateLineItem(item.id, 'quantity', val === '' ? '' : parseInt(val) || 1)
-                      }}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                      value={editingItem.quantity}
+                      onChange={e => setEditingItem({ 
+                        ...editingItem, 
+                        quantity: parseInt(e.target.value) || 1 
+                      })}
                     />
                   </div>
                   <div>
@@ -267,38 +381,56 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                       type="number"
                       step="0.01"
                       min="0"
-                      className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-                      value={item.price}
-                      onChange={e => {
-                        const val = e.target.value
-                        updateLineItem(item.id, 'price', val === '' ? '' : parseFloat(val) || 0)
-                      }}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                      value={editingItem.price}
+                      onChange={e => setEditingItem({ 
+                        ...editingItem, 
+                        price: parseFloat(e.target.value) || 0 
+                      })}
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs text-neutral-600 mb-1">Total</label>
-                    <div className="px-2 py-1.5 text-sm font-medium">${((item.quantity || 0) * (item.price || 0)).toFixed(2)}</div>
-                  </div>
                 </div>
-                <textarea
-                  className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs mt-2 resize-none"
-                  placeholder="Additional notes…"
-                  rows={2}
-                  value={item.description}
-                  onChange={e => updateLineItem(item.id, 'description', e.target.value)}
-                />
-              </div>
-            ))}
-          </div>
 
-          <button
-            type="button"
-            onClick={() => setShowServiceSelector(true)}
-            className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
-          >
-            + Add Service
-          </button>
-        </div>
+                {/* Total Display */}
+                <div className="bg-neutral-50 rounded-lg p-3 flex justify-between items-center">
+                  <span className="text-sm text-neutral-600">Total</span>
+                  <span className="text-lg font-semibold">
+                    ${((editingItem.quantity || 0) * (editingItem.price || 0)).toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs text-neutral-600 mb-1">Notes (optional)</label>
+                  <textarea
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm resize-none"
+                    placeholder="Additional notes…"
+                    rows={3}
+                    value={editingItem.description}
+                    onChange={e => setEditingItem({ ...editingItem, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-neutral-200 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowItemEditor(false)}
+                  className="flex-1 border border-neutral-200 rounded-lg py-2 text-sm font-medium hover:bg-neutral-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveItem}
+                  className="flex-1 bg-neutral-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-neutral-800"
+                >
+                  Save Item
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Service Selector Modal */}
         {showServiceSelector && (
