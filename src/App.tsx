@@ -26,6 +26,7 @@ import CreateJobPage from "./pages/CreateJob";
 import CreateRequestPage from "./pages/CreateRequest";
 import InvoiceListPage from "./pages/InvoiceList";
 import InvoiceDetailPage from "./pages/InvoiceDetail";
+import InvoicePublicPage from "./pages/InvoicePublic";
 import CreateInvoicePage from "./pages/CreateInvoice";
 import ClientEditPage from "./pages/ClientEditPage";
 import JobEditPage from "./pages/JobEditPage";
@@ -294,6 +295,10 @@ export default function App() {
         <Route
           path="/quotes/view/:id"
           element={<QuotePublicViewPage />}
+        />
+        <Route
+          path="/invoice/public/:token"
+          element={<InvoicePublicPage />}
         />
         <Route
           path="/invoices"

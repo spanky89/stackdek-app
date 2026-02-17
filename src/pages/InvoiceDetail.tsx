@@ -5,6 +5,7 @@ import AppLayout from '../components/AppLayout'
 import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
+import SendInvoiceModal from '../components/SendInvoiceModal'
 
 type Invoice = {
   id: string
@@ -19,7 +20,8 @@ type Invoice = {
   due_date: string | null
   created_at: string
   paid_date: string | null
-  clients: { id: string; name: string; email: string | null } | null
+  invoice_token: string | null
+  clients: { id: string; name: string; email: string | null; phone: string | null } | null
   jobs: { id: string; title: string } | null
 }
 
@@ -32,6 +34,7 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [marking, setMarking] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
 
   const isPaid = invoice?.status === 'paid'
 
@@ -44,7 +47,7 @@ export default function InvoiceDetailPage() {
       // Fetch invoice
       const { data: invoiceData, error: invErr } = await supabase
         .from('invoices')
-        .select('*, clients(id, name, email), jobs(id, title)')
+        .select('*, clients(id, name, email, phone), jobs(id, title)')
         .eq('id', id)
         .single()
 
@@ -350,7 +353,16 @@ export default function InvoiceDetailPage() {
 
           {/* Actions */}
           {!isPaid && (
-            <div className="mt-6 pt-6 border-t border-neutral-200">
+            <div className="mt-6 pt-6 border-t border-neutral-200 space-y-3">
+              <button
+                onClick={() => setShowSendModal(true)}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                Send Invoice
+              </button>
               <button
                 onClick={markAsPaid}
                 disabled={marking}
@@ -361,6 +373,25 @@ export default function InvoiceDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Send Invoice Modal */}
+        {showSendModal && invoice && (
+          <SendInvoiceModal
+            invoiceId={invoice.id}
+            invoiceNumber={invoice.invoice_number}
+            clientName={invoice.clients?.name || 'Unknown Client'}
+            clientEmail={invoice.clients?.email || null}
+            clientPhone={invoice.clients?.phone || null}
+            jobTitle={invoice.jobs?.title || null}
+            totalAmount={calculateSubtotal() + calculateTax() - (invoice.deposit_paid_amount || 0)}
+            invoiceToken={invoice.invoice_token}
+            onClose={() => setShowSendModal(false)}
+            onSent={() => {
+              // Optionally reload invoice or show success
+              loadInvoice()
+            }}
+          />
+        )}
       </>
     </AppLayout>
   )
