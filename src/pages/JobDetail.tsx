@@ -63,6 +63,10 @@ export default function JobDetailPage() {
   const [invoiceDueDate, setInvoiceDueDate] = useState(
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
+  
+  // Cancel job modal state
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [canceling, setCanceling] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -465,6 +469,37 @@ export default function JobDetailPage() {
     }
   }
 
+  async function cancelJob() {
+    setCanceling(true)
+    try {
+      // Update job status to cancelled
+      const { error: updateErr } = await supabase
+        .from('jobs')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+
+      if (updateErr) {
+        setError(updateErr.message)
+        setCanceling(false)
+        return
+      }
+
+      // Update local state
+      setJob({ ...job!, status: 'cancelled' })
+      setForm({ ...form, status: 'cancelled' })
+      
+      // Close modal and show success (navigate handled by user preference)
+      setShowCancelModal(false)
+      setCanceling(false)
+      
+      // Navigate back to job stack
+      nav('/jobs')
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to cancel job')
+      setCanceling(false)
+    }
+  }
+
   if (loading) return <div className="p-6">Loading…</div>
   if (error) return <div className="p-6 text-red-600">{error}</div>
   if (!job) return <div className="p-6">Job not found.</div>
@@ -473,6 +508,7 @@ export default function JobDetailPage() {
     scheduled: 'bg-neutral-100 text-neutral-800',
     in_progress: 'bg-neutral-100 text-neutral-800',
     completed: 'bg-neutral-100 text-neutral-800',
+    cancelled: 'bg-red-100 text-red-800',
   }
 
   return (
@@ -502,6 +538,7 @@ export default function JobDetailPage() {
                 <option value="scheduled">Scheduled</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
               </select>
               <div className="flex gap-2">
                 <button onClick={saveEdit} disabled={saving} className="bg-neutral-900 text-white rounded-xl px-4 py-2 text-sm disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
@@ -780,13 +817,23 @@ export default function JobDetailPage() {
                 </button>
               </div>
 
-              {/* Complete & Invoice Button */}
-              <button 
-                onClick={openInvoiceModal}
-                className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 transition-colors"
-              >
-                Generate Invoice
-              </button>
+              {/* Cancel & Complete Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setShowCancelModal(true)}
+                  disabled={busy || job.status === 'cancelled' || job.status === 'completed'}
+                  className="w-full px-4 py-3 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Cancel Job
+                </button>
+                <button 
+                  onClick={openInvoiceModal}
+                  disabled={job.status === 'cancelled' || job.status === 'completed'}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Complete & Generate Invoice
+                </button>
+              </div>
                 </>
               )}
 
@@ -855,6 +902,34 @@ export default function JobDetailPage() {
               )}
             </>
           )}
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h2 className="text-xl font-bold mb-2">Cancel Job?</h2>
+              <p className="text-neutral-600 mb-6">
+                Are you sure you want to cancel this job? This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelJob}
+                  disabled={canceling}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {canceling ? 'Canceling...' : 'Yes, Cancel Job'}
+                </button>
+                <button
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={canceling}
+                  className="flex-1 px-4 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 disabled:opacity-40"
+                >
+                  No, Keep Job
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Invoice Generation Modal */}
         {showInvoiceModal && (
