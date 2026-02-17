@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { supabase } from '../api/supabaseClient'
+import { useCompany } from '../context/CompanyContext'
 
 function HomeIcon({ className }: { className?: string }) {
   return (
@@ -99,6 +101,16 @@ function RequestIcon({ className }: { className?: string }) {
   )
 }
 
+function AdminIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  )
+}
+
 interface BottomMenuProps {
   onNewTask?: () => void
   onNewRequest?: () => void
@@ -107,10 +119,34 @@ interface BottomMenuProps {
 export default function BottomMenu({ onNewTask, onNewRequest }: BottomMenuProps) {
   const nav = useNavigate()
   const loc = useLocation()
+  const { companyId } = useCompany()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const isHome = loc.pathname === '/home'
+
+  useEffect(() => {
+    if (companyId) {
+      checkAdminStatus()
+    }
+  }, [companyId])
+
+  async function checkAdminStatus() {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('is_admin')
+        .eq('id', companyId)
+        .single()
+
+      if (error) throw error
+      setIsAdmin(data?.is_admin ?? false)
+    } catch (err) {
+      console.error('Error checking admin status:', err)
+      setIsAdmin(false)
+    }
+  }
 
   const isActive = (path: string) => {
     if (path === '/home') return loc.pathname === '/home'
@@ -147,6 +183,7 @@ export default function BottomMenu({ onNewTask, onNewRequest }: BottomMenuProps)
     { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
     { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
     { label: 'New Task', action: 'newTask', Icon: ClipboardIcon },
+    ...(isAdmin ? [{ label: 'Admin', path: '/admin', Icon: AdminIcon }] : []),
   ]
 
   const renderItem = ({ Icon, label, path }: { Icon: React.FC<{ className?: string }>; label: string; path: string }) => (

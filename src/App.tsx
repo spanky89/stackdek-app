@@ -39,6 +39,9 @@ import TaskListPage from "./pages/TaskList";
 import CreateTaskPage from "./pages/CreateTask";
 import TaskDetailPage from "./pages/TaskDetail";
 import TaskEditPage from "./pages/TaskEdit";
+import AdminPage from "./pages/Admin";
+import AdminUserDetailPage from "./pages/AdminUserDetail";
+import AdminGuard from "./components/AdminGuard";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -337,6 +340,26 @@ export default function App() {
           element={
             <ProtectedRoute>
               <BillingSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminGuard>
+                <AdminPage />
+              </AdminGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/user/:id"
+          element={
+            <ProtectedRoute>
+              <AdminGuard>
+                <AdminUserDetailPage />
+              </AdminGuard>
             </ProtectedRoute>
           }
         />
