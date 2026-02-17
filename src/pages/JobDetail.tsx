@@ -369,7 +369,7 @@ export default function JobDetailPage() {
           client_id: job.client_id,
           amount: totalAmount,
           total_amount: totalAmount,
-          status: 'awaiting_payment',
+          status: 'pending',
           due_date: invoiceDueDate,
           notes: invoiceNotes || null,
           tax_rate: invoiceTaxRate || 0,
