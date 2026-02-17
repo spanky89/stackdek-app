@@ -6,6 +6,7 @@ import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
 import { MediaUpload } from '../components/MediaUpload'
+import { OnMyWayModal } from '../components/OnMyWayModal'
 
 type Photo = {
   url: string
@@ -26,7 +27,7 @@ type Quote = {
   discount_amount: number | null
   video_url: string | null
   photos: Photo[]
-  clients: { id: string; name: string; email?: string } | null
+  clients: { id: string; name: string; email?: string; phone?: string; address?: string } | null
 }
 
 export default function QuoteDetailPage() {
@@ -59,6 +60,7 @@ export default function QuoteDetailPage() {
   const [editingDiscount, setEditingDiscount] = useState(false)
   const [discountType, setDiscountType] = useState<'percentage' | 'dollar'>('percentage')
   const [discountValue, setDiscountValue] = useState<string>('0')
+  const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -105,7 +107,7 @@ export default function QuoteDetailPage() {
       try {
         const { data, error: fetchErr } = await supabase
           .from('quotes')
-          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, discount_type, discount_amount, video_url, photos, clients(id, name, email)')
+          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, discount_type, discount_amount, video_url, photos, clients(id, name, email, phone, address)')
           .eq('id', id)
           .single()
         if (fetchErr) { setError(fetchErr.message); return }
@@ -629,6 +631,56 @@ export default function QuoteDetailPage() {
           </div>
         </div>
 
+        {/* Client Info & Quick Actions */}
+        {quote.clients && (
+          <div className="mb-6">
+            <div className="mb-3">
+              <p className="font-medium text-neutral-900">{quote.clients.name}</p>
+              {quote.clients.phone && <p className="text-sm text-neutral-600">{quote.clients.phone}</p>}
+              {quote.clients.email && <p className="text-sm text-neutral-600">{quote.clients.email}</p>}
+              {quote.clients.address && <p className="text-sm text-neutral-600 mt-1">{quote.clients.address}</p>}
+            </div>
+
+            {/* Client Action Buttons */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {quote.clients.phone && (
+                <>
+                  <a 
+                    href={`tel:${quote.clients.phone}`}
+                    className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                  >
+                    Call
+                  </a>
+                  <a 
+                    href={`sms:${quote.clients.phone}`}
+                    className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                  >
+                    Message
+                  </a>
+                </>
+              )}
+              {quote.clients.address && (
+                <a 
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                >
+                  Navigate
+                </a>
+              )}
+              {quote.clients.phone && (
+                <button
+                  onClick={() => setShowOnMyWayModal(true)}
+                  className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                >
+                  On My Way
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button 
@@ -1097,6 +1149,16 @@ export default function QuoteDetailPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* On My Way Modal */}
+        {showOnMyWayModal && quote.clients && (
+          <OnMyWayModal
+            clientName={quote.clients.name}
+            clientPhone={quote.clients.phone || null}
+            address={quote.clients.address || null}
+            onClose={() => setShowOnMyWayModal(false)}
+          />
         )}
       </>
     </AppLayout>

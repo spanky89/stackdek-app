@@ -6,6 +6,7 @@ import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
 import { MediaUpload } from '../components/MediaUpload'
+import { OnMyWayModal } from '../components/OnMyWayModal'
 
 type Photo = {
   url: string
@@ -67,6 +68,9 @@ export default function JobDetailPage() {
   // Cancel job modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  
+  // On My Way modal state
+  const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -596,7 +600,7 @@ export default function JobDetailPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {job.clients.phone && (
                       <>
                         <a 
@@ -622,6 +626,14 @@ export default function JobDetailPage() {
                       >
                         Navigate
                       </a>
+                    )}
+                    {job.clients.phone && (
+                      <button
+                        onClick={() => setShowOnMyWayModal(true)}
+                        className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                      >
+                        On My Way
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1095,6 +1107,16 @@ export default function JobDetailPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* On My Way Modal */}
+        {showOnMyWayModal && job && job.clients && (
+          <OnMyWayModal
+            clientName={job.clients.name}
+            clientPhone={job.clients.phone || null}
+            address={job.clients.address || null}
+            onClose={() => setShowOnMyWayModal(false)}
+          />
         )}
       </>
     </AppLayout>
