@@ -47,11 +47,12 @@ export default function HomePage() {
 
         // Fetch all data in parallel
         const [jobsRes, quotesRes, requestsRes, invoicesRes, tasksRes] = await Promise.all([
-          // Upcoming jobs (next 30 days)
+          // Upcoming jobs (next 30 days, exclude completed/cancelled)
           supabase
             .from('jobs')
             .select('id, title, date_scheduled, time_scheduled, status, estimate_amount, clients(name, avatar_url)')
             .eq('company_id', cid)
+            .in('status', ['scheduled', 'in_progress'])
             .gte('date_scheduled', now.toISOString().split('T')[0])
             .lte('date_scheduled', next30days)
             .order('date_scheduled', { ascending: true })
