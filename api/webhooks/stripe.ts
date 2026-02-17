@@ -114,7 +114,7 @@ export default async function handler(
           return res.status(500).json({ error: 'Failed to update quote' });
         }
 
-        // 2. Auto-create job with same line items
+        // 2. Auto-create job with same line items and transfer video/photos
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         
@@ -129,6 +129,8 @@ export default async function handler(
             status: 'scheduled',
             date_scheduled: tomorrow.toISOString().split('T')[0],
             estimate_amount: quote.amount,
+            video_url: quote.video_url || null,
+            photos: quote.photos || [],
             created_at: new Date().toISOString(),
           })
           .select()

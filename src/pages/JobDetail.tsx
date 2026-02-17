@@ -5,12 +5,21 @@ import AppLayout from '../components/AppLayout'
 import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
+import { MediaUpload } from '../components/MediaUpload'
+
+type Photo = {
+  url: string
+  caption: string
+  order: number
+}
 
 type Job = {
   id: string; title: string; description: string | null; date_scheduled: string
   location: string | null; estimate_amount: number; status: string
   client_id: string | null; quote_id: string | null; completed_at: string | null
   notes: string | null
+  video_url: string | null
+  photos: Photo[]
   clients: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null
 }
 
@@ -42,6 +51,8 @@ export default function JobDetailPage() {
   const [activeTab, setActiveTab] = useState<'job' | 'notes'>('job')
   const [notes, setNotes] = useState<string>('')
   const [editingNotes, setEditingNotes] = useState(false)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<Photo[]>([])
   
   // Invoice modal state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
@@ -61,6 +72,8 @@ export default function JobDetailPage() {
         if (fetchErr) { setError(fetchErr.message); return }
         setJob(data as any)
         setNotes((data as any).notes || '')
+        setVideoUrl((data as any).video_url || null)
+        setPhotos((data as any).photos || [])
         const ds = data.date_scheduled || ''
         const [datePart, timePart] = ds.includes('T') ? ds.split('T') : [ds, '']
         setForm({
@@ -125,13 +138,45 @@ export default function JobDetailPage() {
     const updateData: any = { status: newStatus }
     if (newStatus === 'completed') {
       updateData.completed_at = new Date().toISOString()
+      
+      // Auto-delete video and photos when job is completed
+      try {
+        // Delete video from storage
+        if (videoUrl) {
+          const videoPath = videoUrl.split('/').slice(-2).join('/')
+          await supabase.storage.from('quote-videos').remove([videoPath])
+          updateData.video_url = null
+        }
+
+        // Delete photos from storage
+        if (photos && photos.length > 0) {
+          const photoPaths = photos.map(p => p.url.split('/').slice(-2).join('/'))
+          await supabase.storage.from('quote-photos').remove(photoPaths)
+          updateData.photos = []
+        }
+      } catch (storageErr) {
+        console.error('Error deleting media:', storageErr)
+        // Continue even if storage deletion fails
+      }
     }
 
     const { error: upErr } = await supabase.from('jobs').update(updateData).eq('id', id)
     setBusy(false)
     if (upErr) { setError(upErr.message); return }
-    setJob({ ...job!, status: newStatus, completed_at: updateData.completed_at || job!.completed_at })
+    setJob({ 
+      ...job!, 
+      status: newStatus, 
+      completed_at: updateData.completed_at || job!.completed_at,
+      video_url: updateData.video_url !== undefined ? updateData.video_url : job!.video_url,
+      photos: updateData.photos !== undefined ? updateData.photos : job!.photos
+    })
     setForm({ ...form, status: newStatus })
+    
+    // Update local state
+    if (newStatus === 'completed') {
+      setVideoUrl(null)
+      setPhotos([])
+    }
   }
 
   async function saveEdit() {
@@ -747,52 +792,66 @@ export default function JobDetailPage() {
 
               {/* Notes Tab Content */}
               {activeTab === 'notes' && (
-                <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-semibold text-neutral-900">Notes</h2>
-                    {!editingNotes ? (
-                      <button
-                        onClick={() => setEditingNotes(true)}
-                        className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
-                      >
-                        Edit
-                      </button>
+                <>
+                  <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="font-semibold text-neutral-900">Notes</h2>
+                      {!editingNotes ? (
+                        <button
+                          onClick={() => setEditingNotes(true)}
+                          className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
+                        >
+                          Edit
+                        </button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setNotes(job?.notes || '')
+                              setEditingNotes(false)
+                            }}
+                            className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={saveNotes}
+                            disabled={busy}
+                            className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {editingNotes ? (
+                      <textarea
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                        rows={8}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Add notes about this job..."
+                      />
                     ) : (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setNotes(job?.notes || '')
-                            setEditingNotes(false)
-                          }}
-                          className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={saveNotes}
-                          disabled={busy}
-                          className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
-                        >
-                          Save
-                        </button>
+                      <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
+                        {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
                       </div>
                     )}
                   </div>
-                  
-                  {editingNotes ? (
-                    <textarea
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                      rows={8}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add notes about this job..."
+
+                  {/* Video & Photo Upload */}
+                  <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+                    <MediaUpload
+                      jobId={id}
+                      videoUrl={videoUrl}
+                      photos={photos}
+                      onVideoChange={setVideoUrl}
+                      onPhotosChange={setPhotos}
+                      readOnly={false}
                     />
-                  ) : (
-                    <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
-                      {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
-                    </div>
-                  )}
-                </div>
+                  </div>
+                </>
               )}
             </>
           )}

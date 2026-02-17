@@ -5,6 +5,13 @@ import AppLayout from '../components/AppLayout'
 import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
+import { MediaUpload } from '../components/MediaUpload'
+
+type Photo = {
+  url: string
+  caption: string
+  order: number
+}
 
 type Quote = {
   id: string; title: string; status: string; amount: number
@@ -17,6 +24,8 @@ type Quote = {
   notes: string | null
   discount_type: 'percentage' | 'dollar' | null
   discount_amount: number | null
+  video_url: string | null
+  photos: Photo[]
   clients: { id: string; name: string; email?: string } | null
 }
 
@@ -42,6 +51,8 @@ export default function QuoteDetailPage() {
   const [activeTab, setActiveTab] = useState<'quote' | 'notes'>('quote')
   const [notes, setNotes] = useState<string>('')
   const [editingNotes, setEditingNotes] = useState(false)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<Photo[]>([])
   const [showServiceSelector, setShowServiceSelector] = useState(false)
   const [savedServices, setSavedServices] = useState<any[]>([])
   const [savedProducts, setSavedProducts] = useState<any[]>([])
@@ -94,12 +105,14 @@ export default function QuoteDetailPage() {
       try {
         const { data, error: fetchErr } = await supabase
           .from('quotes')
-          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, discount_type, discount_amount, clients(id, name, email)')
+          .select('id, title, status, amount, expiration_date, client_id, company_id, deposit_amount, deposit_paid, stripe_checkout_session_id, tax_rate, tax_amount, notes, discount_type, discount_amount, video_url, photos, clients(id, name, email)')
           .eq('id', id)
           .single()
         if (fetchErr) { setError(fetchErr.message); return }
         setQuote(data as any)
         setNotes((data as any).notes || '')
+        setVideoUrl((data as any).video_url || null)
+        setPhotos((data as any).photos || [])
         
         // Set discount values
         setDiscountType((data as any).discount_type || 'percentage')
@@ -916,52 +929,65 @@ export default function QuoteDetailPage() {
 
         {/* Notes Tab Content */}
         {activeTab === 'notes' && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-semibold text-neutral-900">Notes</h2>
-              {!editingNotes ? (
-                <button
-                  onClick={() => setEditingNotes(true)}
-                  className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
-                >
-                  Edit
-                </button>
+          <>
+            <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-semibold text-neutral-900">Notes</h2>
+                {!editingNotes ? (
+                  <button
+                    onClick={() => setEditingNotes(true)}
+                    className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setNotes(quote?.notes || '')
+                        setEditingNotes(false)
+                      }}
+                      className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveNotes}
+                      disabled={busy}
+                      className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {editingNotes ? (
+                <textarea
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  rows={8}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add notes about this quote..."
+                />
               ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setNotes(quote?.notes || '')
-                      setEditingNotes(false)
-                    }}
-                    className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={saveNotes}
-                    disabled={busy}
-                    className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
-                  >
-                    Save
-                  </button>
+                <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
+                  {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
                 </div>
               )}
             </div>
-            
-            {editingNotes ? (
-              <textarea
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                rows={8}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes about this quote..."
+
+            {/* Video & Photo Upload */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+              <MediaUpload
+                quoteId={id}
+                videoUrl={videoUrl}
+                photos={photos}
+                onVideoChange={setVideoUrl}
+                onPhotosChange={setPhotos}
               />
-            ) : (
-              <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
-                {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
-              </div>
-            )}
-          </div>
+            </div>
+          </>
         )}
 
         {/* Service Selector Modal */}
