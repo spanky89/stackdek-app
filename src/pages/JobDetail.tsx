@@ -36,6 +36,7 @@ export default function JobDetailPage() {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', date_scheduled: '', time_scheduled: '', location: '', status: '' })
   const [saving, setSaving] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [showOriginalQuote, setShowOriginalQuote] = useState(false)
   
   // Invoice modal state
@@ -115,12 +116,14 @@ export default function JobDetailPage() {
   }, [jobLineItems])
 
   async function changeStatus(newStatus: string) {
+    setBusy(true)
     const updateData: any = { status: newStatus }
     if (newStatus === 'completed') {
       updateData.completed_at = new Date().toISOString()
     }
 
     const { error: upErr } = await supabase.from('jobs').update(updateData).eq('id', id)
+    setBusy(false)
     if (upErr) { setError(upErr.message); return }
     setJob({ ...job!, status: newStatus, completed_at: updateData.completed_at || job!.completed_at })
     setForm({ ...form, status: newStatus })
@@ -408,13 +411,18 @@ export default function JobDetailPage() {
   return (
     <AppLayout>
       <>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Job Detail</h1>
-          <button onClick={() => nav('/jobs')} className="text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">Back</button>
+        {/* Back Button & Menu */}
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => nav('/jobs')} className="text-neutral-700 text-2xl leading-none">←</button>
+          <div className="flex gap-2">
+            <button onClick={() => setEditing(true)} className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium">
+              Edit
+            </button>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          {editing ? (
+        {editing ? (
+          <div className="bg-white rounded-lg border border-neutral-200 p-6">
             <div className="space-y-3">
               <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Title" />
               <textarea className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description" />
@@ -433,25 +441,45 @@ export default function JobDetailPage() {
                 <button onClick={() => setEditing(false)} className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm">Cancel</button>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Header with Status Badge */}
-              <div className="mb-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">{job.title}</h2>
-                    <span className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${statusColors[job.status] || 'bg-neutral-100 text-neutral-800'}`}>
-                      {job.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </div>
-                  <button onClick={() => setEditing(true)} className="text-sm px-4 py-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors">
-                    Edit Job
-                  </button>
-                </div>
-                {job.description && (
-                  <p className="text-sm text-neutral-600 leading-relaxed">{job.description}</p>
-                )}
+          </div>
+        ) : (
+          <>
+            {/* Status Badge */}
+            <div className="mb-3">
+              <span className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full font-medium ${statusColors[job.status] || 'bg-neutral-100 text-neutral-800'}`}>
+                <span className="w-2 h-2 rounded-full bg-current"></span>
+                {job.status.replace('_', ' ').charAt(0).toUpperCase() + job.status.replace('_', ' ').slice(1)}
+              </span>
+            </div>
+
+            {/* Hero Header */}
+            <div className="mb-4">
+              <h1 className="text-2xl font-bold text-neutral-900 mb-1">
+                Job for {job.clients?.name || 'Client'} for ${(jobLineItems.length > 0 ? calculateEstimateFromLineItems() : job.estimate_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h1>
+              <p className="text-neutral-600">{job.title}</p>
+              {job.description && (
+                <p className="text-sm text-neutral-500 mt-1">{job.description}</p>
+              )}
+            </div>
+
+            {/* Metadata */}
+            <div className="grid grid-cols-2 gap-6 mb-6 text-sm">
+              <div>
+                <span className="text-neutral-500 block mb-1">Scheduled</span>
+                <p className="font-medium">
+                  {new Date(job.date_scheduled).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
               </div>
+              {job.completed_at && (
+                <div>
+                  <span className="text-neutral-500 block mb-1">Completed</span>
+                  <p className="font-medium text-green-600">
+                    {new Date(job.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              )}
+            </div>
 
               {/* Client Contact Card */}
               {job.clients && (
@@ -545,20 +573,14 @@ export default function JobDetailPage() {
                 </div>
               </div>
 
-              {/* Job Line Items - Editable */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-neutral-700">Line Items</h3>
-                  <button 
-                    onClick={addLineItem}
-                    className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    + Add Item
-                  </button>
+              {/* Line Items Section */}
+              <div className="bg-white border-t border-b border-neutral-200 py-4 mb-6">
+                <div className="mb-4">
+                  <h2 className="text-lg font-bold text-neutral-900">Line items</h2>
                 </div>
                 
                 {jobLineItems.length > 0 ? (
-                  <>
+                  <div className="space-y-3 mb-4">
                     {jobLineItems.map((item, index) => (
                       <LineItemCard
                         key={item.id}
@@ -572,18 +594,40 @@ export default function JobDetailPage() {
                         isLast={index === jobLineItems.length - 1}
                       />
                     ))}
-                    
-                    <DocumentSummary
-                      subtotal={calculateEstimateFromLineItems()}
-                      tax={0}
-                    />
-                  </>
-                ) : (
-                  <div className="text-center py-8 text-neutral-500">
-                    <p className="mb-2">No line items yet</p>
-                    <p className="text-sm">Click "Add Item" to break down this job into detailed line items</p>
                   </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4 mb-4">No line items</p>
                 )}
+
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
+                >
+                  + Add Line Item
+                </button>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-900 font-medium">Subtotal</span>
+                  <span className="font-semibold text-neutral-900">
+                    ${(jobLineItems.length > 0 ? calculateEstimateFromLineItems() : job.estimate_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-900 font-medium">Tax</span>
+                  <span className="font-semibold text-neutral-900">$0.00 (0%)</span>
+                </div>
+
+                <div className="bg-neutral-50 -mx-4 px-4 py-3 flex justify-between items-center">
+                  <span className="text-lg font-bold text-neutral-900">Total</span>
+                  <span className="text-lg font-bold text-neutral-900">
+                    ${(jobLineItems.length > 0 ? calculateEstimateFromLineItems() : job.estimate_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
               </div>
 
               {/* Original Quote Reference (if exists) */}
@@ -623,48 +667,57 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              {/* Status Management Card */}
-              <div className="mb-6 p-4 bg-white rounded-xl border border-neutral-200">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Status</h3>
-                <div className="flex gap-2 flex-wrap">
-                  {['scheduled', 'in_progress', 'completed'].map(s => (
-                    <button 
-                      key={s} 
-                      onClick={() => changeStatus(s)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                        job.status === s 
-                          ? 'bg-neutral-900 text-white' 
-                          : 'bg-neutral-50 text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                      }`}
-                    >
-                      {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
-                    </button>
-                  ))}
-                </div>
+              {/* Action Buttons */}
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                <button 
+                  onClick={() => changeStatus('scheduled')}
+                  disabled={busy || job.status === 'scheduled'}
+                  className={`px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
+                    job.status === 'scheduled'
+                      ? 'bg-neutral-900 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  } disabled:opacity-40`}
+                >
+                  Scheduled
+                </button>
+                <button 
+                  onClick={() => changeStatus('in_progress')}
+                  disabled={busy || job.status === 'in_progress'}
+                  className={`px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
+                    job.status === 'in_progress'
+                      ? 'bg-neutral-900 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  } disabled:opacity-40`}
+                >
+                  In Progress
+                </button>
+                <button 
+                  onClick={() => changeStatus('completed')}
+                  disabled={busy || job.status === 'completed'}
+                  className={`px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
+                    job.status === 'completed'
+                      ? 'bg-neutral-900 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  } disabled:opacity-40`}
+                >
+                  Completed
+                </button>
               </div>
 
-              {/* Completion Actions Card */}
-              <div className="p-4 bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border border-neutral-200">
-                <h3 className="text-sm font-semibold text-neutral-700 mb-3">Complete Job</h3>
-                <div className="flex gap-2 flex-wrap">
-                  <button 
-                    onClick={() => changeStatus('completed')}
-                    disabled={job.status === 'completed'}
-                    className="flex-1 min-w-[140px] px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-green-600"
-                  >
-                    Mark Complete
-                  </button>
-                  <button 
-                    onClick={openInvoiceModal}
-                    className="flex-1 min-w-[140px] px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Complete & Invoice
-                  </button>
-                </div>
-              </div>
+              {/* Complete & Invoice Button */}
+              <button 
+                onClick={openInvoiceModal}
+                className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 transition-colors"
+              >
+                Generate Invoice
+              </button>
             </>
           )}
-        </div>
+        </>
+      </>
+    </AppLayout>
+  )
+}
 
         {/* Invoice Generation Modal */}
         {showInvoiceModal && (
