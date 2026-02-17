@@ -713,11 +713,6 @@ export default function JobDetailPage() {
               </button>
             </>
           )}
-        </>
-      </>
-    </AppLayout>
-  )
-}
 
         {/* Invoice Generation Modal */}
         {showInvoiceModal && (
