@@ -10,6 +10,7 @@ type Job = {
   id: string; title: string; description: string | null; date_scheduled: string
   location: string | null; estimate_amount: number; status: string
   client_id: string | null; quote_id: string | null; completed_at: string | null
+  notes: string | null
   clients: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null
 }
 
@@ -38,6 +39,9 @@ export default function JobDetailPage() {
   const [saving, setSaving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [showOriginalQuote, setShowOriginalQuote] = useState(false)
+  const [activeTab, setActiveTab] = useState<'job' | 'notes'>('job')
+  const [notes, setNotes] = useState<string>('')
+  const [editingNotes, setEditingNotes] = useState(false)
   
   // Invoice modal state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
@@ -56,6 +60,7 @@ export default function JobDetailPage() {
           .from('jobs').select('*, clients(id, name, email, phone, address)').eq('id', id).single()
         if (fetchErr) { setError(fetchErr.message); return }
         setJob(data as any)
+        setNotes((data as any).notes || '')
         const ds = data.date_scheduled || ''
         const [datePart, timePart] = ds.includes('T') ? ds.split('T') : [ds, '']
         setForm({
@@ -149,6 +154,23 @@ export default function JobDetailPage() {
       status: form.status 
     })
     setEditing(false)
+  }
+
+  async function saveNotes() {
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('jobs')
+      .update({ notes })
+      .eq('id', id)
+    
+    setBusy(false)
+    if (upErr) { 
+      setError(upErr.message)
+      return 
+    }
+    
+    setJob({ ...job!, notes })
+    setEditingNotes(false)
   }
 
   // Add new line item
@@ -523,6 +545,25 @@ export default function JobDetailPage() {
                 </div>
               )}
 
+              {/* Tabs */}
+              <div className="flex border-b border-neutral-200 mb-6">
+                <button 
+                  onClick={() => setActiveTab('job')}
+                  className={`px-6 py-3 text-sm font-semibold ${activeTab === 'job' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+                >
+                  Job
+                </button>
+                <button 
+                  onClick={() => setActiveTab('notes')}
+                  className={`px-6 py-3 text-sm font-semibold ${activeTab === 'notes' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+                >
+                  Notes
+                </button>
+              </div>
+
+              {/* Job Tab Content */}
+              {activeTab === 'job' && (
+                <>
               {/* Job Details Card */}
               <div className="mb-6 p-4 bg-white rounded-xl border border-neutral-200">
                 <h3 className="text-sm font-semibold text-neutral-700 mb-3">Job Details</h3>
@@ -701,6 +742,58 @@ export default function JobDetailPage() {
               >
                 Generate Invoice
               </button>
+                </>
+              )}
+
+              {/* Notes Tab Content */}
+              {activeTab === 'notes' && (
+                <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="font-semibold text-neutral-900">Notes</h2>
+                    {!editingNotes ? (
+                      <button
+                        onClick={() => setEditingNotes(true)}
+                        className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setNotes(job?.notes || '')
+                            setEditingNotes(false)
+                          }}
+                          className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveNotes}
+                          disabled={busy}
+                          className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {editingNotes ? (
+                    <textarea
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      rows={8}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Add notes about this job..."
+                    />
+                  ) : (
+                    <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
+                      {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 
