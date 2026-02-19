@@ -89,7 +89,7 @@ export default function QuoteListPage() {
     return dateA.localeCompare(dateB)
   })
   
-  const pendingQuotes = quotes.filter(q => q.status === 'pending' && !q.scheduled_date)
+  const pendingQuotes = quotes.filter(q => (q.status === 'pending' || q.status === 'sent') && !q.scheduled_date)
   
   // Debug logging
   console.log('All quotes:', quotes)
