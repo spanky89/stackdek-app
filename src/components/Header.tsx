@@ -119,6 +119,7 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
   const menuItems = [
     { label: 'Home', icon: '🏠', path: '/home' },
     { label: 'Jobs', icon: '📋', path: '/jobs' },
+    { label: 'Requests', icon: '📬', path: '/requests' },
     { label: 'Quotes', icon: '📝', path: '/quotes' },
     { label: 'Invoices', icon: '💰', path: '/invoices' },
     { label: 'Clients', icon: '👥', path: '/clients' },
