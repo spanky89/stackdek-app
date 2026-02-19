@@ -43,6 +43,7 @@ import TaskEditPage from "./pages/TaskEdit";
 import AdminPage from "./pages/Admin";
 import AdminUserDetailPage from "./pages/AdminUserDetail";
 import AdminGuard from "./components/AdminGuard";
+import HelpPage from "./pages/Help";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -345,6 +346,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <BillingSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <ProtectedRoute>
+              <HelpPage />
             </ProtectedRoute>
           }
         />

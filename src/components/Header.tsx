@@ -123,6 +123,7 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
     { label: 'Quotes', icon: '📝', path: '/quotes' },
     { label: 'Invoices', icon: '💰', path: '/invoices' },
     { label: 'Clients', icon: '👥', path: '/clients' },
+    { label: 'Help', icon: '❓', path: '/help' },
     { label: 'Settings', icon: '⚙️', path: '/settings' },
   ]
 
@@ -171,6 +172,13 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
 
           {showSignOut && (
             <>
+              <button 
+                onClick={() => nav('/help')}
+                className="hidden sm:inline text-sm px-3 py-1.5 text-neutral-900 hover:text-neutral-700 transition"
+                title="Help"
+              >
+                ❓
+              </button>
               <button 
                 onClick={() => nav('/settings')}
                 className="hidden sm:inline text-sm px-3 py-1.5 text-neutral-900 hover:text-neutral-700 transition"
