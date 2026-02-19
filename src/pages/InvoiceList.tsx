@@ -161,15 +161,6 @@ export default function InvoiceListPage() {
                 className="w-full bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition text-left"
               >
                 <div className="flex items-start gap-3">
-                  {/* Logo */}
-                  <div className="flex-shrink-0">
-                    <img
-                      src="/logo-symbol.png"
-                      className="w-10 h-10 rounded-lg bg-neutral-100 p-1.5"
-                      alt="StackDek"
-                    />
-                  </div>
-
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
