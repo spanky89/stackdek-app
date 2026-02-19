@@ -689,7 +689,23 @@ export default function QuoteDetailPage() {
               <p className="font-medium text-neutral-900">{quote.clients.name}</p>
               {quote.clients.phone && <p className="text-sm text-neutral-600">{quote.clients.phone}</p>}
               {quote.clients.email && <p className="text-sm text-neutral-600">{quote.clients.email}</p>}
-              {quote.clients.address && <p className="text-sm text-neutral-600">{quote.clients.address}</p>}
+              {quote.clients.address && (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-neutral-600">{quote.clients.address}</p>
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-700"
+                    title="Navigate"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Client Action Buttons */}
@@ -721,34 +737,22 @@ export default function QuoteDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {quote.clients.phone && (
-                  <>
-                    <a 
-                      href={`tel:${quote.clients.phone}`}
-                      className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
-                    >
-                      Call
-                    </a>
-                    <a 
-                      href={`sms:${quote.clients.phone}`}
-                      className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
-                    >
-                      Message
-                    </a>
-                  </>
-                )}
-                {quote.clients.address && (
+              quote.clients.phone && (
+                <div className="grid grid-cols-2 gap-3">
                   <a 
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`tel:${quote.clients.phone}`}
                     className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
                   >
-                    Navigate
+                    Call
                   </a>
-                )}
-              </div>
+                  <a 
+                    href={`sms:${quote.clients.phone}`}
+                    className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                  >
+                    Message
+                  </a>
+                </div>
+              )
             )}
           </div>
         )}
