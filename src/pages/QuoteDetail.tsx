@@ -184,7 +184,11 @@ export default function QuoteDetailPage() {
     setBusy(true)
     const { error: upErr } = await supabase
       .from('quotes')
-      .update({ status: 'draft' })
+      .update({ 
+        status: 'draft',
+        scheduled_date: null,
+        scheduled_time: null
+      })
       .eq('id', id)
     
     setBusy(false)
