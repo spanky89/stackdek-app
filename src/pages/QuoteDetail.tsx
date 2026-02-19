@@ -183,7 +183,7 @@ export default function QuoteDetailPage() {
     }
     const { error: upErr } = await supabase.from('quotes').update(updateData).eq('id', id)
     
-    // If quote is being accepted, create a job
+    // If quote is being accepted, create a job with line items
     if (newStatus === 'accepted' && quote?.client_id && quote?.company_id) {
       const jobData = {
         company_id: quote.company_id,
@@ -195,10 +195,31 @@ export default function QuoteDetailPage() {
         location: quote.clients?.address || null,
       }
       
-      const { error: jobErr } = await supabase.from('jobs').insert(jobData)
+      const { data: newJob, error: jobErr } = await supabase.from('jobs').insert(jobData).select('id').single()
       if (jobErr) {
         console.error('Failed to create job:', jobErr)
         setError('Quote approved but failed to create job: ' + jobErr.message)
+      } else if (newJob) {
+        // Copy line items from quote to job
+        const { data: quoteLineItems } = await supabase
+          .from('quote_line_items')
+          .select('*')
+          .eq('quote_id', id)
+        
+        if (quoteLineItems && quoteLineItems.length > 0) {
+          const jobLineItems = quoteLineItems.map((item: any) => ({
+            job_id: newJob.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            sort_order: item.sort_order,
+          }))
+          
+          const { error: lineItemErr } = await supabase.from('job_line_items').insert(jobLineItems)
+          if (lineItemErr) {
+            console.error('Failed to copy line items:', lineItemErr)
+          }
+        }
       }
     }
     
