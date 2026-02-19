@@ -6,6 +6,7 @@ import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
 import { MediaUpload } from '../components/MediaUpload'
+import { OnMyWayModal } from '../components/OnMyWayModal'
 
 type Photo = {
   url: string
@@ -59,6 +60,7 @@ export default function QuoteDetailPage() {
   const [editingDiscount, setEditingDiscount] = useState(false)
   const [discountType, setDiscountType] = useState<'percentage' | 'dollar'>('percentage')
   const [discountValue, setDiscountValue] = useState<string>('0')
+  const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -173,6 +175,25 @@ export default function QuoteDetailPage() {
     setBusy(false)
     if (upErr) { setError(upErr.message); return }
     setQuote({ ...quote!, status: newStatus })
+  }
+
+  async function completeAndCreateQuote() {
+    if (!confirm('Complete this appointment and create a quote?')) return
+    
+    setBusy(true)
+    const { error: upErr } = await supabase
+      .from('quotes')
+      .update({ status: 'draft' })
+      .eq('id', id)
+    
+    setBusy(false)
+    if (upErr) {
+      setError(upErr.message)
+      return
+    }
+    
+    setQuote({ ...quote!, status: 'draft' })
+    setActiveTab('quote')
   }
 
   async function saveDepositAmount() {
@@ -572,12 +593,16 @@ export default function QuoteDetailPage() {
   if (!quote) return <div className="p-6">Quote not found.</div>
 
   const statusColors: Record<string, string> = {
+    scheduled: 'bg-blue-100 text-blue-800',
     draft: 'bg-neutral-100 text-neutral-800',
     sent: 'bg-neutral-100 text-neutral-800',
     accepted: 'bg-neutral-100 text-neutral-800',
     declined: 'bg-neutral-100 text-neutral-800',
     expired: 'bg-neutral-100 text-neutral-800',
   }
+
+  // Check if this is a scheduled appointment (not a quote yet)
+  const isScheduledAppointment = quote.status === 'scheduled'
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
@@ -623,22 +648,28 @@ export default function QuoteDetailPage() {
         {/* Hero Header */}
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-neutral-900 mb-1">
-            Quote for {quote.clients?.name} for ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {isScheduledAppointment ? (
+              `Appointment with ${quote.clients?.name || 'Client'}`
+            ) : (
+              `Quote for ${quote.clients?.name} for ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            )}
           </h1>
           <p className="text-neutral-600">{quote.title}</p>
         </div>
 
-        {/* Metadata */}
-        <div className="grid grid-cols-2 gap-6 mb-6 text-sm">
-          <div>
-            <span className="text-neutral-500 block mb-1">Created</span>
-            <p className="font-medium">{new Date(quote.expiration_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+        {!isScheduledAppointment && (
+          /* Metadata */
+          <div className="grid grid-cols-2 gap-6 mb-6 text-sm">
+            <div>
+              <span className="text-neutral-500 block mb-1">Created</span>
+              <p className="font-medium">{new Date(quote.expiration_date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+            </div>
+            <div>
+              <span className="text-neutral-500 block mb-1">Viewed</span>
+              <p className="font-medium">—</p>
+            </div>
           </div>
-          <div>
-            <span className="text-neutral-500 block mb-1">Viewed</span>
-            <p className="font-medium">—</p>
-          </div>
-        </div>
+        )}
 
         {/* Client Info & Quick Actions */}
         {quote.clients && (
@@ -651,69 +682,162 @@ export default function QuoteDetailPage() {
             </div>
 
             {/* Client Action Buttons */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {quote.clients.phone && (
-                <>
+            {isScheduledAppointment ? (
+              <div className="space-y-3">
+                {quote.clients.phone && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <a 
+                      href={`tel:${quote.clients.phone}`}
+                      className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                    >
+                      Call
+                    </a>
+                    <a 
+                      href={`sms:${quote.clients.phone}`}
+                      className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                    >
+                      Message
+                    </a>
+                  </div>
+                )}
+                {quote.clients.phone && (
+                  <button
+                    onClick={() => setShowOnMyWayModal(true)}
+                    className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                  >
+                    On My Way
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {quote.clients.phone && (
+                  <>
+                    <a 
+                      href={`tel:${quote.clients.phone}`}
+                      className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                    >
+                      Call
+                    </a>
+                    <a 
+                      href={`sms:${quote.clients.phone}`}
+                      className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                    >
+                      Message
+                    </a>
+                  </>
+                )}
+                {quote.clients.address && (
                   <a 
-                    href={`tel:${quote.clients.phone}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
                   >
-                    Call
+                    Navigate
                   </a>
-                  <a 
-                    href={`sms:${quote.clients.phone}`}
-                    className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
-                  >
-                    Message
-                  </a>
-                </>
-              )}
-              {quote.clients.address && (
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
-                >
-                  Navigate
-                </a>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button 
-            onClick={() => updateStatus('accepted')} 
-            disabled={busy || quote.status === 'accepted'}
-            className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 disabled:opacity-40"
-          >
-            Approve
-          </button>
-          <button 
-            onClick={copyShareableLink}
-            className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
-          >
-            {copied ? 'Link Copied!' : 'Resend'}
-          </button>
-        </div>
+        {!isScheduledAppointment && (
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button 
+              onClick={() => updateStatus('accepted')} 
+              disabled={busy || quote.status === 'accepted'}
+              className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 disabled:opacity-40"
+            >
+              Approve
+            </button>
+            <button 
+              onClick={copyShareableLink}
+              className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
+            >
+              {copied ? 'Link Copied!' : 'Resend'}
+            </button>
+          </div>
+        )}
 
-        {/* Tabs */}
-        <div className="flex border-b border-neutral-200 mb-6">
-          <button 
-            onClick={() => setActiveTab('quote')}
-            className={`px-6 py-3 text-sm font-semibold ${activeTab === 'quote' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
-          >
-            Quote
-          </button>
-          <button 
-            onClick={() => setActiveTab('notes')}
-            className={`px-6 py-3 text-sm font-semibold ${activeTab === 'notes' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
-          >
-            Notes
-          </button>
-        </div>
+        {/* Scheduled Appointment View */}
+        {isScheduledAppointment ? (
+          <>
+            {/* Notes Section for Scheduled Appointments */}
+            <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-semibold text-neutral-900">Appointment Notes</h2>
+                {!editingNotes ? (
+                  <button
+                    onClick={() => setEditingNotes(true)}
+                    className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setNotes(quote?.notes || '')
+                        setEditingNotes(false)
+                      }}
+                      className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded text-sm font-medium hover:bg-neutral-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveNotes}
+                      disabled={busy}
+                      className="px-3 py-1.5 bg-neutral-900 text-white rounded text-sm font-medium hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {editingNotes ? (
+                <textarea
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  rows={8}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add notes about this appointment..."
+                />
+              ) : (
+                <div className="text-sm text-neutral-700 whitespace-pre-wrap min-h-[8rem]">
+                  {notes || <span className="text-neutral-400 italic">No notes yet. Click Edit to add notes.</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Complete and Create Quote Button */}
+            <button
+              onClick={completeAndCreateQuote}
+              disabled={busy}
+              className="w-full px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-40"
+            >
+              Complete Appointment & Create Quote
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Tabs */}
+            <div className="flex border-b border-neutral-200 mb-6">
+              <button 
+                onClick={() => setActiveTab('quote')}
+                className={`px-6 py-3 text-sm font-semibold ${activeTab === 'quote' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+              >
+                Quote
+              </button>
+              <button 
+                onClick={() => setActiveTab('notes')}
+                className={`px-6 py-3 text-sm font-semibold ${activeTab === 'notes' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+              >
+                Notes
+              </button>
+            </div>
 
         {/* Quote Tab Content */}
         {activeTab === 'quote' && (
@@ -953,6 +1077,8 @@ export default function QuoteDetailPage() {
             </div>
           </>
         )}
+          </>
+        )}
 
         {/* Service Selector Modal */}
         {showServiceSelector && (
@@ -1061,6 +1187,16 @@ export default function QuoteDetailPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* On My Way Modal */}
+        {showOnMyWayModal && quote.clients && (
+          <OnMyWayModal
+            clientName={quote.clients.name}
+            clientPhone={quote.clients.phone || null}
+            address={quote.clients.address || null}
+            onClose={() => setShowOnMyWayModal(false)}
+          />
         )}
       </>
     </AppLayout>
