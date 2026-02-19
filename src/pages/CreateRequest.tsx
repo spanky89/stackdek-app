@@ -4,12 +4,25 @@ import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
 import { useCompany } from '../context/CompanyContext'
 
+type Client = {
+  id: string
+  name: string
+  email?: string
+  phone?: string
+  address?: string
+}
+
 export default function CreateRequestPage() {
   const nav = useNavigate()
   const { companyId } = useCompany()
   const [searchParams] = useSearchParams()
   const clientId = searchParams.get('clientId')
 
+  const [clientSearch, setClientSearch] = useState('')
+  const [clients, setClients] = useState<Client[]>([])
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
@@ -29,14 +42,17 @@ export default function CreateRequestPage() {
         try {
           const { data: client } = await supabase
             .from('clients')
-            .select('id, name, email, phone')
+            .select('id, name, email, phone, address')
             .eq('id', clientId)
             .single()
           
           if (client) {
+            setSelectedClientId(client.id)
             setClientName(client.name)
             setClientEmail(client.email || '')
             setClientPhone(client.phone || '')
+            setClientAddress(client.address || '')
+            setClientSearch(client.name)
           }
         } catch (e) {
           console.error('Failed to load client:', e)
@@ -44,6 +60,51 @@ export default function CreateRequestPage() {
       })()
     }
   }, [clientId])
+
+  // Search clients as user types
+  useEffect(() => {
+    if (!companyId || !clientSearch.trim()) {
+      setClients([])
+      setShowClientDropdown(false)
+      return
+    }
+
+    const searchClients = async () => {
+      const { data } = await supabase
+        .from('clients')
+        .select('id, name, email, phone, address')
+        .eq('company_id', companyId)
+        .ilike('name', `%${clientSearch}%`)
+        .limit(5)
+
+      setClients(data || [])
+      setShowClientDropdown(true)
+    }
+
+    const timeout = setTimeout(searchClients, 300)
+    return () => clearTimeout(timeout)
+  }, [clientSearch, companyId])
+
+  function selectClient(client: Client) {
+    setSelectedClientId(client.id)
+    setClientName(client.name)
+    setClientEmail(client.email || '')
+    setClientPhone(client.phone || '')
+    setClientAddress(client.address || '')
+    setClientSearch(client.name)
+    setShowClientDropdown(false)
+  }
+
+  function clearClient() {
+    setSelectedClientId(null)
+    setClientName('')
+    setClientEmail('')
+    setClientPhone('')
+    setClientAddress('')
+    setClientCity('')
+    setClientState('')
+    setClientSearch('')
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -66,20 +127,8 @@ export default function CreateRequestPage() {
         return
       }
 
-      // If client doesn't exist by email/phone, create one
-      let finalClientId = clientId
-      if (!finalClientId && (clientEmail || clientPhone)) {
-        const { data: existingClient } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('company_id', companyId)
-          .or(`email.eq.${clientEmail},phone.eq.${clientPhone}`)
-          .single()
-
-        if (existingClient) {
-          finalClientId = existingClient.id
-        }
-      }
+      // Use selected client if available, otherwise create new
+      let finalClientId = selectedClientId || clientId
 
       // Create client if needed
       if (!finalClientId) {
@@ -90,6 +139,7 @@ export default function CreateRequestPage() {
             name: clientName,
             email: clientEmail || null,
             phone: clientPhone || null,
+            address: clientAddress || null,
           })
           .select('id')
           .single()
@@ -148,71 +198,136 @@ export default function CreateRequestPage() {
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Client Name *</label>
-              <input
-                type="text"
-                value={clientName}
-                onChange={e => setClientName(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                placeholder="Client name"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
-              <input
-                type="email"
-                value={clientEmail}
-                onChange={e => setClientEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                placeholder="client@example.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Phone</label>
-              <input
-                type="tel"
-                value={clientPhone}
-                onChange={e => setClientPhone(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                placeholder="(555) 123-4567"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Street Address</label>
-              <input
-                type="text"
-                value={clientAddress}
-                onChange={e => setClientAddress(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                placeholder="123 Main St"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">City</label>
+            {/* Client Search */}
+            <div className="relative">
+              <label className="block text-sm font-medium mb-2">Search Existing Client</label>
+              <div className="relative">
                 <input
                   type="text"
-                  value={clientCity}
-                  onChange={e => setClientCity(e.target.value)}
+                  value={clientSearch}
+                  onChange={e => {
+                    setClientSearch(e.target.value)
+                    if (!e.target.value.trim()) {
+                      clearClient()
+                    }
+                  }}
+                  onFocus={() => clientSearch.trim() && setShowClientDropdown(true)}
                   className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  placeholder="City"
+                  placeholder="Search by name..."
                 />
+                {selectedClientId && (
+                  <button
+                    type="button"
+                    onClick={clearClient}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">State</label>
-                <input
-                  type="text"
-                  value={clientState}
-                  onChange={e => setClientState(e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  placeholder="GA"
-                />
+              
+              {/* Dropdown */}
+              {showClientDropdown && clients.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {clients.map(client => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => selectClient(client)}
+                      className="w-full text-left px-4 py-3 hover:bg-neutral-50 border-b border-neutral-100 last:border-0"
+                    >
+                      <p className="font-medium text-sm">{client.name}</p>
+                      {client.email && <p className="text-xs text-neutral-600">{client.email}</p>}
+                      {client.phone && <p className="text-xs text-neutral-600">{client.phone}</p>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selectedClientId && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                ✓ Using existing client: <span className="font-medium">{clientName}</span>
+              </div>
+            )}
+
+            <div className="border-t border-neutral-200 pt-4">
+              <p className="text-xs text-neutral-500 mb-4">
+                {selectedClientId ? 'Client details (from existing client)' : 'Or enter new client details'}
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Client Name *</label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={e => setClientName(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    placeholder="Client name"
+                    required
+                    disabled={!!selectedClientId}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={clientEmail}
+                    onChange={e => setClientEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 disabled:bg-neutral-50"
+                    placeholder="client@example.com"
+                    disabled={!!selectedClientId}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Phone</label>
+                  <input
+                    type="tel"
+                    value={clientPhone}
+                    onChange={e => setClientPhone(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 disabled:bg-neutral-50"
+                    placeholder="(555) 123-4567"
+                    disabled={!!selectedClientId}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Street Address</label>
+                  <input
+                    type="text"
+                    value={clientAddress}
+                    onChange={e => setClientAddress(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 disabled:bg-neutral-50"
+                    placeholder="123 Main St"
+                    disabled={!!selectedClientId}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">City</label>
+                    <input
+                      type="text"
+                      value={clientCity}
+                      onChange={e => setClientCity(e.target.value)}
+                      className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      placeholder="City"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">State</label>
+                    <input
+                      type="text"
+                      value={clientState}
+                      onChange={e => setClientState(e.target.value)}
+                      className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      placeholder="GA"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
