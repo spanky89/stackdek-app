@@ -62,6 +62,7 @@ export default function QuoteDetailPage() {
   const [discountValue, setDiscountValue] = useState<string>('0')
   const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
   const [showSendModal, setShowSendModal] = useState(false)
+  const [companyName, setCompanyName] = useState<string>('StackDek')
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -80,11 +81,15 @@ export default function QuoteDetailPage() {
       
       const { data: company } = await supabase
         .from('companies')
-        .select('id')
+        .select('id, name')
         .eq('owner_id', user.id)
         .single()
       
       if (!company) return
+      
+      if (company.name) {
+        setCompanyName(company.name)
+      }
       
       const { data: services } = await supabase
         .from('services')
@@ -1223,7 +1228,8 @@ export default function QuoteDetailPage() {
                   <button
                     onClick={() => {
                       const shareUrl = `${window.location.origin}/quotes/view/${id}`
-                      window.open(`sms:${quote.clients.phone}?body=${encodeURIComponent(`Here's your quote: ${shareUrl}`)}`, '_blank')
+                      const message = `Your quote from ${companyName} is ready for viewing and approval at ${shareUrl}`
+                      window.open(`sms:${quote.clients.phone}?body=${encodeURIComponent(message)}`, '_blank')
                       setShowSendModal(false)
                       updateStatus('sent')
                     }}
