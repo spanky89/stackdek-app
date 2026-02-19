@@ -600,9 +600,9 @@ export default function JobDetailPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="space-y-3">
                     {job.clients.phone && (
-                      <>
+                      <div className="grid grid-cols-2 gap-3">
                         <a 
                           href={`tel:${job.clients.phone}`}
                           className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
@@ -615,22 +615,12 @@ export default function JobDetailPage() {
                         >
                           Message
                         </a>
-                      </>
-                    )}
-                    {job.location && (
-                      <a 
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
-                      >
-                        Navigate
-                      </a>
+                      </div>
                     )}
                     {job.clients.phone && (
                       <button
                         onClick={() => setShowOnMyWayModal(true)}
-                        className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
+                        className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
                       >
                         On My Way
                       </button>
