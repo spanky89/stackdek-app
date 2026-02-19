@@ -182,9 +182,34 @@ export default function QuoteDetailPage() {
       updateData.amount = finalAmount
     }
     const { error: upErr } = await supabase.from('quotes').update(updateData).eq('id', id)
+    
+    // If quote is being accepted, create a job
+    if (newStatus === 'accepted' && quote?.client_id && quote?.company_id) {
+      const jobData = {
+        company_id: quote.company_id,
+        client_id: quote.client_id,
+        title: quote.title,
+        estimate_amount: finalAmount ?? quote.amount ?? 0,
+        status: 'scheduled',
+        date_scheduled: new Date().toISOString().split('T')[0], // Today's date
+        location: quote.clients?.address || null,
+      }
+      
+      const { error: jobErr } = await supabase.from('jobs').insert(jobData)
+      if (jobErr) {
+        console.error('Failed to create job:', jobErr)
+        setError('Quote approved but failed to create job: ' + jobErr.message)
+      }
+    }
+    
     setBusy(false)
     if (upErr) { setError(upErr.message); return }
     setQuote({ ...quote!, status: newStatus, amount: finalAmount ?? quote!.amount })
+    
+    // Redirect to jobs if quote was accepted
+    if (newStatus === 'accepted') {
+      setTimeout(() => nav('/jobs'), 1000)
+    }
   }
 
   async function completeAndCreateQuote() {
