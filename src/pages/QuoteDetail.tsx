@@ -1246,7 +1246,9 @@ export default function QuoteDetailPage() {
                   <button
                     onClick={() => {
                       const shareUrl = `${window.location.origin}/quotes/view/${id}`
-                      window.open(`mailto:${quote.clients.email}?subject=Your Quote&body=${encodeURIComponent(`Here's your quote: ${shareUrl}`)}`, '_blank')
+                      const subject = `Quote from ${companyName}`
+                      const body = `Your quote from ${companyName} is ready for review: ${shareUrl}`
+                      window.open(`mailto:${quote.clients.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank')
                       setShowSendModal(false)
                       updateStatus('sent')
                     }}
