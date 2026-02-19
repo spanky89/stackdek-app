@@ -258,9 +258,33 @@ export default function QuoteDetailPage() {
     setShowDepositModal(false)
   }
 
+  // Add new line item
+  async function addLineItem() {
+    const newItem: Partial<UnifiedLineItem> = {
+      quote_id: id!,
+      title: '',
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      sort_order: lineItems.length,
+    }
+
+    const { data, error } = await supabase
+      .from('quote_line_items')
+      .insert(newItem)
+      .select()
+      .single()
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setLineItems([...lineItems, data])
+  }
+
   async function updateLineItem(updated: UnifiedLineItem) {
-    setBusy(true)
-    const { error: upErr } = await supabase
+    const { error } = await supabase
       .from('quote_line_items')
       .update({
         title: updated.title,
@@ -270,9 +294,8 @@ export default function QuoteDetailPage() {
       })
       .eq('id', updated.id)
     
-    setBusy(false)
-    if (upErr) { 
-      setError(upErr.message)
+    if (error) { 
+      setError(error.message)
       return 
     }
     
@@ -280,57 +303,45 @@ export default function QuoteDetailPage() {
   }
 
   async function deleteLineItem(itemId: string) {
-    if (!confirm('Delete this line item?')) return
-    
-    setBusy(true)
-    const { error: delErr } = await supabase
+    const { error } = await supabase
       .from('quote_line_items')
       .delete()
       .eq('id', itemId)
-    
-    setBusy(false)
-    if (delErr) { 
-      setError(delErr.message)
-      return 
-    }
-    
-    setLineItems(lineItems.filter(item => item.id !== itemId))
-  }
 
-  async function moveLineItem(index: number, direction: 'up' | 'down') {
-    const newItems = [...lineItems]
-    const targetIndex = direction === 'up' ? index - 1 : index + 1
-    
-    if (targetIndex < 0 || targetIndex >= newItems.length) return
-    
-    // Swap items
-    const temp = newItems[index]
-    newItems[index] = newItems[targetIndex]
-    newItems[targetIndex] = temp
-    
-    // Update sort_order for both items
-    newItems[index].sort_order = index
-    newItems[targetIndex].sort_order = targetIndex
-    
-    setBusy(true)
-    
-    // Update both items in database
-    const updates = [
-      supabase.from('quote_line_items').update({ sort_order: index }).eq('id', newItems[index].id),
-      supabase.from('quote_line_items').update({ sort_order: targetIndex }).eq('id', newItems[targetIndex].id)
-    ]
-    
-    const results = await Promise.all(updates)
-    const errors = results.filter(r => r.error)
-    
-    setBusy(false)
-    
-    if (errors.length > 0) {
-      setError('Failed to reorder items')
+    if (error) {
+      setError(error.message)
       return
     }
+
+    setLineItems(items => items.filter(item => item.id !== itemId))
+  }
+
+  async function moveLineItemUp(index: number) {
+    if (index === 0) return
+    const newItems = [...lineItems]
+    ;[newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]]
     
-    setLineItems(newItems)
+    // Update sort_order for both items
+    await Promise.all([
+      supabase.from('quote_line_items').update({ sort_order: index - 1 }).eq('id', newItems[index - 1].id),
+      supabase.from('quote_line_items').update({ sort_order: index }).eq('id', newItems[index].id),
+    ])
+
+    setLineItems(newItems.map((item, idx) => ({ ...item, sort_order: idx })))
+  }
+
+  async function moveLineItemDown(index: number) {
+    if (index === lineItems.length - 1) return
+    const newItems = [...lineItems]
+    ;[newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]]
+    
+    // Update sort_order for both items
+    await Promise.all([
+      supabase.from('quote_line_items').update({ sort_order: index }).eq('id', newItems[index].id),
+      supabase.from('quote_line_items').update({ sort_order: index + 1 }).eq('id', newItems[index + 1].id),
+    ])
+
+    setLineItems(newItems.map((item, idx) => ({ ...item, sort_order: idx })))
   }
 
   // STRIPE - Commented out for beta (re-enable before public launch)
@@ -731,120 +742,40 @@ export default function QuoteDetailPage() {
           {lineItems.length > 0 ? (
             <div className="space-y-3 mb-4">
               {lineItems.map((item, index) => (
-                <div key={item.id} className="border border-neutral-200 rounded-lg p-3 bg-white">
-                  <div className="flex justify-between items-start mb-2">
-                    <button
-                      type="button"
-                      onClick={() => deleteLineItem(item.id)}
-                      className="text-neutral-400 hover:text-red-600 text-lg leading-none ml-auto"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  
-                  {/* Title field */}
-                  <div className="mb-2">
-                    <label className="block text-xs text-neutral-600 mb-1">Item Title</label>
-                    <input
-                      type="text"
-                      className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-                      placeholder="e.g., Lawn Mowing"
-                      value={item.title || ''}
-                      onChange={e => updateLineItem({...item, title: e.target.value})}
-                      onBlur={() => updateLineItem(item)}
-                    />
-                  </div>
-
-                  {/* Description */}
-                  <div className="mb-2">
-                    <label className="block text-xs text-neutral-600 mb-1">Description</label>
-                    <textarea
-                      className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs resize-none"
-                      placeholder="Additional notes…"
-                      rows={2}
-                      value={item.description || ''}
-                      onChange={e => updateLineItem({...item, description: e.target.value})}
-                      onBlur={() => updateLineItem(item)}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-xs text-neutral-600 mb-1">Qty</label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-                        value={item.quantity}
-                        onChange={e => {
-                          const val = e.target.value
-                          const updated = {...item, quantity: val === '' ? 1 : parseInt(val) || 1}
-                          updateLineItem(updated)
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-neutral-600 mb-1">Price</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-                        value={item.unit_price}
-                        onChange={e => {
-                          const val = e.target.value
-                          const updated = {...item, unit_price: val === '' ? 0 : parseFloat(val) || 0}
-                          updateLineItem(updated)
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-neutral-600 mb-1">Total</label>
-                      <div className="px-2 py-1.5 text-sm font-medium">
-                        ${((item.quantity || 0) * (item.unit_price || 0)).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Move up/down buttons */}
-                  <div className="flex gap-2 mt-2">
-                    {index > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => moveLineItem(index, 'up')}
-                        disabled={busy}
-                        className="text-xs px-2 py-1 bg-neutral-100 text-neutral-700 rounded hover:bg-neutral-200 disabled:opacity-40"
-                      >
-                        ↑ Move Up
-                      </button>
-                    )}
-                    {index < lineItems.length - 1 && (
-                      <button
-                        type="button"
-                        onClick={() => moveLineItem(index, 'down')}
-                        disabled={busy}
-                        className="text-xs px-2 py-1 bg-neutral-100 text-neutral-700 rounded hover:bg-neutral-200 disabled:opacity-40"
-                      >
-                        ↓ Move Down
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <LineItemCard
+                  key={item.id}
+                  item={item}
+                  mode="edit"
+                  onUpdate={updateLineItem}
+                  onDelete={() => deleteLineItem(item.id)}
+                  onMoveUp={() => moveLineItemUp(index)}
+                  onMoveDown={() => moveLineItemDown(index)}
+                  isFirst={index === 0}
+                  isLast={index === lineItems.length - 1}
+                />
               ))}
             </div>
           ) : (
             <p className="text-sm text-neutral-500 text-center py-4 mb-4">No line items</p>
           )}
 
-          {/* Add Service/Product Button */}
-          <button
-            type="button"
-            onClick={() => setShowServiceSelector(true)}
-            className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
-          >
-            + Add Service / Product
-          </button>
+          {/* Add Line Item Buttons */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={addLineItem}
+              className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
+            >
+              + Add Line Item
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowServiceSelector(true)}
+              className="w-full text-sm text-blue-600 border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 font-medium flex items-center justify-center gap-2"
+            >
+              + Add from Services / Products
+            </button>
+          </div>
         </div>
 
         {/* Financial Summary */}
