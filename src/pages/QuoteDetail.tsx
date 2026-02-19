@@ -686,17 +686,14 @@ export default function QuoteDetailPage() {
         {quote.clients && (
           <div className="mb-6">
             <div className="mb-3">
-              <p className="font-medium text-neutral-900">{quote.clients.name}</p>
-              {quote.clients.phone && <p className="text-sm text-neutral-600">{quote.clients.phone}</p>}
-              {quote.clients.email && <p className="text-sm text-neutral-600">{quote.clients.email}</p>}
-              {quote.clients.address && (
-                <div className="flex items-start gap-2">
-                  <p className="text-sm text-neutral-600">{quote.clients.address}</p>
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-neutral-900">{quote.clients.name}</p>
+                {quote.clients.address && (
                   <a 
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700 flex-shrink-0"
+                    className="text-neutral-900 hover:text-neutral-700 flex-shrink-0"
                     title="Navigate"
                   >
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -704,8 +701,11 @@ export default function QuoteDetailPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </a>
-                </div>
-              )}
+                )}
+              </div>
+              {quote.clients.phone && <p className="text-sm text-neutral-600">{quote.clients.phone}</p>}
+              {quote.clients.email && <p className="text-sm text-neutral-600">{quote.clients.email}</p>}
+              {quote.clients.address && <p className="text-sm text-neutral-600">{quote.clients.address}</p>}
             </div>
 
             {/* Client Action Buttons */}
