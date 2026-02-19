@@ -61,6 +61,7 @@ export default function QuoteDetailPage() {
   const [discountType, setDiscountType] = useState<'percentage' | 'dollar'>('percentage')
   const [discountValue, setDiscountValue] = useState<string>('0')
   const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -754,10 +755,10 @@ export default function QuoteDetailPage() {
               Approve
             </button>
             <button 
-              onClick={copyShareableLink}
+              onClick={() => setShowSendModal(true)}
               className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
             >
-              {copied ? 'Link Copied!' : 'Resend'}
+              {quote.status === 'draft' ? 'Send' : 'Resend'}
             </button>
           </div>
         )}
@@ -1198,6 +1199,60 @@ export default function QuoteDetailPage() {
             address={quote.clients.address || null}
             onClose={() => setShowOnMyWayModal(false)}
           />
+        )}
+
+        {/* Send Quote Modal */}
+        {showSendModal && quote.clients && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowSendModal(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold">Send Quote</h2>
+                <button onClick={() => setShowSendModal(false)} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
+              </div>
+
+              <p className="text-sm text-neutral-600 mb-6">
+                Send quote to {quote.clients.name}
+              </p>
+
+              <div className="space-y-3">
+                {quote.clients.phone && (
+                  <button
+                    onClick={() => {
+                      const shareUrl = `${window.location.origin}/quotes/view/${id}`
+                      window.open(`sms:${quote.clients.phone}?body=${encodeURIComponent(`Here's your quote: ${shareUrl}`)}`, '_blank')
+                      setShowSendModal(false)
+                      updateStatus('sent')
+                    }}
+                    className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
+                  >
+                    Send via Text
+                  </button>
+                )}
+                {quote.clients.email && (
+                  <button
+                    onClick={() => {
+                      const shareUrl = `${window.location.origin}/quotes/view/${id}`
+                      window.open(`mailto:${quote.clients.email}?subject=Your Quote&body=${encodeURIComponent(`Here's your quote: ${shareUrl}`)}`, '_blank')
+                      setShowSendModal(false)
+                      updateStatus('sent')
+                    }}
+                    className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
+                  >
+                    Send via Email
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    copyShareableLink()
+                    setShowSendModal(false)
+                  }}
+                  className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-lg text-sm font-semibold hover:bg-neutral-50"
+                >
+                  {copied ? 'Link Copied!' : 'Copy Link'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </>
     </AppLayout>
