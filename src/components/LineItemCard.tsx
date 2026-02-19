@@ -24,18 +24,35 @@ export const LineItemCard: React.FC<LineItemCardProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedItem, setEditedItem] = useState<UnifiedLineItem>(item);
+  const [quantityStr, setQuantityStr] = useState(String(item.quantity));
+  const [priceStr, setPriceStr] = useState(String(item.unit_price));
 
-  const subtotal = item.quantity * item.unit_price;
+  const subtotal = isEditing 
+    ? (parseFloat(quantityStr) || 0) * (parseFloat(priceStr) || 0)
+    : item.quantity * item.unit_price;
+
+  const handleEdit = () => {
+    setEditedItem(item);
+    setQuantityStr(String(item.quantity));
+    setPriceStr(String(item.unit_price));
+    setIsEditing(true);
+  };
 
   const handleSave = () => {
     if (onUpdate) {
-      onUpdate(editedItem);
+      onUpdate({
+        ...editedItem,
+        quantity: parseFloat(quantityStr) || 0,
+        unit_price: parseFloat(priceStr) || 0,
+      });
     }
     setIsEditing(false);
   };
 
   const handleCancel = () => {
     setEditedItem(item);
+    setQuantityStr(String(item.quantity));
+    setPriceStr(String(item.unit_price));
     setIsEditing(false);
   };
 
@@ -103,7 +120,7 @@ export const LineItemCard: React.FC<LineItemCardProps> = ({
                 {/* Edit/Delete buttons */}
                 <div className="flex gap-1">
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={handleEdit}
                     className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                     title="Edit"
                   >
@@ -171,8 +188,8 @@ export const LineItemCard: React.FC<LineItemCardProps> = ({
             </label>
             <input
               type="number"
-              value={editedItem.quantity}
-              onChange={(e) => setEditedItem({ ...editedItem, quantity: parseFloat(e.target.value) || 0 })}
+              value={quantityStr}
+              onChange={(e) => setQuantityStr(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
               step="0.01"
@@ -184,8 +201,8 @@ export const LineItemCard: React.FC<LineItemCardProps> = ({
             </label>
             <input
               type="number"
-              value={editedItem.unit_price}
-              onChange={(e) => setEditedItem({ ...editedItem, unit_price: parseFloat(e.target.value) || 0 })}
+              value={priceStr}
+              onChange={(e) => setPriceStr(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
               step="0.01"
@@ -198,7 +215,7 @@ export const LineItemCard: React.FC<LineItemCardProps> = ({
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Subtotal:</span>
             <span className="font-semibold text-gray-900">
-              ${(editedItem.quantity * editedItem.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
