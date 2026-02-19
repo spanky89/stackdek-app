@@ -175,12 +175,16 @@ export default function QuoteDetailPage() {
   //   }
   // }
 
-  async function updateStatus(newStatus: string) {
+  async function updateStatus(newStatus: string, finalAmount?: number) {
     setBusy(true)
-    const { error: upErr } = await supabase.from('quotes').update({ status: newStatus }).eq('id', id)
+    const updateData: any = { status: newStatus }
+    if (finalAmount !== undefined) {
+      updateData.amount = finalAmount
+    }
+    const { error: upErr } = await supabase.from('quotes').update(updateData).eq('id', id)
     setBusy(false)
     if (upErr) { setError(upErr.message); return }
-    setQuote({ ...quote!, status: newStatus })
+    setQuote({ ...quote!, status: newStatus, amount: finalAmount ?? quote!.amount })
   }
 
   async function completeAndCreateQuote() {
@@ -761,7 +765,7 @@ export default function QuoteDetailPage() {
         {!isScheduledAppointment && (
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button 
-              onClick={() => updateStatus('accepted')} 
+              onClick={() => updateStatus('accepted', total)} 
               disabled={busy || quote.status === 'accepted'}
               className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 disabled:opacity-40"
             >
@@ -1235,7 +1239,7 @@ export default function QuoteDetailPage() {
                       const message = `Your quote from ${companyName} is ready for viewing and approval at ${shareUrl}`
                       window.open(`sms:${quote.clients.phone}?body=${encodeURIComponent(message)}`, '_blank')
                       setShowSendModal(false)
-                      updateStatus('sent')
+                      updateStatus('sent', total)
                     }}
                     className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
                   >
@@ -1250,7 +1254,7 @@ export default function QuoteDetailPage() {
                       const body = `Your quote from ${companyName} is ready for review: ${shareUrl}`
                       window.open(`mailto:${quote.clients.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank')
                       setShowSendModal(false)
-                      updateStatus('sent')
+                      updateStatus('sent', total)
                     }}
                     className="w-full px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800"
                   >
