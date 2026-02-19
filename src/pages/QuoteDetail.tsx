@@ -6,7 +6,6 @@ import { LineItemCard } from '../components/LineItemCard'
 import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
 import { MediaUpload } from '../components/MediaUpload'
-import { OnMyWayModal } from '../components/OnMyWayModal'
 
 type Photo = {
   url: string
@@ -60,7 +59,6 @@ export default function QuoteDetailPage() {
   const [editingDiscount, setEditingDiscount] = useState(false)
   const [discountType, setDiscountType] = useState<'percentage' | 'dollar'>('percentage')
   const [discountValue, setDiscountValue] = useState<string>('0')
-  const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
 
   useEffect(() => {
     // Check for payment success/cancel in URL
@@ -649,11 +647,11 @@ export default function QuoteDetailPage() {
               <p className="font-medium text-neutral-900">{quote.clients.name}</p>
               {quote.clients.phone && <p className="text-sm text-neutral-600">{quote.clients.phone}</p>}
               {quote.clients.email && <p className="text-sm text-neutral-600">{quote.clients.email}</p>}
-              {quote.clients.address && <p className="text-sm text-neutral-600 mt-1">{quote.clients.address}</p>}
+              {quote.clients.address && <p className="text-sm text-neutral-600">{quote.clients.address}</p>}
             </div>
 
             {/* Client Action Buttons */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {quote.clients.phone && (
                 <>
                   <a 
@@ -679,14 +677,6 @@ export default function QuoteDetailPage() {
                 >
                   Navigate
                 </a>
-              )}
-              {quote.clients.phone && (
-                <button
-                  onClick={() => setShowOnMyWayModal(true)}
-                  className="px-4 py-3 bg-neutral-900 text-white rounded-lg text-sm font-semibold hover:bg-neutral-800 text-center"
-                >
-                  On My Way
-                </button>
               )}
             </div>
           </div>
@@ -759,23 +749,14 @@ export default function QuoteDetailPage() {
             <p className="text-sm text-neutral-500 text-center py-4 mb-4">No line items</p>
           )}
 
-          {/* Add Line Item Buttons */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={addLineItem}
-              className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
-            >
-              + Add Line Item
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowServiceSelector(true)}
-              className="w-full text-sm text-blue-600 border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 font-medium flex items-center justify-center gap-2"
-            >
-              + Add from Services / Products
-            </button>
-          </div>
+          {/* Add Service/Product Button */}
+          <button
+            type="button"
+            onClick={() => setShowServiceSelector(true)}
+            className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium flex items-center justify-center gap-2"
+          >
+            + Add from Services / Products
+          </button>
         </div>
 
         {/* Financial Summary */}
@@ -1080,16 +1061,6 @@ export default function QuoteDetailPage() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* On My Way Modal */}
-        {showOnMyWayModal && quote.clients && (
-          <OnMyWayModal
-            clientName={quote.clients.name}
-            clientPhone={quote.clients.phone || null}
-            address={quote.clients.address || null}
-            onClose={() => setShowOnMyWayModal(false)}
-          />
         )}
       </>
     </AppLayout>
