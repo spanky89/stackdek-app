@@ -593,6 +593,7 @@ export default function QuoteDetailPage() {
   if (!quote) return <div className="p-6">Quote not found.</div>
 
   const statusColors: Record<string, string> = {
+    pending: 'bg-blue-100 text-blue-800',
     scheduled: 'bg-blue-100 text-blue-800',
     draft: 'bg-neutral-100 text-neutral-800',
     sent: 'bg-neutral-100 text-neutral-800',
@@ -602,7 +603,7 @@ export default function QuoteDetailPage() {
   }
 
   // Check if this is a scheduled appointment (not a quote yet)
-  const isScheduledAppointment = quote.status === 'scheduled'
+  const isScheduledAppointment = quote.status === 'pending' || quote.status === 'scheduled'
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
