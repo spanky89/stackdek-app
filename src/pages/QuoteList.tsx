@@ -191,11 +191,6 @@ export default function QuoteListPage() {
                         <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">Draft</span>
                       </div>
                       <p className="text-sm text-neutral-600">{q.clients?.name || 'Unknown Client'}</p>
-                      {q.scheduled_date && (
-                        <p className="text-xs text-neutral-500 mt-1">
-                          Scheduled: {formatDate(q.scheduled_date)} {q.scheduled_time && `at ${formatTime(q.scheduled_time)}`}
-                        </p>
-                      )}
                     </div>
                     {q.amount > 0 && (
                       <span className="text-sm font-semibold text-neutral-900 ml-3">${q.amount.toLocaleString()}</span>
