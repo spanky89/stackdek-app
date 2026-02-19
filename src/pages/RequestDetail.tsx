@@ -125,7 +125,7 @@ export default function RequestDetailPage() {
           company_id: companyId,
           client_id: clientId,
           title: scheduleService || 'Service Request',
-          status: 'pending',
+          status: 'scheduled',
           amount: 0,
           scheduled_date: scheduleDate,
           scheduled_time: scheduleTime,
