@@ -822,18 +822,18 @@ export default function JobDetailPage() {
               {/* Cancel & Complete Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button 
-                  onClick={() => setShowCancelModal(true)}
-                  disabled={busy || job.status === 'cancelled' || job.status === 'completed'}
-                  className="w-full px-4 py-3 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Cancel Job
-                </button>
-                <button 
                   onClick={openInvoiceModal}
                   disabled={job.status === 'cancelled' || job.status === 'completed'}
                   className="w-full px-4 py-3 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Complete & Generate Invoice
+                </button>
+                <button 
+                  onClick={() => setShowCancelModal(true)}
+                  disabled={busy || job.status === 'cancelled' || job.status === 'completed'}
+                  className="w-full px-4 py-3 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Cancel Job
                 </button>
               </div>
                 </>
