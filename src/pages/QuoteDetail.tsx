@@ -690,16 +690,16 @@ export default function QuoteDetailPage() {
               {quote.clients.phone && <p className="text-sm text-neutral-600">{quote.clients.phone}</p>}
               {quote.clients.email && <p className="text-sm text-neutral-600">{quote.clients.email}</p>}
               {quote.clients.address && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-2">
                   <p className="text-sm text-neutral-600">{quote.clients.address}</p>
                   <a 
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(quote.clients.address)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-blue-600 hover:text-blue-700 flex-shrink-0"
                     title="Navigate"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
