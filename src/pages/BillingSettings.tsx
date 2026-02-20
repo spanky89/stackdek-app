@@ -28,7 +28,7 @@ const PLANS: Plan[] = [
     name: 'Basic',
     price: 29,
     interval: 'month',
-    stripePriceId: process.env.VITE_STRIPE_PRICE_BASIC || 'price_basic',
+    stripePriceId: process.env.VITE_STRIPE_PRICE_BASIC || 'price_1T2N0wFeASePKLFez7JWOoXD',
     features: [
       'In-app calling and GPS',
       'Client management system',
@@ -42,7 +42,7 @@ const PLANS: Plan[] = [
     name: 'Pro',
     price: 69,
     interval: 'month',
-    stripePriceId: process.env.VITE_STRIPE_PRICE_PRO || 'price_pro',
+    stripePriceId: process.env.VITE_STRIPE_PRICE_PRO || 'price_1T2tLqFeASePKLFe6IDmjQhY',
     recommended: true,
     features: [
       'In-app calling and GPS',
