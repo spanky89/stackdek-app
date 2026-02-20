@@ -10,7 +10,7 @@
 
 - [x] **Landing Page** (`/`) — Marketing site with features, social proof, CTAs
 - [x] **Login Page** (`/login`) — Sign In / Sign Up tabs with email/password + Google/Apple OAuth
-- [ ] **OAuth Setup** — Google & Apple credentials configured in Supabase
+- [x] **OAuth Setup** — Google & Apple credentials configured in Supabase
 - [ ] **Email Confirmation Flow** — Test signup confirmation email delivery
 
 ---
@@ -128,7 +128,7 @@
 
 ## 📊 Launch Day (Feb 23)
 
-- [ ] SMS blast to 127 contractor leads
+- [ ] SMS blast to contractor leads
 - [ ] Email blast to sign-up list
 - [ ] Schedule 10-20 demo calls
 - [ ] Monitor app for errors (Vercel logs)

@@ -44,6 +44,7 @@ import AdminPage from "./pages/Admin";
 import AdminUserDetailPage from "./pages/AdminUserDetail";
 import AdminGuard from "./components/AdminGuard";
 import HelpPage from "./pages/Help";
+import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -115,7 +116,13 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
       </div>
     );
   }
-  return session ? <CompanyProvider>{children}</CompanyProvider> : <Navigate to="/login" replace />;
+  return session ? (
+    <CompanyProvider>
+      <SubscriptionBlockGuard>{children}</SubscriptionBlockGuard>
+    </CompanyProvider>
+  ) : (
+    <Navigate to="/login" replace />
+  );
 }
 
 export default function App() {
