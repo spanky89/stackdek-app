@@ -131,7 +131,7 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       id: Date.now().toString(),
       name: '',
       description: '',
-      price: 0,
+      price: '' as any, // Empty string for cleaner UX
       quantity: 1,
       title: '',
     })
@@ -149,20 +149,27 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       setError('Item title is required')
       return
     }
-    if (editingItem.price <= 0) {
+    const priceValue = typeof editingItem.price === 'string' ? parseFloat(editingItem.price) : editingItem.price
+    if (!priceValue || priceValue <= 0) {
       setError('Price must be greater than 0')
       return
     }
 
-    const existingIndex = lineItems.findIndex(item => item.id === editingItem.id)
+    // Ensure price is a number when saving
+    const itemToSave = {
+      ...editingItem,
+      price: priceValue,
+    }
+
+    const existingIndex = lineItems.findIndex(item => item.id === itemToSave.id)
     if (existingIndex >= 0) {
       // Update existing
       const updated = [...lineItems]
-      updated[existingIndex] = editingItem
+      updated[existingIndex] = itemToSave
       setLineItems(updated)
     } else {
       // Add new
-      setLineItems([...lineItems, editingItem])
+      setLineItems([...lineItems, itemToSave])
     }
     
     setShowItemEditor(false)
@@ -436,7 +443,7 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                       value={editingItem.price}
                       onChange={e => setEditingItem({ 
                         ...editingItem, 
-                        price: parseFloat(e.target.value) || 0 
+                        price: e.target.value as any
                       })}
                     />
                   </div>
@@ -446,7 +453,7 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                 <div className="bg-neutral-50 rounded-lg p-3 flex justify-between items-center">
                   <span className="text-sm text-neutral-600">Total</span>
                   <span className="text-lg font-semibold">
-                    ${((editingItem.quantity || 0) * (editingItem.price || 0)).toFixed(2)}
+                    ${((editingItem.quantity || 0) * (parseFloat(editingItem.price as any) || 0)).toFixed(2)}
                   </span>
                 </div>
 
