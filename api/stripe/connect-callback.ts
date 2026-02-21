@@ -12,7 +12,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 )
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+const stripe = new Stripe(process.env.STRIPE_CONNECT_CLIENT_SECRET || '', {
   apiVersion: '2024-11-20.acacia'
 })
 
@@ -49,12 +49,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Exchange authorization code for access token
-    // TODO: Replace with real client_secret when available
-    const clientSecret = process.env.STRIPE_CONNECT_CLIENT_SECRET || 'sk_test_PLACEHOLDER'
+    const clientSecret = process.env.STRIPE_CONNECT_CLIENT_SECRET
+    
+    if (!clientSecret) {
+      throw new Error('STRIPE_CONNECT_CLIENT_SECRET not configured')
+    }
     
     const response = await stripe.oauth.token({
       grant_type: 'authorization_code',
       code: code as string,
+      // Note: Stripe SDK automatically uses the secret key from initialization
     })
 
     const { stripe_user_id } = response
