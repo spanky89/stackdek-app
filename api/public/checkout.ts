@@ -36,10 +36,10 @@ export default async function handler(
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    // Fetch company to get Stripe keys
+    // Fetch company to get Stripe Connect account
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, stripe_publishable_key, stripe_secret_key, name')
+      .select('id, stripe_connected_account_id, name')
       .eq('id', companyId)
       .single()
 
@@ -47,20 +47,20 @@ export default async function handler(
       return res.status(404).json({ error: 'Company not found' })
     }
 
-    // Check if Stripe keys are configured
-    if (!company.stripe_secret_key || !company.stripe_publishable_key) {
+    // Check if Stripe Connect is configured
+    if (!company.stripe_connected_account_id) {
       return res.status(400).json({ 
         error: 'Stripe not configured',
         message: 'The contractor has not set up Stripe payments yet. Please contact them directly.' 
       })
     }
 
-    // Initialize Stripe with company-specific secret key
-    const stripe = new Stripe(company.stripe_secret_key, {
+    // Initialize Stripe with platform secret key
+    const stripe = new Stripe(process.env.STRIPE_CONNECT_CLIENT_SECRET!, {
       apiVersion: '2025-02-24.acacia',
     })
 
-    // Create Stripe checkout session
+    // Create Stripe checkout session on behalf of connected account
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -77,8 +77,8 @@ export default async function handler(
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.VITE_APP_URL || req.headers.origin || 'https://stackdek-app.vercel.app'}/quotes/view/${quoteId}?payment=success`,
-      cancel_url: `${process.env.VITE_APP_URL || req.headers.origin || 'https://stackdek-app.vercel.app'}/quotes/view/${quoteId}?payment=cancelled`,
+      success_url: `${process.env.VITE_APP_URL || req.headers.origin || 'https://app.stackdek.com'}/quotes/view/${quoteId}?payment=success`,
+      cancel_url: `${process.env.VITE_APP_URL || req.headers.origin || 'https://app.stackdek.com'}/quotes/view/${quoteId}?payment=cancelled`,
       customer_email: clientEmail,
       metadata: {
         quoteId,
@@ -87,12 +87,13 @@ export default async function handler(
         depositAmount: depositAmount.toString(),
         publicCheckout: 'true', // Mark as public/client-initiated
       },
+    }, {
+      stripeAccount: company.stripe_connected_account_id // Payment goes to contractor's account
     })
 
     return res.status(200).json({
       sessionId: session.id,
       url: session.url,
-      publishableKey: company.stripe_publishable_key,
     })
   } catch (error: any) {
     console.error('Error creating public checkout session:', error)
