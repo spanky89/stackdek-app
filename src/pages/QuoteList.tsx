@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import CreateQuoteForm from '../components/CreateQuoteForm'
 import AppLayout from '../components/AppLayout'
 
 type Quote = {
@@ -15,7 +14,6 @@ export default function QuoteListPage() {
   const nav = useNavigate()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreate, setShowCreate] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [newRequestsCount, setNewRequestsCount] = useState(0)
@@ -150,7 +148,7 @@ export default function QuoteListPage() {
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => nav('/quotes/create')}
             className="bg-white border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,18 +293,6 @@ export default function QuoteListPage() {
             </div>
           )}
         </div>
-
-        {showCreate && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">New Quote</h2>
-                <button onClick={() => setShowCreate(false)} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
-              </div>
-              <CreateQuoteForm onSuccess={() => { setShowCreate(false); setLoading(true); setRefreshKey(k => k + 1) }} />
-            </div>
-          </div>
-        )}
 
         {showSchedule && (
           <ScheduleQuoteModal 
