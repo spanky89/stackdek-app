@@ -95,11 +95,12 @@ export default async function handler(
           return res.status(403).json({ error: 'Company ID mismatch' });
         }
 
-        // 1. Mark quote deposit as paid (keep existing status so quote stays visible)
+        // 1. Mark quote deposit as paid AND set status to approved
         const { data: quote, error: quoteError } = await supabase
           .from('quotes')
           .update({
             deposit_paid: true,
+            status: 'approved',
             stripe_checkout_session_id: session.id,
             deposit_paid_at: new Date().toISOString(),
           })
