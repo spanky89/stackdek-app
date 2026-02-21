@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // This uses YOUR (StackDek's) Stripe account, NOT the contractor's account
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY_STACKDEK || process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2025-02-24.acacia',
 });
 
 const supabase = createClient(
