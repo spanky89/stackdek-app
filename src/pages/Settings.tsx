@@ -8,6 +8,7 @@ interface Company {
   id: string; name: string; phone: string; email: string
   logo_url?: string; website?: string; street_address?: string; city?: string; state?: string; zip?: string; invoice_notes?: string
   stripe_publishable_key?: string; stripe_secret_key?: string; stripe_webhook_secret?: string
+  stripe_connected_account_id?: string; stripe_connect_status?: string; stripe_connected_at?: string
 }
 interface Service { id: string; name: string; price: number; description?: string }
 interface Product { id: string; name: string; price: number; description?: string }
@@ -24,8 +25,26 @@ export default function SettingsPage() {
   const [services, setServices] = useState<Service[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [editItem, setEditItem] = useState<{ name: string; price: string; description: string }>({ name: '', price: '', description: '' })
+  const [connectingStripe, setConnectingStripe] = useState(false)
+  const [disconnectingStripe, setDisconnectingStripe] = useState(false)
 
   useEffect(() => { fetchCompany() }, [])
+
+  // Check for Stripe OAuth callback params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('stripe_connected') === 'true') {
+      setMessage('✅ Stripe account connected successfully!')
+      setView('payment')
+      // Clean up URL
+      window.history.replaceState({}, '', '/settings')
+      fetchCompany()
+    } else if (params.get('stripe_error')) {
+      setMessage(`❌ Stripe connection failed: ${params.get('stripe_error')}`)
+      setView('payment')
+      window.history.replaceState({}, '', '/settings')
+    }
+  }, [])
 
   async function fetchCompany() {
     try {
@@ -85,9 +104,7 @@ export default function SettingsPage() {
         logo_url: company.logo_url, website: company.website, 
         street_address: company.street_address, city: company.city, state: company.state, zip: company.zip,
         invoice_notes: company.invoice_notes,
-        stripe_publishable_key: company.stripe_publishable_key,
-        stripe_secret_key: company.stripe_secret_key,
-        stripe_webhook_secret: company.stripe_webhook_secret,
+        // Note: stripe_publishable_key, stripe_secret_key, stripe_webhook_secret removed - using Stripe Connect instead
       }).eq('id', company.id)
       if (error) throw error
       setMessage('✅ Saved successfully')
@@ -128,6 +145,65 @@ export default function SettingsPage() {
   async function deleteProduct(id: string) {
     await supabase.from('products').delete().eq('id', id)
     fetchProducts()
+  }
+
+  async function handleStripeConnect() {
+    if (!company) return
+    setConnectingStripe(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('No session')
+
+      const response = await fetch('/api/stripe/connect-oauth', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) throw new Error('Failed to initiate Stripe connection')
+
+      const { url } = await response.json()
+      // Redirect to Stripe OAuth
+      window.location.href = url
+    } catch (error) {
+      console.error('Stripe Connect error:', error)
+      setMessage('❌ Failed to connect to Stripe')
+      setConnectingStripe(false)
+    }
+  }
+
+  async function handleStripeDisconnect() {
+    if (!company || !company.stripe_connected_account_id) return
+    
+    if (!confirm('Are you sure you want to disconnect your Stripe account? Deposit payments will no longer work until you reconnect.')) {
+      return
+    }
+
+    setDisconnectingStripe(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('No session')
+
+      const response = await fetch('/api/stripe/disconnect', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) throw new Error('Failed to disconnect Stripe')
+
+      setMessage('✅ Stripe account disconnected')
+      await fetchCompany()
+    } catch (error) {
+      console.error('Stripe disconnect error:', error)
+      setMessage('❌ Failed to disconnect Stripe')
+    } finally {
+      setDisconnectingStripe(false)
+    }
   }
 
   function goToView(v: SettingsView) {
@@ -346,87 +422,119 @@ export default function SettingsPage() {
               
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  <strong>🔐 Distributed Stripe Integration</strong><br />
-                  Each company uses their own Stripe account. Payments go directly to your Stripe account.
+                  <strong>🔐 Stripe Connect Integration</strong><br />
+                  Connect your Stripe account to accept deposit payments on quotes. Payments go directly to your Stripe account — StackDek never touches your money.
                 </p>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Stripe Publishable Key <span className="text-neutral-500">(starts with pk_)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={company.stripe_publishable_key || ''}
-                    onChange={e => setCompany({ ...company, stripe_publishable_key: e.target.value })}
-                    placeholder="pk_live_..."
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 font-mono text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Stripe Secret Key <span className="text-neutral-500">(starts with sk_)</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={company.stripe_secret_key || ''}
-                    onChange={e => setCompany({ ...company, stripe_secret_key: e.target.value })}
-                    placeholder="sk_live_..."
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 font-mono text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Stripe Webhook Secret <span className="text-neutral-500">(starts with whsec_)</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={company.stripe_webhook_secret || ''}
-                    onChange={e => setCompany({ ...company, stripe_webhook_secret: e.target.value })}
-                    placeholder="whsec_..."
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20 font-mono text-sm"
-                  />
+              {/* Connection Status */}
+              <div className="p-5 border-2 rounded-lg" style={{
+                borderColor: company.stripe_connected_account_id ? '#10b981' : '#d1d5db',
+                backgroundColor: company.stripe_connected_account_id ? '#f0fdf4' : '#fafafa'
+              }}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full ${company.stripe_connected_account_id ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    <div>
+                      <h3 className="font-semibold text-neutral-900">
+                        {company.stripe_connected_account_id ? '✅ Connected' : '○ Not Connected'}
+                      </h3>
+                      {company.stripe_connected_account_id && (
+                        <div className="mt-1 space-y-1">
+                          <p className="text-sm text-neutral-600">
+                            Account ID: <code className="px-2 py-0.5 bg-white rounded border text-xs">{company.stripe_connected_account_id}</code>
+                          </p>
+                          {company.stripe_connected_at && (
+                            <p className="text-xs text-neutral-500">
+                              Connected {new Date(company.stripe_connected_at).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {!company.stripe_connected_account_id && (
+                        <p className="text-sm text-neutral-600 mt-1">
+                          Connect your Stripe account to start accepting deposit payments on quotes
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    {!company.stripe_connected_account_id ? (
+                      <button
+                        onClick={handleStripeConnect}
+                        disabled={connectingStripe}
+                        className="px-5 py-2.5 bg-[#635BFF] text-white rounded-lg font-medium hover:bg-[#5147e5] disabled:opacity-50 transition flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/>
+                        </svg>
+                        {connectingStripe ? 'Connecting...' : 'Connect with Stripe'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleStripeDisconnect}
+                        disabled={disconnectingStripe}
+                        className="px-4 py-2 bg-white border-2 border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition text-sm"
+                      >
+                        {disconnectingStripe ? 'Disconnecting...' : 'Disconnect'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200 space-y-3">
-                <p className="text-sm font-medium text-neutral-700">🔗 Webhook Endpoint for Stripe</p>
-                <div className="bg-white border border-neutral-200 rounded-lg p-3">
-                  <code className="text-xs text-neutral-600 break-all">
-                    {window.location.origin}/api/webhooks/stripe?companyId={company.id}
-                  </code>
+              {/* Message Display */}
+              {message && (
+                <div className={`p-4 rounded-lg border ${
+                  message.startsWith('✅') ? 'bg-green-50 border-green-200 text-green-800' :
+                  message.startsWith('❌') ? 'bg-red-50 border-red-200 text-red-800' :
+                  'bg-blue-50 border-blue-200 text-blue-800'
+                }`}>
+                  <p className="text-sm">{message}</p>
                 </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/stripe?companyId=${company.id}`)
-                    setMessage('✅ Webhook URL copied to clipboard')
-                    setTimeout(() => setMessage(''), 2000)
-                  }}
-                  className="px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs"
-                >
-                  Copy Webhook URL
-                </button>
+              )}
+
+              {/* How It Works */}
+              <div className="border-t pt-6 space-y-4">
+                <h3 className="font-semibold text-neutral-900">How Stripe Connect Works</h3>
+                <div className="space-y-3 text-sm text-neutral-600">
+                  <div className="flex gap-3">
+                    <span className="font-bold text-neutral-900">1.</span>
+                    <p>Click "Connect with Stripe" to link your existing Stripe account (or create a new one)</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-bold text-neutral-900">2.</span>
+                    <p>Authorize StackDek to create payment links on your behalf</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-bold text-neutral-900">3.</span>
+                    <p>When clients pay deposits on quotes, funds go directly to <strong>your Stripe account</strong></p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-bold text-neutral-900">4.</span>
+                    <p>StackDek only tracks payment status — we never handle your money</p>
+                  </div>
+                </div>
               </div>
 
+              {/* Benefits */}
+              <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                <h4 className="font-medium text-neutral-900 mb-2">✨ Benefits of Stripe Connect</h4>
+                <ul className="space-y-1 text-sm text-neutral-600">
+                  <li>• Accept credit/debit cards, Apple Pay, Google Pay</li>
+                  <li>• Automatic deposit tracking on quotes</li>
+                  <li>• Funds deposited directly to your bank (standard Stripe payout schedule)</li>
+                  <li>• You control your own Stripe dashboard and settings</li>
+                  <li>• No additional fees from StackDek (standard Stripe fees apply)</li>
+                </ul>
+              </div>
+
+              {/* Legacy Keys Note */}
               <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                 <p className="text-sm text-yellow-800">
-                  <strong>⚠️ Important:</strong> Store these keys securely. Never share them publicly.
+                  <strong>📌 Note:</strong> The old manual API key configuration is being phased out. Stripe Connect is the recommended method going forward. If you previously entered API keys, those will still work but won't be used once Connect is active.
                 </p>
               </div>
-
-              <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                <p className="text-sm text-neutral-600">
-                  💡 <strong>Need help?</strong> Check the <button 
-                    onClick={() => window.open('/docs/stripe-setup', '_blank')}
-                    className="text-blue-600 hover:underline"
-                  >Stripe Setup Guide</button> for step-by-step instructions.
-                </p>
-              </div>
-
-              {saveBtn}
             </div>
           </div>
         )}
