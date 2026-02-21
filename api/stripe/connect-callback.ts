@@ -13,7 +13,7 @@ const supabase = createClient(
 )
 
 const stripe = new Stripe(process.env.STRIPE_CONNECT_CLIENT_SECRET || '', {
-  apiVersion: '2024-11-20.acacia'
+  apiVersion: '2025-02-24.acacia'
 })
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

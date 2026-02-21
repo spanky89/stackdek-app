@@ -57,7 +57,7 @@ export default async function handler(
 
     // Initialize Stripe with company-specific secret key
     const stripe = new Stripe(company.stripe_secret_key, {
-      apiVersion: '2024-11-20.acacia',
+      apiVersion: '2025-02-24.acacia',
     })
 
     // Create Stripe checkout session
