@@ -3,7 +3,7 @@ import { useLocation as useRouterLocation } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import { useCompany } from '../context/CompanyContext'
 
-type Client = { id: string; name: string; address: string }
+type Client = { id: string; name: string; address: string; email?: string; phone?: string }
 type ServiceItem = { id: string; sourceId?: string; title?: string; name: string; description: string; price: number; quantity: number }
 type SavedService = { id: string; name: string; price: number; description?: string }
 
@@ -13,6 +13,8 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
   const [clientId, setClientId] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [clientSearch, setClientSearch] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [lineItems, setLineItems] = useState<ServiceItem[]>([])
   const [savedServices, setSavedServices] = useState<SavedService[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedService[]>([])
@@ -27,32 +29,55 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
   const [success, setSuccess] = useState(false)
   const [taxRate, setTaxRate] = useState('0')
   const [depositPercentage, setDepositPercentage] = useState('0')
+  const [showAddItemChoice, setShowAddItemChoice] = useState(false)
 
+  // Load prefilled client if provided
   useEffect(() => {
-    const loadClients = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .single()
-      if (!company) return
+    const params = new URLSearchParams(routerLocation.search)
+    const urlClientId = params.get('clientId')
+    const finalClientId = prefilledClientId || urlClientId
+    
+    if (finalClientId && companyId) {
+      ;(async () => {
+        const { data: client } = await supabase
+          .from('clients')
+          .select('id, name, address, email, phone')
+          .eq('id', finalClientId)
+          .eq('company_id', companyId)
+          .single()
+        
+        if (client) {
+          setClientId(client.id)
+          setSelectedClient(client)
+          setClientSearch(client.name)
+        }
+      })()
+    }
+  }, [routerLocation.search, prefilledClientId, companyId])
+
+  // Search clients as user types
+  useEffect(() => {
+    if (!companyId || !clientSearch.trim()) {
+      setClients([])
+      setShowClientDropdown(false)
+      return
+    }
+
+    const searchClients = async () => {
       const { data } = await supabase
         .from('clients')
-        .select('id, name, address')
-        .eq('company_id', company.id)
-      setClients(data || [])
+        .select('id, name, address, email, phone')
+        .eq('company_id', companyId)
+        .ilike('name', `%${clientSearch}%`)
+        .limit(5)
 
-      const params = new URLSearchParams(routerLocation.search)
-      const urlClientId = params.get('clientId')
-      const finalClientId = prefilledClientId || urlClientId
-      if (finalClientId) {
-        setClientId(finalClientId)
-      }
+      setClients(data || [])
+      setShowClientDropdown(true)
     }
-    loadClients()
-  }, [routerLocation.search, prefilledClientId])
+
+    const timeout = setTimeout(searchClients, 300)
+    return () => clearTimeout(timeout)
+  }, [clientSearch, companyId])
 
   useEffect(() => {
     const loadSavedServices = async () => {
@@ -73,14 +98,18 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
     loadSavedServices()
   }, [companyId])
 
-  useEffect(() => {
-    if (clientId) {
-      const client = clients.find(c => c.id === clientId)
-      setSelectedClient(client || null)
-    } else {
-      setSelectedClient(null)
-    }
-  }, [clientId, clients])
+  const selectClient = (client: Client) => {
+    setClientId(client.id)
+    setSelectedClient(client)
+    setClientSearch(client.name)
+    setShowClientDropdown(false)
+  }
+
+  const clearClient = () => {
+    setClientId('')
+    setSelectedClient(null)
+    setClientSearch('')
+  }
 
   const addServiceFromLibrary = (service: SavedService) => {
     const newItem: ServiceItem = {
@@ -146,10 +175,10 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
   }
 
   const subtotal = lineItems.reduce((sum, item) => sum + (item.price * item.quantity || 0), 0)
-  const taxPct = parseFloat(taxRate) || 10
+  const taxPct = parseFloat(taxRate) || 0
   const taxAmount = Math.round(subtotal * (taxPct / 100) * 100) / 100
   const total = subtotal + taxAmount
-  const depositPct = parseFloat(depositPercentage) || 25
+  const depositPct = parseFloat(depositPercentage) || 0
   const deposit = Math.round(total * (depositPct / 100) * 100) / 100
 
   async function onSubmit(e: React.FormEvent, saveDraft: boolean) {
@@ -233,28 +262,59 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       <h2 className="text-lg font-semibold mb-6">Create Quote</h2>
 
       <form className="space-y-6">
-        {/* Client Selection */}
+        {/* Client Search */}
         <div>
-          <select
-            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
-            value={clientId}
-            onChange={e => setClientId(e.target.value)}
-            required
-          >
-            <option value="">Select a Client</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium mb-2">Select Client</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={clientSearch}
+              onChange={e => {
+                setClientSearch(e.target.value)
+                if (!e.target.value.trim()) {
+                  clearClient()
+                }
+              }}
+              onFocus={() => clientSearch.trim() && setShowClientDropdown(true)}
+              className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              placeholder="Search client by name..."
+              required={!selectedClient}
+            />
+            {selectedClient && (
+              <button
+                type="button"
+                onClick={clearClient}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          
+          {/* Dropdown */}
+          {showClientDropdown && clients.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {clients.map(client => (
+                <button
+                  key={client.id}
+                  type="button"
+                  onClick={() => selectClient(client)}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 border-b border-neutral-100 last:border-0"
+                >
+                  <p className="font-medium text-sm">{client.name}</p>
+                  {client.email && <p className="text-xs text-neutral-600">{client.email}</p>}
+                  {client.phone && <p className="text-xs text-neutral-600">{client.phone}</p>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Client Info Display */}
+        {/* Selected Client Display */}
         {selectedClient && (
-          <div className="bg-neutral-50 rounded-lg border border-neutral-100 p-4">
-            <p className="text-sm font-semibold text-neutral-900">{selectedClient.name}</p>
-            <p className="text-xs text-neutral-600">{selectedClient.address}</p>
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm font-semibold text-green-900">✓ {selectedClient.name}</p>
+            {selectedClient.address && <p className="text-xs text-green-700">{selectedClient.address}</p>}
           </div>
         )}
 
@@ -298,23 +358,14 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
             </div>
           )}
 
-          {/* Add Buttons */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowServiceSelector(true)}
-              className="flex-1 text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium"
-            >
-              + Add from Library
-            </button>
-            <button
-              type="button"
-              onClick={openNewItemEditor}
-              className="flex-1 text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium"
-            >
-              + Add Custom Item
-            </button>
-          </div>
+          {/* Add Button */}
+          <button
+            type="button"
+            onClick={() => setShowAddItemChoice(true)}
+            className="w-full text-sm text-neutral-700 border border-neutral-200 rounded-lg px-3 py-2 hover:bg-neutral-50 font-medium"
+          >
+            + Add Product or Service
+          </button>
         </div>
 
         {/* Line Item Editor Modal */}
@@ -432,6 +483,48 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
           </div>
         )}
 
+        {/* Add Item Choice Modal */}
+        {showAddItemChoice && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddItemChoice(false)}>
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+                <h3 className="font-semibold">Add Item</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowAddItemChoice(false)}
+                  className="text-neutral-400 hover:text-neutral-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddItemChoice(false)
+                    setShowServiceSelector(true)
+                  }}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 rounded-lg transition-colors"
+                >
+                  <p className="text-sm font-medium text-neutral-900">From Library</p>
+                  <p className="text-xs text-neutral-600">Use saved products or services</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddItemChoice(false)
+                    openNewItemEditor()
+                  }}
+                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 rounded-lg transition-colors"
+                >
+                  <p className="text-sm font-medium text-neutral-900">Custom Item</p>
+                  <p className="text-xs text-neutral-600">Create a one-time item</p>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Service Selector Modal */}
         {showServiceSelector && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowServiceSelector(false)}>
@@ -478,16 +571,8 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
             <span className="text-neutral-600">Subtotal</span>
             <span className="font-medium">${subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-neutral-600">Tax ({taxRate}%)</span>
-            <span className="font-medium">${taxAmount.toFixed(2)}</span>
-          </div>
-          <div className="border-t border-neutral-200 pt-2 flex justify-between text-sm font-semibold">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
           <div>
-            <label className="block text-xs text-neutral-600 mb-1">Required Deposit</label>
+            <label className="block text-xs text-neutral-600 mb-1">Tax Rate (%)</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -495,7 +580,27 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
                 min="0"
                 max="100"
                 className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
-                placeholder="25"
+                placeholder="0"
+                value={taxRate}
+                onChange={e => setTaxRate(e.target.value)}
+              />
+              <span className="text-sm font-medium py-1.5 px-3 bg-white rounded border border-neutral-200">${taxAmount.toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="border-t border-neutral-200 pt-2 flex justify-between text-sm font-semibold">
+            <span>Total</span>
+            <span>${total.toFixed(2)}</span>
+          </div>
+          <div>
+            <label className="block text-xs text-neutral-600 mb-1">Required Deposit (%)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                className="flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm"
+                placeholder="0"
                 value={depositPercentage}
                 onChange={e => setDepositPercentage(e.target.value)}
               />
