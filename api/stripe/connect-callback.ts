@@ -67,13 +67,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('No stripe_user_id returned')
     }
 
-    // Update company record
+    // Create webhook endpoint on connected account
+    const webhookUrl = `${process.env.VITE_APP_URL || 'https://app.stackdek.com'}/api/webhooks/stripe?companyId=${stateData.companyId}`
+    
+    let webhookSecret: string | undefined
+    try {
+      const webhookEndpoint = await stripe.webhookEndpoints.create({
+        url: webhookUrl,
+        enabled_events: ['checkout.session.completed'],
+        connect: true, // Create on connected account
+      }, {
+        stripeAccount: stripe_user_id, // Use connected account
+      })
+      
+      webhookSecret = webhookEndpoint.secret
+      console.log('Created webhook endpoint:', webhookEndpoint.id, 'for company:', stateData.companyId)
+    } catch (webhookError) {
+      console.error('Failed to create webhook endpoint:', webhookError)
+      // Don't fail the entire connection if webhook creation fails
+    }
+
+    // Update company record with connection details and webhook secret
     const { error: updateError } = await supabase
       .from('companies')
       .update({
         stripe_connected_account_id: stripe_user_id,
         stripe_connect_status: 'connected',
-        stripe_connected_at: new Date().toISOString()
+        stripe_connected_at: new Date().toISOString(),
+        stripe_webhook_secret: webhookSecret || null,
       })
       .eq('id', stateData.companyId)
 
