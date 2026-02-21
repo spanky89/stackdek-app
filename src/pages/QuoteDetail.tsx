@@ -41,9 +41,9 @@ export default function QuoteDetailPage() {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [depositAmount, setDepositAmount] = useState<string>('0')
-  // const [processingPayment, setProcessingPayment] = useState(false) // STRIPE - Commented out for beta
-  // const [stripeConnected, setStripeConnected] = useState(false) // STRIPE - Commented out for beta
-  // const [checkingStripe, setCheckingStripe] = useState(true) // STRIPE - Commented out for beta
+  const [processingPayment, setProcessingPayment] = useState(false)
+  const [stripeConnected, setStripeConnected] = useState(false)
+  const [checkingStripe, setCheckingStripe] = useState(true)
   const [taxRateInput, setTaxRateInput] = useState<string>('0')
   const [editingTax, setEditingTax] = useState(false)
   const [showDepositModal, setShowDepositModal] = useState(false)
@@ -81,15 +81,22 @@ export default function QuoteDetailPage() {
       
       const { data: company } = await supabase
         .from('companies')
-        .select('id, name')
+        .select('id, name, stripe_connected_account_id')
         .eq('owner_id', user.id)
         .single()
       
-      if (!company) return
+      if (!company) {
+        setCheckingStripe(false)
+        return
+      }
       
       if (company.name) {
         setCompanyName(company.name)
       }
+      
+      // Check if Stripe Connect is configured
+      setStripeConnected(!!company.stripe_connected_account_id)
+      setCheckingStripe(false)
       
       const { data: services } = await supabase
         .from('services')
@@ -423,63 +430,62 @@ export default function QuoteDetailPage() {
     setLineItems(newItems.map((item, idx) => ({ ...item, sort_order: idx })))
   }
 
-  // STRIPE - Commented out for beta (re-enable before public launch)
-  // async function handleStripePayment() {
-  //   if (!quote?.deposit_amount || quote.deposit_amount <= 0) {
-  //     setError('Please set a deposit amount first')
-  //     return
-  //   }
+  async function handleStripePayment() {
+    if (!quote?.deposit_amount || quote.deposit_amount <= 0) {
+      setError('Please set a deposit amount first')
+      return
+    }
 
-  //   if (!stripeConnected) {
-  //     setError('Stripe not configured. Please configure in Settings > Payment Settings')
-  //     return
-  //   }
+    if (!stripeConnected) {
+      setError('Stripe not configured. Please configure in Settings > Payment Settings')
+      return
+    }
 
-  //   setProcessingPayment(true)
-  //   try {
-  //     const { data: { session } } = await supabase.auth.getSession()
-  //     if (!session) {
-  //       setError('Not authenticated')
-  //       setProcessingPayment(false)
-  //       return
-  //     }
+    setProcessingPayment(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError('Not authenticated')
+        setProcessingPayment(false)
+        return
+      }
 
-  //     const { data: { user } } = await supabase.auth.getUser()
-  //     const { data: company } = await supabase
-  //       .from('companies')
-  //       .select('name')
-  //       .eq('owner_id', user?.id)
-  //       .single()
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: company } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('owner_id', user?.id)
+        .single()
 
-  //     const response = await fetch('/api/create-checkout', {
-  //       method: 'POST',
-  //       headers: { 
-  //         'Content-Type': 'application/json',
-  //         'Authorization': `Bearer ${session.access_token}`,
-  //       },
-  //       body: JSON.stringify({
-  //         quoteId: id,
-  //         depositAmount: quote.deposit_amount,
-  //         clientEmail: quote.clients?.email || '',
-  //         clientName: quote.clients?.name || '',
-  //         companyName: company?.name || 'StackDek Job',
-  //       }),
-  //     })
+      const response = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          quoteId: id,
+          depositAmount: quote.deposit_amount,
+          clientEmail: quote.clients?.email || '',
+          clientName: quote.clients?.name || '',
+          companyName: company?.name || 'StackDek Job',
+        }),
+      })
 
-  //     const data = await response.json()
-  //     
-  //     if (!response.ok) {
-  //       throw new Error(data.message || data.error || 'Failed to create checkout session')
-  //     }
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to create checkout session')
+      }
 
-  //     if (data.url) {
-  //       window.location.href = data.url
-  //     }
-  //   } catch (err: any) {
-  //     setError(err.message || 'Failed to initiate payment')
-  //     setProcessingPayment(false)
-  //   }
-  // }
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to initiate payment')
+      setProcessingPayment(false)
+    }
+  }
 
   async function markOfflinePayment() {
     if (!quote) return
@@ -1048,17 +1054,24 @@ export default function QuoteDetailPage() {
           </button>
         </div>
 
-        {/* Payment Actions - COMMENTED OUT FOR BETA */}
-        {/* {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && (
+        {/* Payment Actions - Stripe Connect Integration */}
+        {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && stripeConnected && (
           <div className="bg-white border border-neutral-200 rounded-lg p-4 mb-6">
             <h2 className="font-semibold text-neutral-900 mb-4">Accept Deposit Payment</h2>
             <div className="flex gap-2">
               <button
                 onClick={handleStripePayment}
-                disabled={processingPayment || !stripeConnected}
-                className="flex-1 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={processingPayment || checkingStripe}
+                className="flex-1 px-4 py-2 bg-[#635BFF] text-white rounded-lg text-sm font-medium hover:bg-[#5147e5] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {processingPayment ? 'Processing...' : 'Pay with Card'}
+                {processingPayment ? 'Processing...' : (
+                  <>
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/>
+                    </svg>
+                    Pay with Stripe
+                  </>
+                )}
               </button>
               <label className="flex items-center gap-2 px-4 py-2 bg-neutral-100 rounded-lg text-sm cursor-pointer hover:bg-neutral-200">
                 <input
@@ -1070,13 +1083,29 @@ export default function QuoteDetailPage() {
                 <span className="text-xs font-medium">Mark Paid</span>
               </label>
             </div>
-            {!stripeConnected && (
-              <p className="text-xs text-neutral-600 mt-2">
-                <button onClick={() => nav('/settings')} className="font-semibold hover:underline">Configure payment settings</button> to accept card payments
-              </p>
-            )}
           </div>
-        )} */}
+        )}
+
+        {/* Not Connected Message */}
+        {!quote.deposit_paid && quote.deposit_amount && quote.deposit_amount > 0 && !stripeConnected && !checkingStripe && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-yellow-600 text-xl">⚠️</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-yellow-900 mb-1">Stripe Account Not Connected</h3>
+                <p className="text-sm text-yellow-800 mb-3">
+                  To accept deposit payments, you need to connect your Stripe account in payment settings.
+                </p>
+                <button 
+                  onClick={() => nav('/settings?view=payment')} 
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700"
+                >
+                  Connect Stripe Account
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
           </>
         )}
 

@@ -35,9 +35,12 @@ Primary business entity; one per user account. All data is scoped to companies.
 | `logo_url` | TEXT | | | S3/Supabase storage URL |
 | `tax_id` | TEXT | | | EIN or tax ID number |
 | `invoice_notes` | TEXT | | | Default notes for invoices |
-| `stripe_publishable_key` | TEXT | | | Distributed Stripe (per-contractor) |
-| `stripe_secret_key` | TEXT | | | Stored securely; used for payments |
-| `stripe_webhook_secret` | TEXT | | | For validating Stripe webhooks |
+| `stripe_publishable_key` | TEXT | | | Distributed Stripe (per-contractor) — LEGACY |
+| `stripe_secret_key` | TEXT | | | Stored securely; used for payments — LEGACY |
+| `stripe_webhook_secret` | TEXT | | | For validating Stripe webhooks — LEGACY |
+| `stripe_connected_account_id` | TEXT | | | **NEW:** Stripe Connect account ID (acc_xxx) |
+| `stripe_connect_status` | TEXT | CHECK IN ('disconnected', 'connected', 'pending') | | **NEW:** Connection status |
+| `stripe_connected_at` | TIMESTAMP | | | **NEW:** When account was connected |
 | `created_at` | TIMESTAMP | | NOW() | |
 
 **Indexes:**

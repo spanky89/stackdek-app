@@ -18,16 +18,16 @@ export const Pricing: React.FC = () => {
 
     try {
       // Call your backend to create Stripe Checkout session
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await fetch('/api/create-subscription-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify({ priceId, planId: 'pro' }),
       });
 
-      const { sessionUrl } = await response.json();
+      const { url } = await response.json();
       
       // Redirect to Stripe Checkout
-      window.location.href = sessionUrl;
+      window.location.href = url;
     } catch (error) {
       console.error('Error creating checkout session:', error);
       alert('Failed to start checkout. Please try again.');
