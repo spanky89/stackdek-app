@@ -53,7 +53,10 @@ export default function JobStackPage() {
           .eq('company_id', companyId)
           .order('date_scheduled', { ascending: true })
 
-        if (filter !== 'all') {
+        if (filter === 'all') {
+          // Exclude completed jobs from "All Jobs" view
+          query = query.neq('status', 'completed')
+        } else {
           query = query.eq('status', filter)
         }
 

@@ -69,8 +69,8 @@ export default function SendInvoiceModal({
       const publicLink = `https://stackdek-app.vercel.app/invoice/public/${token}`
 
       // Prepare email
-      const subject = `Invoice from ${businessName}`
-      const body = `Hi ${clientName},\n\nYour invoice ${invoiceNumber} for ${jobTitle || 'your service'} is ready.\n\nTotal: $${totalAmount.toLocaleString()}\n\nView invoice: ${publicLink}\n\nThank you!`
+      const subject = `Your Invoice from ${businessName}`
+      const body = `Your invoice is ready. Thank you for your business.\n\nView invoice: ${publicLink}`
 
       // Open mailto link
       window.location.href = `mailto:${clientEmail || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
