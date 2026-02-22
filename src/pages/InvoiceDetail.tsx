@@ -35,6 +35,8 @@ export default function InvoiceDetailPage() {
   const [marking, setMarking] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showSendModal, setShowSendModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const isPaid = invoice?.status === 'paid'
 
@@ -202,6 +204,41 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  async function deleteInvoice() {
+    setDeleting(true)
+    try {
+      // First delete line items
+      const { error: lineItemsErr } = await supabase
+        .from('invoice_line_items')
+        .delete()
+        .eq('invoice_id', id)
+
+      if (lineItemsErr) {
+        setError(lineItemsErr.message)
+        setDeleting(false)
+        return
+      }
+
+      // Then delete invoice
+      const { error: invoiceErr } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', id)
+
+      if (invoiceErr) {
+        setError(invoiceErr.message)
+        setDeleting(false)
+        return
+      }
+
+      // Navigate back to invoices list
+      nav('/invoices')
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to delete invoice')
+      setDeleting(false)
+    }
+  }
+
   const calculateSubtotal = () => {
     return lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
   }
@@ -352,26 +389,37 @@ export default function InvoiceDetailPage() {
           )}
 
           {/* Actions */}
-          {!isPaid && (
-            <div className="mt-6 pt-6 border-t border-neutral-200 space-y-3">
-              <button
-                onClick={() => setShowSendModal(true)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                Send Invoice
-              </button>
-              <button
-                onClick={markAsPaid}
-                disabled={marking}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {marking ? 'Marking as Paid...' : 'Mark as Paid'}
-              </button>
-            </div>
-          )}
+          <div className="mt-6 pt-6 border-t border-neutral-200 space-y-3">
+            {!isPaid && (
+              <>
+                <button
+                  onClick={() => setShowSendModal(true)}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  Send Invoice
+                </button>
+                <button
+                  onClick={markAsPaid}
+                  disabled={marking}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {marking ? 'Marking as Paid...' : 'Mark as Paid'}
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete Invoice
+            </button>
+          </div>
         </div>
 
         {/* Send Invoice Modal */}
@@ -391,6 +439,34 @@ export default function InvoiceDetailPage() {
               loadInvoice()
             }}
           />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h2 className="text-xl font-bold mb-2">Delete Invoice?</h2>
+              <p className="text-neutral-600 mb-6">
+                Are you sure you want to delete invoice #{invoice?.invoice_number}? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={deleteInvoice}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-50 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </>
     </AppLayout>
