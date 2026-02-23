@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { supabase } from '../api/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
 import { UnifiedLineItem } from '../types/lineItems'
+
+// Create anon-only client for public invoice access (no session persistence)
+const anonSupabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  }
+)
 
 type Invoice = {
   id: string
@@ -69,7 +81,7 @@ export default function InvoicePublicPage() {
   async function loadInvoice() {
     try {
       // Fetch invoice by token (public access, no auth required)
-      const { data: invoiceData, error: invErr } = await supabase
+      const { data: invoiceData, error: invErr } = await anonSupabase
         .from('invoices')
         .select(`
           *,
@@ -88,7 +100,7 @@ export default function InvoicePublicPage() {
       setInvoice(invoiceData as any)
 
       // Fetch line items
-      const { data: itemsData, error: itemsErr } = await supabase
+      const { data: itemsData, error: itemsErr } = await anonSupabase
         .from('invoice_line_items')
         .select('*')
         .eq('invoice_id', invoiceData.id)
