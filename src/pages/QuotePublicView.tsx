@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { supabase } from '../api/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
+
+// Create anon-only client for public quote access (no session persistence)
+const anonSupabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  }
+)
 
 type LineItem = {
   id: string
@@ -48,7 +60,7 @@ export default function QuotePublicViewPage() {
     ;(async () => {
       try {
         // Fetch quote without line items first
-        const { data: quoteData, error: quoteErr } = await supabase
+        const { data: quoteData, error: quoteErr } = await anonSupabase
           .from('quotes')
           .select(`
             id, title, status, amount, expiration_date, 
@@ -65,7 +77,7 @@ export default function QuotePublicViewPage() {
         }
 
         // Fetch line items separately
-        const { data: lineItems, error: lineErr } = await supabase
+        const { data: lineItems, error: lineErr } = await anonSupabase
           .from('quote_line_items')
           .select('id, description, quantity, unit_price')
           .eq('quote_id', id)
