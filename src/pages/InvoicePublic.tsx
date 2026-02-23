@@ -20,20 +20,14 @@ type Invoice = {
     name: string
     email: string | null
     phone: string | null
-    street_address: string | null
-    city: string | null
-    state: string | null
-    zip: string | null
+    address: string | null
   } | null
   companies: {
     id: string
     name: string
     email: string | null
     phone: string | null
-    street_address: string | null
-    city: string | null
-    state: string | null
-    zip: string | null
+    address: string | null
     logo_url: string | null
   } | null
 }
@@ -58,8 +52,8 @@ export default function InvoicePublicPage() {
         .from('invoices')
         .select(`
           *,
-          clients(id, name, email, phone, street_address, city, state, zip),
-          companies(id, name, email, phone, street_address, city, state, zip, logo_url)
+          clients(id, name, email, phone, address),
+          companies(id, name, email, phone, address, logo_url)
         `)
         .eq('invoice_token', token)
         .single()
@@ -184,12 +178,9 @@ export default function InvoicePublicPage() {
               <h1 className="text-3xl font-bold text-neutral-900">
                 {invoice.companies?.name || 'Business Name'}
               </h1>
-              {(invoice.companies?.street_address || invoice.companies?.city) && (
-                <p className="text-sm text-neutral-600 mt-2">
-                  {invoice.companies.street_address && <>{invoice.companies.street_address}<br /></>}
-                  {(invoice.companies.city || invoice.companies.state || invoice.companies.zip) && (
-                    <>{invoice.companies.city}{invoice.companies.state && `, ${invoice.companies.state}`} {invoice.companies.zip}</>
-                  )}
+              {invoice.companies?.address && (
+                <p className="text-sm text-neutral-600 mt-2 whitespace-pre-line">
+                  {invoice.companies.address}
                 </p>
               )}
               {invoice.companies?.phone && (
@@ -216,13 +207,8 @@ export default function InvoicePublicPage() {
             <div>
               <h3 className="text-sm font-bold text-neutral-700 mb-3 uppercase tracking-wider">Bill To</h3>
               <p className="font-semibold text-lg text-neutral-900">{invoice.clients?.name || 'Client Name'}</p>
-              {(invoice.clients?.street_address || invoice.clients?.city) && (
-                <p className="text-sm text-neutral-600 mt-1">
-                  {invoice.clients.street_address && <>{invoice.clients.street_address}<br /></>}
-                  {(invoice.clients.city || invoice.clients.state || invoice.clients.zip) && (
-                    <>{invoice.clients.city}{invoice.clients.state && `, ${invoice.clients.state}`} {invoice.clients.zip}</>
-                  )}
-                </p>
+              {invoice.clients?.address && (
+                <p className="text-sm text-neutral-600 mt-1 whitespace-pre-line">{invoice.clients.address}</p>
               )}
               {invoice.clients?.phone && (
                 <p className="text-sm text-neutral-600 mt-1">{invoice.clients.phone}</p>
