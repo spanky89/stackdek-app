@@ -90,12 +90,12 @@ export default async function handler(
           return res.status(404).json({ error: 'Company not found' });
         }
 
-        // 1. Mark quote deposit as paid AND set status to approved
+        // 1. Mark quote deposit as paid AND set status to accepted
         const { data: quote, error: quoteError } = await supabase
           .from('quotes')
           .update({
             deposit_paid: true,
-            status: 'approved',
+            status: 'accepted',
             stripe_checkout_session_id: session.id,
             deposit_paid_at: new Date().toISOString(),
           })
