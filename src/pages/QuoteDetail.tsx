@@ -72,7 +72,17 @@ export default function QuoteDetailPage() {
     } else if (paymentStatus === 'cancelled') {
       console.log('Payment cancelled')
     }
-  }, [searchParams])
+    
+    // Auto-open send modal if ?send=true
+    const shouldSend = searchParams.get('send')
+    if (shouldSend === 'true' && quote) {
+      setShowSendModal(true)
+      // Clean up URL
+      const newParams = new URLSearchParams(searchParams)
+      newParams.delete('send')
+      nav(`/quote/${id}?${newParams.toString()}`, { replace: true })
+    }
+  }, [searchParams, quote, id, nav])
 
   useEffect(() => {
     ;(async () => {

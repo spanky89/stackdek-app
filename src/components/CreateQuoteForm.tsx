@@ -218,7 +218,7 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
           amount: total,
           tax_rate: parseFloat(taxRate),
           tax_amount: taxAmount,
-          status: saveDraft ? 'draft' : 'pending',
+          status: 'draft', // Always save as draft initially
           expiration_date: startDate ? new Date(new Date(startDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : null,
           deposit_amount: deposit,
           notes: clientMessage,
@@ -246,15 +246,23 @@ export default function CreateQuoteForm({ onSuccess, prefilledClientId }: { onSu
       if (itemsErr) { setError('Failed to create line items: ' + itemsErr.message); return }
 
       setSuccess(true)
-      setClientId('')
-      setLineItems([])
-      setDuration('')
-      setStartDate('')
-      setClientMessage('')
-      setTaxRate('0')
-      setDepositPercentage('0')
       
-      setTimeout(() => onSuccess?.(), 1000)
+      // If sending (not just draft), navigate to detail page with send flag
+      if (!saveDraft) {
+        setTimeout(() => {
+          window.location.href = `/quote/${quoteId}?send=true`
+        }, 500)
+      } else {
+        // Just saving draft - go to quotes list
+        setClientId('')
+        setLineItems([])
+        setDuration('')
+        setStartDate('')
+        setClientMessage('')
+        setTaxRate('0')
+        setDepositPercentage('0')
+        setTimeout(() => onSuccess?.(), 1000)
+      }
     } catch (e: any) {
       setError(e?.message ?? 'Unknown error')
     } finally {
