@@ -412,6 +412,20 @@ export default function JobDetailPage() {
 
       const totalAmount = calculateTotal()
 
+      // Check if quote had a paid deposit
+      let depositPaidAmount = 0
+      if (job.quote_id) {
+        const { data: quote } = await supabase
+          .from('quotes')
+          .select('deposit_amount, deposit_paid')
+          .eq('id', job.quote_id)
+          .single()
+        
+        if (quote?.deposit_paid && quote.deposit_amount) {
+          depositPaidAmount = quote.deposit_amount
+        }
+      }
+
       // Create invoice
       const { data: invoice, error: invErr } = await supabase
         .from('invoices')
@@ -422,7 +436,8 @@ export default function JobDetailPage() {
           client_id: job.client_id,
           amount: totalAmount,
           total_amount: totalAmount,
-          status: 'pending',
+          deposit_paid_amount: depositPaidAmount,
+          status: 'draft', // Start as draft so user can send it
           due_date: invoiceDueDate,
           notes: invoiceNotes || null,
           tax_rate: invoiceTaxRate || 0,
@@ -465,8 +480,8 @@ export default function JobDetailPage() {
       setShowInvoiceModal(false)
       setGeneratingInvoice(false)
       
-      // Navigate to invoices list or show success message
-      nav('/invoices')
+      // Navigate to invoice detail with send flag to auto-open send modal
+      window.location.href = `/invoice/${invoice.id}?send=true`
     } catch (e: any) {
       setError(e?.message ?? 'Failed to generate invoice')
       setGeneratingInvoice(false)

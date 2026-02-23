@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
 import { LineItemCard } from '../components/LineItemCard'
@@ -28,6 +28,7 @@ type Invoice = {
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [lineItems, setLineItems] = useState<UnifiedLineItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,6 +45,18 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     loadInvoice()
   }, [id])
+
+  useEffect(() => {
+    // Auto-open send modal if ?send=true
+    const shouldSend = searchParams.get('send')
+    if (shouldSend === 'true' && invoice) {
+      setShowSendModal(true)
+      // Clean up URL
+      const newParams = new URLSearchParams(searchParams)
+      newParams.delete('send')
+      nav(`/invoice/${id}?${newParams.toString()}`, { replace: true })
+    }
+  }, [searchParams, invoice, id, nav])
 
   async function loadInvoice() {
     try {
