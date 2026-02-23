@@ -15,6 +15,12 @@ const anonSupabase = createClient(
   }
 )
 
+// Log client creation for debugging
+console.log('Anon Supabase client created:', {
+  url: import.meta.env.VITE_SUPABASE_URL,
+  hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+})
+
 type Invoice = {
   id: string
   invoice_number: string
@@ -80,6 +86,8 @@ export default function InvoicePublicPage() {
 
   async function loadInvoice() {
     try {
+      console.log('Loading invoice with token:', token)
+      
       // Fetch invoice by token (public access, no auth required)
       const { data: invoiceData, error: invErr } = await anonSupabase
         .from('invoices')
@@ -90,6 +98,8 @@ export default function InvoicePublicPage() {
         `)
         .eq('invoice_token', token)
         .single()
+
+      console.log('Invoice query result:', { data: invoiceData, error: invErr })
 
       if (invErr) {
         console.error('Invoice load error:', invErr)
