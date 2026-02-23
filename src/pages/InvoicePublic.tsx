@@ -106,22 +106,30 @@ export default function InvoicePublicPage() {
       // Fetch client data separately
       let clientData = null
       if (invoiceData.client_id) {
-        const { data: client } = await anonSupabase
+        const { data: client, error: clientErr } = await anonSupabase
           .from('clients')
           .select('id, name, email, phone, address')
           .eq('id', invoiceData.client_id)
-          .single()
+          .maybeSingle()
+        
+        if (clientErr) {
+          console.error('Client load error:', clientErr)
+        }
         clientData = client
       }
 
-      // Fetch company data separately
+      // Fetch company data separately (explicitly list columns to avoid cache issues)
       let companyData = null
       if (invoiceData.company_id) {
-        const { data: company } = await anonSupabase
+        const { data: company, error: companyErr } = await anonSupabase
           .from('companies')
-          .select('id, name, email, phone, street_address, city, state, zip, logo_url')
+          .select('id, name, email, phone, street_address, city, state, zip, logo_url, invoice_notes, tax_id')
           .eq('id', invoiceData.company_id)
-          .single()
+          .maybeSingle()
+        
+        if (companyErr) {
+          console.error('Company load error:', companyErr)
+        }
         companyData = company
       }
 
