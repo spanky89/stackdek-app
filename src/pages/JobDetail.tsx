@@ -437,7 +437,7 @@ export default function JobDetailPage() {
           amount: totalAmount,
           total_amount: totalAmount,
           deposit_paid_amount: depositPaidAmount,
-          status: 'draft', // Start as draft so user can send it
+          status: 'pending',
           due_date: invoiceDueDate,
           notes: invoiceNotes || null,
           tax_rate: invoiceTaxRate || 0,
