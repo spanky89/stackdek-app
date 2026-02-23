@@ -83,47 +83,50 @@ export default async function handler(
     // Build line items for Stripe Checkout
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
-    // Add invoice line items
-    invoice.invoice_line_items.forEach((item: any) => {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: item.title || item.description || 'Service',
-            description: item.description && item.title ? item.description : undefined,
-          },
-          unit_amount: Math.round(item.unit_price * 100), // Convert to cents
-        },
-        quantity: item.quantity,
-      });
-    });
-
-    // Add tax as separate line item if applicable
-    if (tax > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `Tax${invoice.tax_rate ? ` (${invoice.tax_rate}%)` : ''}`,
-          },
-          unit_amount: Math.round(tax * 100),
-        },
-        quantity: 1,
-      });
-    }
-
-    // Subtract deposit if paid
+    // If deposit was paid, create a single line item for balance due
+    // (Stripe doesn't allow negative line items)
     if (depositPaid > 0) {
       lineItems.push({
         price_data: {
           currency: 'usd',
           product_data: {
-            name: 'Deposit Paid',
+            name: `Invoice ${invoice.invoice_number} - Balance Due`,
+            description: `Subtotal: $${subtotal.toFixed(2)} + Tax: $${tax.toFixed(2)} - Deposit Paid: $${depositPaid.toFixed(2)}`,
           },
-          unit_amount: Math.round(-depositPaid * 100), // Negative amount
+          unit_amount: Math.round(totalDue * 100),
         },
         quantity: 1,
       });
+    } else {
+      // No deposit paid - show itemized breakdown
+      // Add invoice line items
+      invoice.invoice_line_items.forEach((item: any) => {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: item.title || item.description || 'Service',
+              description: item.description && item.title ? item.description : undefined,
+            },
+            unit_amount: Math.round(item.unit_price * 100),
+          },
+          quantity: item.quantity,
+        });
+      });
+
+      // Add tax as separate line item if applicable
+      if (tax > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Tax${invoice.tax_rate ? ` (${invoice.tax_rate}%)` : ''}`,
+            },
+            unit_amount: Math.round(tax * 100),
+          },
+          quantity: 1,
+        });
+      }
     }
 
     // Create Stripe checkout session on contractor's connected account
