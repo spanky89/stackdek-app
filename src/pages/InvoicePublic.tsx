@@ -80,7 +80,8 @@ export default function InvoicePublicPage() {
         .single()
 
       if (invErr) {
-        setError('Invoice not found')
+        console.error('Invoice load error:', invErr)
+        setError(invErr.message || 'Invoice not found')
         return
       }
 
