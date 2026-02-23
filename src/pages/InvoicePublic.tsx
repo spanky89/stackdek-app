@@ -20,16 +20,21 @@ type Invoice = {
     name: string
     email: string | null
     phone: string | null
-    address: string | null
+    street_address: string | null
+    city: string | null
+    state: string | null
+    zip: string | null
   } | null
   companies: {
     id: string
-    business_name: string
+    name: string
     email: string | null
     phone: string | null
-    address: string | null
+    street_address: string | null
+    city: string | null
+    state: string | null
+    zip: string | null
     logo_url: string | null
-    tax_id: string | null
   } | null
 }
 
@@ -53,8 +58,8 @@ export default function InvoicePublicPage() {
         .from('invoices')
         .select(`
           *,
-          clients(id, name, email, phone, address),
-          companies(id, business_name, email, phone, address, logo_url, tax_id)
+          clients(id, name, email, phone, street_address, city, state, zip),
+          companies(id, name, email, phone, street_address, city, state, zip, logo_url)
         `)
         .eq('invoice_token', token)
         .single()
@@ -177,11 +182,14 @@ export default function InvoicePublicPage() {
                 />
               )}
               <h1 className="text-3xl font-bold text-neutral-900">
-                {invoice.companies?.business_name || 'Business Name'}
+                {invoice.companies?.name || 'Business Name'}
               </h1>
-              {invoice.companies?.address && (
-                <p className="text-sm text-neutral-600 mt-2 whitespace-pre-line">
-                  {invoice.companies.address}
+              {(invoice.companies?.street_address || invoice.companies?.city) && (
+                <p className="text-sm text-neutral-600 mt-2">
+                  {invoice.companies.street_address && <>{invoice.companies.street_address}<br /></>}
+                  {(invoice.companies.city || invoice.companies.state || invoice.companies.zip) && (
+                    <>{invoice.companies.city}{invoice.companies.state && `, ${invoice.companies.state}`} {invoice.companies.zip}</>
+                  )}
                 </p>
               )}
               {invoice.companies?.phone && (
@@ -208,8 +216,13 @@ export default function InvoicePublicPage() {
             <div>
               <h3 className="text-sm font-bold text-neutral-700 mb-3 uppercase tracking-wider">Bill To</h3>
               <p className="font-semibold text-lg text-neutral-900">{invoice.clients?.name || 'Client Name'}</p>
-              {invoice.clients?.address && (
-                <p className="text-sm text-neutral-600 mt-1 whitespace-pre-line">{invoice.clients.address}</p>
+              {(invoice.clients?.street_address || invoice.clients?.city) && (
+                <p className="text-sm text-neutral-600 mt-1">
+                  {invoice.clients.street_address && <>{invoice.clients.street_address}<br /></>}
+                  {(invoice.clients.city || invoice.clients.state || invoice.clients.zip) && (
+                    <>{invoice.clients.city}{invoice.clients.state && `, ${invoice.clients.state}`} {invoice.clients.zip}</>
+                  )}
+                </p>
               )}
               {invoice.clients?.phone && (
                 <p className="text-sm text-neutral-600 mt-1">{invoice.clients.phone}</p>
@@ -330,7 +343,7 @@ export default function InvoicePublicPage() {
 
       {/* Footer note (hidden in print) */}
       <div className="max-w-4xl mx-auto mt-8 text-center text-sm text-neutral-500 print:hidden">
-        <p>This is an official invoice from {invoice.companies?.business_name || 'this business'}.</p>
+        <p>This is an official invoice from {invoice.companies?.name || 'this business'}.</p>
       </div>
     </div>
   )
