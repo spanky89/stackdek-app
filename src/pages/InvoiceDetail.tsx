@@ -37,6 +37,7 @@ export default function InvoiceDetailPage() {
   const [showSendModal, setShowSendModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [sendingStripeInvoice, setSendingStripeInvoice] = useState(false)
 
   const isPaid = invoice?.status === 'paid'
 
@@ -201,6 +202,45 @@ export default function InvoiceDetailPage() {
       setError(e?.message ?? 'Failed to mark as paid')
     } finally {
       setMarking(false)
+    }
+  }
+
+  async function sendStripeInvoice() {
+    if (!invoice) return
+
+    setSendingStripeInvoice(true)
+    setError(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('No session')
+
+      const response = await fetch('/api/create-stripe-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          invoiceId: invoice.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to send Stripe invoice')
+      }
+
+      // Reload invoice to show updated status
+      await loadInvoice()
+
+      alert('✅ Stripe invoice sent successfully! Client will receive an email with payment link.')
+    } catch (err: any) {
+      setError(err.message || 'Failed to send Stripe invoice')
+      alert(`❌ Error: ${err.message || 'Failed to send Stripe invoice'}`)
+    } finally {
+      setSendingStripeInvoice(false)
     }
   }
 
@@ -400,6 +440,16 @@ export default function InvoiceDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
                   Send Invoice
+                </button>
+                <button
+                  onClick={sendStripeInvoice}
+                  disabled={sendingStripeInvoice}
+                  className="w-full px-4 py-2 bg-[#635BFF] text-white rounded-lg font-medium hover:bg-[#5147e5] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z"/>
+                  </svg>
+                  {sendingStripeInvoice ? 'Sending...' : 'Request Payment via Stripe'}
                 </button>
                 <button
                   onClick={markAsPaid}
