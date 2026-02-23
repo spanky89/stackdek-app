@@ -74,7 +74,11 @@ export default async function handler(
       .single();
 
     if (invoiceError || !invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      console.error('Invoice lookup failed:', { invoiceError, invoiceId, companyId: company.id });
+      return res.status(404).json({ 
+        error: 'Invoice not found',
+        details: invoiceError?.message || 'No invoice matching this ID and company'
+      });
     }
 
     if (!invoice.clients?.email) {
