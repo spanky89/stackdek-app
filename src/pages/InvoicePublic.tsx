@@ -88,14 +88,10 @@ export default function InvoicePublicPage() {
     try {
       console.log('Loading invoice with token:', token)
       
-      // Fetch invoice by token (public access, no auth required)
+      // Fetch invoice first (without joins to avoid nested RLS issues)
       const { data: invoiceData, error: invErr } = await anonSupabase
         .from('invoices')
-        .select(`
-          *,
-          clients(id, name, email, phone, address),
-          companies(id, name, email, phone, street_address, city, state, zip, logo_url)
-        `)
+        .select('*')
         .eq('invoice_token', token)
         .single()
 
@@ -107,7 +103,34 @@ export default function InvoicePublicPage() {
         return
       }
 
-      setInvoice(invoiceData as any)
+      // Fetch client data separately
+      let clientData = null
+      if (invoiceData.client_id) {
+        const { data: client } = await anonSupabase
+          .from('clients')
+          .select('id, name, email, phone, address')
+          .eq('id', invoiceData.client_id)
+          .single()
+        clientData = client
+      }
+
+      // Fetch company data separately
+      let companyData = null
+      if (invoiceData.company_id) {
+        const { data: company } = await anonSupabase
+          .from('companies')
+          .select('id, name, email, phone, street_address, city, state, zip, logo_url')
+          .eq('id', invoiceData.company_id)
+          .single()
+        companyData = company
+      }
+
+      // Combine the data
+      setInvoice({
+        ...invoiceData,
+        clients: clientData,
+        companies: companyData
+      } as any)
 
       // Fetch line items
       const { data: itemsData, error: itemsErr } = await anonSupabase
