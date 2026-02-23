@@ -27,7 +27,10 @@ type Invoice = {
     name: string
     email: string | null
     phone: string | null
-    address: string | null
+    street_address: string | null
+    city: string | null
+    state: string | null
+    zip: string | null
     logo_url: string | null
   } | null
 }
@@ -53,7 +56,7 @@ export default function InvoicePublicPage() {
         .select(`
           *,
           clients(id, name, email, phone, address),
-          companies(id, name, email, phone, address, logo_url)
+          companies(id, name, email, phone, street_address, city, state, zip, logo_url)
         `)
         .eq('invoice_token', token)
         .single()
@@ -178,9 +181,12 @@ export default function InvoicePublicPage() {
               <h1 className="text-3xl font-bold text-neutral-900">
                 {invoice.companies?.name || 'Business Name'}
               </h1>
-              {invoice.companies?.address && (
-                <p className="text-sm text-neutral-600 mt-2 whitespace-pre-line">
-                  {invoice.companies.address}
+              {(invoice.companies?.street_address || invoice.companies?.city) && (
+                <p className="text-sm text-neutral-600 mt-2">
+                  {invoice.companies.street_address && <>{invoice.companies.street_address}<br /></>}
+                  {(invoice.companies.city || invoice.companies.state || invoice.companies.zip) && (
+                    <>{invoice.companies.city}{invoice.companies.state && `, ${invoice.companies.state}`} {invoice.companies.zip}</>
+                  )}
                 </p>
               )}
               {invoice.companies?.phone && (
