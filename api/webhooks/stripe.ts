@@ -35,64 +35,59 @@ export default async function handler(
     const rawBody = await getRawBody(req);
     const sig = req.headers['stripe-signature'] as string;
 
-    // Extract company_id from query parameter
-    const companyId = req.query.companyId as string;
-
-    if (!companyId) {
-      console.error('No companyId in webhook URL');
-      return res.status(400).json({ error: 'Missing companyId parameter' });
+    // Use platform-level webhook secret (single secret for all companies)
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET not configured');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
     }
 
-    // Fetch company's Stripe keys
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
-      .select('id, stripe_secret_key, stripe_webhook_secret, name')
-      .eq('id', companyId)
-      .single();
-
-    if (companyError || !company) {
-      console.error('Company not found:', companyId);
-      return res.status(404).json({ error: 'Company not found' });
-    }
-
-    if (!company.stripe_secret_key || !company.stripe_webhook_secret) {
-      console.error('Company Stripe keys not configured:', companyId);
-      return res.status(400).json({ error: 'Stripe not configured for this company' });
-    }
-
-    // Initialize Stripe with company-specific secret key
-    const stripe = new Stripe(company.stripe_secret_key, {
+    // Initialize Stripe (we'll get company-specific key after parsing event)
+    const platformStripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
       apiVersion: '2025-02-24.acacia',
     });
 
-    // Verify webhook signature using company's webhook secret
+    // Verify webhook signature using platform webhook secret
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, sig, company.stripe_webhook_secret);
+      event = platformStripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message);
       return res.status(400).json({ error: `Webhook Error: ${err.message}` });
     }
 
-    console.log(`Webhook received for company ${companyId}:`, event.type);
+    console.log('[Stripe Webhook] Event received:', {
+      type: event.type,
+      id: event.id,
+      account: event.account || 'platform',
+    });
 
-    // Handle the checkout.session.completed event
+    // ============================================
+    // HANDLE DEPOSIT PAYMENTS (Quote Deposits)
+    // ============================================
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
       
       try {
         const quoteId = session.metadata?.quoteId;
-        const sessionCompanyId = session.metadata?.companyId;
+        const companyId = session.metadata?.companyId;
         
-        if (!quoteId) {
-          console.error('No quoteId in session metadata');
-          return res.status(400).json({ error: 'Missing quoteId in metadata' });
+        if (!quoteId || !companyId) {
+          console.error('Missing metadata:', { quoteId, companyId });
+          return res.status(400).json({ error: 'Missing quoteId or companyId in metadata' });
         }
 
-        // Verify company_id matches (security check)
-        if (sessionCompanyId !== companyId) {
-          console.error('Company ID mismatch:', { sessionCompanyId, urlCompanyId: companyId });
-          return res.status(403).json({ error: 'Company ID mismatch' });
+        // Fetch company to verify it exists
+        const { data: company, error: companyError } = await supabase
+          .from('companies')
+          .select('id, name')
+          .eq('id', companyId)
+          .single();
+
+        if (companyError || !company) {
+          console.error('Company not found:', companyId);
+          return res.status(404).json({ error: 'Company not found' });
         }
 
         // 1. Mark quote deposit as paid AND set status to approved
@@ -181,6 +176,102 @@ export default async function handler(
           error: 'Internal server error',
           message: error.message 
         });
+      }
+    }
+
+    // ============================================
+    // HANDLE INVOICE PAYMENTS (Connected Accounts)
+    // ============================================
+    if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
+      const invoice = event.data.object as Stripe.Invoice;
+      
+      try {
+        const stripeInvoiceId = invoice.id;
+        const stripeAccountId = event.account; // Connected account ID
+        
+        if (!stripeAccountId) {
+          console.warn('[Stripe Webhook] Invoice payment on platform account (not Connect)');
+          return res.status(200).json({ received: true, warning: 'Not a Connect event' });
+        }
+
+        const amountPaid = invoice.amount_paid / 100; // Cents to dollars
+        const paidAt = invoice.status_transitions?.paid_at 
+          ? new Date(invoice.status_transitions.paid_at * 1000).toISOString()
+          : new Date().toISOString();
+
+        console.log('[Stripe Webhook] Processing invoice payment:', {
+          stripeInvoiceId,
+          stripeAccountId,
+          amountPaid,
+        });
+
+        // Find company by connected account ID
+        const { data: company, error: companyError } = await supabase
+          .from('companies')
+          .select('id, name')
+          .eq('stripe_connected_account_id', stripeAccountId)
+          .single();
+
+        if (companyError || !company) {
+          console.error('[Stripe Webhook] Company not found for connected account:', stripeAccountId);
+          return res.status(200).json({ 
+            received: true, 
+            warning: 'Connected account not found',
+            stripeAccountId 
+          });
+        }
+
+        // Find invoice in database
+        const { data: existingInvoice, error: findError } = await supabase
+          .from('invoices')
+          .select('id, status')
+          .eq('stripe_invoice_id', stripeInvoiceId)
+          .eq('company_id', company.id)
+          .single();
+
+        if (findError || !existingInvoice) {
+          console.warn('[Stripe Webhook] Invoice not found in database:', stripeInvoiceId);
+          return res.status(200).json({ 
+            received: true, 
+            warning: 'Invoice not found',
+            stripeInvoiceId 
+          });
+        }
+
+        // Update invoice to paid
+        const { data: updatedInvoice, error: updateError } = await supabase
+          .from('invoices')
+          .update({
+            status: 'paid',
+            amount_paid: amountPaid,
+            paid_at: paidAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingInvoice.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('[Stripe Webhook] Failed to update invoice:', updateError);
+          return res.status(500).json({ error: 'Failed to update invoice' });
+        }
+
+        console.log('[Stripe Webhook] ✅ Invoice marked as paid:', {
+          invoiceId: updatedInvoice.id,
+          stripeInvoiceId,
+          amountPaid,
+        });
+
+        return res.status(200).json({
+          received: true,
+          invoiceId: updatedInvoice.id,
+          stripeInvoiceId,
+          status: 'paid',
+        });
+
+      } catch (error: any) {
+        console.error('[Stripe Webhook] Error processing invoice payment:', error);
+        return res.status(500).json({ error: error.message });
       }
     }
 

@@ -50,10 +50,10 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get company with Stripe keys
+    // Get company info
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, stripe_publishable_key, stripe_secret_key, name')
+      .select('id, name')
       .eq('owner_id', user.id)
       .single();
 
@@ -61,16 +61,8 @@ export default async function handler(
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Check if Stripe keys are configured
-    if (!company.stripe_secret_key || !company.stripe_publishable_key) {
-      return res.status(400).json({ 
-        error: 'Stripe not configured',
-        message: 'Please configure your Stripe keys in Settings > Payment Settings' 
-      });
-    }
-
-    // Initialize Stripe with company-specific secret key
-    const stripe = new Stripe(company.stripe_secret_key, {
+    // Initialize Stripe with platform account (centralized deposits)
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
       apiVersion: '2025-02-24.acacia',
     });
 
@@ -105,7 +97,7 @@ export default async function handler(
     return res.status(200).json({
       sessionId: session.id,
       url: session.url,
-      publishableKey: company.stripe_publishable_key, // Send company's publishable key to frontend
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY, // Platform publishable key
     });
   } catch (error: any) {
     console.error('Error creating checkout session:', error);
