@@ -50,10 +50,10 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get company info
+    // Get company info including Stripe account
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, name')
+      .select('id, name, stripe_connected_account_id')
       .eq('owner_id', user.id)
       .single();
 
@@ -61,12 +61,16 @@ export default async function handler(
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Initialize Stripe with platform account (centralized deposits)
+    if (!company.stripe_connected_account_id) {
+      return res.status(400).json({ error: 'Stripe account not connected. Please connect your Stripe account in Settings.' });
+    }
+
+    // Initialize Stripe with platform account
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
       apiVersion: '2025-02-24.acacia',
     });
 
-    // Create Stripe checkout session using company's keys
+    // Create Stripe checkout session on contractor's connected account
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -88,16 +92,17 @@ export default async function handler(
       customer_email: clientEmail,
       metadata: {
         quoteId,
-        companyId: company.id, // CRITICAL: Include company_id for webhook routing
+        companyId: company.id,
         clientName: clientName || '',
         depositAmount: depositAmount.toString(),
       },
+    }, {
+      stripeAccount: company.stripe_connected_account_id, // Create on contractor's account
     });
 
     return res.status(200).json({
       sessionId: session.id,
       url: session.url,
-      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY, // Platform publishable key
     });
   } catch (error: any) {
     console.error('Error creating checkout session:', error);
