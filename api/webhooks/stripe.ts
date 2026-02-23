@@ -64,18 +64,76 @@ export default async function handler(
     });
 
     // ============================================
-    // HANDLE DEPOSIT PAYMENTS (Quote Deposits)
+    // HANDLE CHECKOUT SESSION COMPLETIONS
     // ============================================
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
       
       try {
         const quoteId = session.metadata?.quoteId;
+        const invoiceId = session.metadata?.invoiceId;
         const companyId = session.metadata?.companyId;
         
+        // ============================================
+        // INVOICE PAYMENT via Checkout
+        // ============================================
+        if (invoiceId && companyId) {
+          console.log('[Stripe Webhook] Processing invoice payment:', {
+            invoiceId,
+            companyId,
+            sessionId: session.id,
+          });
+
+          // Verify company exists
+          const { data: company, error: companyError } = await supabase
+            .from('companies')
+            .select('id, name')
+            .eq('id', companyId)
+            .single();
+
+          if (companyError || !company) {
+            console.error('Company not found:', companyId);
+            return res.status(404).json({ error: 'Company not found' });
+          }
+
+          // Mark invoice as paid
+          const { data: updatedInvoice, error: invoiceError } = await supabase
+            .from('invoices')
+            .update({
+              status: 'paid',
+              paid_date: new Date().toISOString(),
+              stripe_checkout_session_id: session.id,
+              amount_paid: session.amount_total ? session.amount_total / 100 : null,
+            })
+            .eq('id', invoiceId)
+            .eq('company_id', companyId)
+            .select()
+            .single();
+
+          if (invoiceError) {
+            console.error('Error updating invoice:', invoiceError);
+            return res.status(500).json({ error: 'Failed to update invoice' });
+          }
+
+          console.log('[Stripe Webhook] ✅ Invoice marked as paid:', {
+            invoiceId: updatedInvoice.id,
+            invoiceNumber: updatedInvoice.invoice_number,
+            amountPaid: session.amount_total ? session.amount_total / 100 : 0,
+          });
+
+          return res.status(200).json({
+            received: true,
+            invoiceId: updatedInvoice.id,
+            status: 'paid',
+          });
+        }
+
+        // ============================================
+        // QUOTE DEPOSIT PAYMENT via Checkout
+        // ============================================
         if (!quoteId || !companyId) {
-          console.error('Missing metadata:', { quoteId, companyId });
-          return res.status(400).json({ error: 'Missing quoteId or companyId in metadata' });
+          console.error('Missing metadata:', { quoteId, invoiceId, companyId });
+          return res.status(400).json({ error: 'Missing quoteId or invoiceId in metadata' });
         }
 
         // Fetch company to verify it exists
