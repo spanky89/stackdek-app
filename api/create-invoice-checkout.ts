@@ -131,8 +131,8 @@ export default async function handler(
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${process.env.VITE_APP_URL || req.headers.origin}/invoice/${invoiceToken}?payment=success`,
-      cancel_url: `${process.env.VITE_APP_URL || req.headers.origin}/invoice/${invoiceToken}?payment=cancelled`,
+      success_url: `${process.env.VITE_APP_URL || req.headers.origin}/invoice/public/${invoiceToken}?payment=success`,
+      cancel_url: `${process.env.VITE_APP_URL || req.headers.origin}/invoice/public/${invoiceToken}?payment=cancelled`,
       customer_email: invoice.clients?.email || undefined,
       metadata: {
         invoiceId: invoice.id,
