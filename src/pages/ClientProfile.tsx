@@ -93,7 +93,7 @@ export default function ClientProfilePage() {
 
   function handleCreateQuote() {
     setShowCreateMenu(false)
-    nav(`/quote/create?clientId=${client?.id}`)
+    nav(`/quotes/create?clientId=${client?.id}`)
   }
 
   function handleCreateJob() {
@@ -103,7 +103,7 @@ export default function ClientProfilePage() {
 
   function handleCreateInvoice() {
     setShowCreateMenu(false)
-    nav(`/invoice/create?clientId=${client?.id}`)
+    nav(`/invoices/create?clientId=${client?.id}`)
   }
 
   function statusBadge(status: string) {
