@@ -136,7 +136,29 @@ export default async function handler(
           return res.status(500).json({ error: 'Failed to create job' });
         }
 
-        // 3. Send receipt email asynchronously (don't block on this)
+        // 3. Copy line items from quote to job
+        if (quote.quote_line_items && quote.quote_line_items.length > 0) {
+          const jobLineItems = quote.quote_line_items.map((item: any) => ({
+            job_id: newJob.id,
+            company_id: quote.company_id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            amount: item.amount,
+            created_at: new Date().toISOString(),
+          }));
+
+          const { error: lineItemsError } = await supabase
+            .from('job_line_items')
+            .insert(jobLineItems);
+
+          if (lineItemsError) {
+            console.error('Error copying line items to job:', lineItemsError);
+            // Don't fail the whole webhook, just log it
+          }
+        }
+
+        // 4. Send receipt email asynchronously (don't block on this)
         try {
           const appUrl = process.env.VITE_APP_URL || 'https://stackdek-app.vercel.app';
           await fetch(`${appUrl}/api/send-receipt`, {
