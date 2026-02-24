@@ -103,7 +103,6 @@ export default async function handler(
               status: 'paid',
               paid_date: new Date().toISOString(),
               amount_paid: session.amount_total ? session.amount_total / 100 : null,
-              stripe_payment_intent: session.payment_intent as string,
             })
             .eq('id', invoiceId)
             .eq('company_id', companyId)

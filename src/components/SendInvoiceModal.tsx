@@ -72,6 +72,12 @@ export default function SendInvoiceModal({
       const subject = `Your Invoice from ${businessName}`
       const body = `Your invoice is ready. Thank you for your business.\n\nView invoice: ${publicLink}`
 
+      // Update invoice status to sent
+      await supabase
+        .from('invoices')
+        .update({ status: 'sent' })
+        .eq('id', invoiceId)
+
       // Open mailto link
       window.location.href = `mailto:${clientEmail || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 
@@ -115,7 +121,14 @@ export default function SendInvoiceModal({
           setShowTextModal(false)
           onClose()
         }}
-        onSent={onSent}
+        onSent={async () => {
+          // Update invoice status to sent
+          await supabase
+            .from('invoices')
+            .update({ status: 'sent' })
+            .eq('id', invoiceId)
+          onSent()
+        }}
       />
     )
   }
