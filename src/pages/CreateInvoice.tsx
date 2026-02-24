@@ -225,6 +225,7 @@ export default function CreateInvoicePage() {
         client_id: clientId,
         job_id: selectedJobId || null,
         invoice_number: invoiceNumber,
+        amount: totalDue,
         total_amount: totalDue,
         deposit_paid_amount: depositPaidAmount,
         status: 'draft',
