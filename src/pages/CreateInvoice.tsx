@@ -226,7 +226,6 @@ export default function CreateInvoicePage() {
         job_id: selectedJobId || null,
         invoice_number: invoiceNumber,
         total_amount: totalDue,
-        tax_amount: tax,
         deposit_paid_amount: depositPaidAmount,
         status: 'draft',
       }).select().single()
