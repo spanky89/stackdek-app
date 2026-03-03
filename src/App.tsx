@@ -45,6 +45,7 @@ import AdminUserDetailPage from "./pages/AdminUserDetail";
 import AdminGuard from "./components/AdminGuard";
 import HelpPage from "./pages/Help";
 import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
+import ResetPasswordPage from "./pages/ResetPassword";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -132,6 +133,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/home"
           element={
