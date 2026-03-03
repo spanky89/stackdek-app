@@ -85,8 +85,17 @@ function AuthCallbackPage() {
   const nav = useNavigate();
 
   useEffect(() => {
-    // Supabase automatically parses the callback URL
-    // Redirect to home after OAuth login
+    // Check if this is a password recovery callback
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    
+    if (type === 'recovery') {
+      // Password reset flow - redirect to reset password page
+      nav("/reset-password", { replace: true });
+      return;
+    }
+
+    // Regular OAuth login - redirect to home after session check
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
