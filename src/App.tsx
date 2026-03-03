@@ -47,6 +47,7 @@ import HelpPage from "./pages/Help";
 import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 import ResetPasswordPage from "./pages/ResetPassword";
 import ContractDemo from "./pages/ContractDemo";
+import TeamManagement from "./pages/TeamManagement";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -401,6 +402,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ContractDemo />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team"
+          element={
+            <ProtectedRoute>
+              <TeamManagement />
             </ProtectedRoute>
           }
         />
