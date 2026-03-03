@@ -114,6 +114,10 @@ export default function CSVImportExport({ companyId }: CSVImportExportProps) {
         email: row.email || null,
         phone: row.phone || null,
         address: row.address || null,
+        street: row.street || null,
+        city: row.city || null,
+        state: row.state || null,
+        zip: row.zip || null,
         vip: row.vip || false
       }));
 

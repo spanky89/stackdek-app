@@ -15,7 +15,11 @@ export interface ClientCSVRow {
   name: string;
   email?: string;
   phone?: string;
-  address?: string;
+  address?: string;  // Legacy combined address
+  street?: string;   // Separate address fields
+  city?: string;
+  state?: string;
+  zip?: string;
   vip?: boolean;
 }
 
@@ -114,24 +118,42 @@ export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; erro
   data.forEach((row, index) => {
     const rowNum = index + 2; // +2 because index is 0-based and we skip header
     
-    // Detect which format is being used
+    // Skip completely empty rows
+    const hasAnyData = Object.values(row).some(val => val && String(val).trim());
+    if (!hasAnyData) return;
+    
+    // Detect which format is being used (check all possible variations)
+    const keys = Object.keys(row).map(k => k.toLowerCase().trim());
     const hasDetailedFormat = 
-      ('display name' in row || 'first name' in row || 'last name' in row) ||
-      ('main phone #s' in row) ||
-      ('e-mails' in row) ||
-      ('service street 1' in row);
+      keys.some(k => k.includes('display name') || k.includes('first name') || k.includes('last name')) ||
+      keys.some(k => k.includes('main phone')) ||
+      keys.some(k => k.includes('e-mail')) ||
+      keys.some(k => k.includes('service street') || k.includes('street 1'));
     
     let clientName: string;
     let clientEmail: string | undefined;
     let clientPhone: string | undefined;
     let clientAddress: string | undefined;
+    let clientStreet: string | undefined;
+    let clientCity: string | undefined;
+    let clientState: string | undefined;
+    let clientZip: string | undefined;
     
     if (hasDetailedFormat) {
       // Detailed format - construct name from available fields
-      const displayName = row['display name'] as string;
-      const companyName = row['company name'] as string;
-      const firstName = row['first name'] as string;
-      const lastName = row['last name'] as string;
+      // Helper to get value regardless of key casing
+      const getValue = (possibleKeys: string[]): string | undefined => {
+        for (const key of possibleKeys) {
+          const value = row[key.toLowerCase()];
+          if (value && String(value).trim()) return String(value).trim();
+        }
+        return undefined;
+      };
+      
+      const displayName = getValue(['display name']);
+      const companyName = getValue(['company name']);
+      const firstName = getValue(['first name']);
+      const lastName = getValue(['last name']);
       
       // Priority: Display Name > First+Last > Company Name
       if (displayName && displayName.trim()) {
@@ -148,19 +170,16 @@ export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; erro
       }
       
       // Map phone field
-      clientPhone = (row['main phone #s'] || row['phone']) as string | undefined;
+      clientPhone = getValue(['main phone #s', 'main phone', 'phone']);
       
       // Map email field
-      clientEmail = (row['e-mails'] || row['email']) as string | undefined;
+      clientEmail = getValue(['e-mails', 'e-mail', 'email']);
       
-      // Construct address from street, city, state, zip
-      const street = (row['service street 1'] || '') as string;
-      const city = (row['service city'] || '') as string;
-      const state = (row['service state'] || '') as string;
-      const zip = (row['service zip code'] || '') as string;
-      
-      const addressParts = [street, city, state, zip].filter(p => p && p.trim());
-      clientAddress = addressParts.length > 0 ? addressParts.join(', ') : undefined;
+      // Store separate address fields (DON'T combine them)
+      clientStreet = getValue(['service street 1', 'street 1', 'street']);
+      clientCity = getValue(['service city', 'city']);
+      clientState = getValue(['service state', 'state']);
+      clientZip = getValue(['service zip code', 'zip code', 'zip']);
       
     } else {
       // Simple format - use name, email, phone, address directly
@@ -203,6 +222,10 @@ export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; erro
       email: clientEmail,
       phone: clientPhone,
       address: clientAddress,
+      street: clientStreet,
+      city: clientCity,
+      state: clientState,
+      zip: clientZip,
       vip: vipValue
     });
   });
