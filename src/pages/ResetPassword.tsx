@@ -19,18 +19,21 @@ export default function ResetPasswordPage() {
 
   async function checkRecoverySession() {
     let attempts = 0
-    const maxAttempts = 5
+    const maxAttempts = 6 // 3 seconds total
     
     const checkSession = async () => {
       attempts++
+      console.log(`Checking session - attempt ${attempts}/${maxAttempts}`)
       
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
+        console.log('Session check result:', { session: !!session, error: sessionError })
+        
         if (sessionError) {
           console.error('Session error:', sessionError)
           if (attempts >= maxAttempts) {
-            setError('Failed to verify reset link')
+            setError(`Failed to verify reset link: ${sessionError.message}`)
             setCheckingToken(false)
           } else {
             setTimeout(checkSession, 500)
@@ -39,12 +42,13 @@ export default function ResetPasswordPage() {
         }
 
         if (session) {
-          console.log('Valid recovery session found')
+          console.log('✅ Valid recovery session found!')
           setValidToken(true)
           setCheckingToken(false)
         } else {
+          console.log('No session found yet...')
           if (attempts >= maxAttempts) {
-            setError('Invalid or expired reset link. Please request a new one.')
+            setError('This reset link has expired or is invalid. Please request a new password reset from the login page.')
             setCheckingToken(false)
           } else {
             // Try again after a short delay
@@ -53,7 +57,7 @@ export default function ResetPasswordPage() {
         }
       } catch (err) {
         console.error('Session check error:', err)
-        setError('Failed to verify reset link')
+        setError('Failed to verify reset link. Please try again.')
         setCheckingToken(false)
       }
     }
@@ -102,8 +106,12 @@ export default function ResetPasswordPage() {
 
   if (checkingToken) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <p className="text-neutral-600">Verifying reset link...</p>
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-900 mx-auto mb-4"></div>
+          <p className="text-neutral-600">Verifying reset link...</p>
+          <p className="text-xs text-neutral-500 mt-2">This may take a few seconds</p>
+        </div>
       </div>
     )
   }
