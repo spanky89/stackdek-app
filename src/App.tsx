@@ -11,6 +11,7 @@ import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
 import LoginPage from "./pages/Login";
 import ResetPasswordPage from "./pages/ResetPassword";
+import SetupPasswordPage from "./pages/SetupPassword";
 import HomePage from "./pages/Home";
 import JobStackPage from "./pages/JobStack";
 import RequestListPage from "./pages/RequestList";
@@ -86,11 +87,19 @@ function AuthCallbackPage() {
 
   useEffect(() => {
     // Supabase automatically parses the callback URL
-    // Redirect to home after OAuth login
+    // Check if OAuth user needs to set up password
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        nav("/home", { replace: true });
+        const user = data.session.user;
+        const providers = user.app_metadata?.providers || [];
+        
+        // If user signed up with OAuth (not email), redirect to password setup
+        if (providers.includes('google') && !providers.includes('email')) {
+          nav("/setup-password", { replace: true });
+        } else {
+          nav("/home", { replace: true });
+        }
       } else {
         nav("/login", { replace: true });
       }
@@ -133,6 +142,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/setup-password" element={<SetupPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route
           path="/home"
