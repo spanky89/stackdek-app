@@ -86,32 +86,65 @@ function AuthCallbackPage() {
   const nav = useNavigate();
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     // Supabase automatically parses the callback URL
     // Check if OAuth user needs to set up password
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        const user = data.session.user;
-        const providers = user.app_metadata?.providers || [];
+      try {
+        console.log('[AuthCallback] Checking session...');
+        const { data, error } = await supabase.auth.getSession();
         
-        // If user signed up with OAuth (not email), redirect to password setup
-        if (providers.includes('google') && !providers.includes('email')) {
-          nav("/setup-password", { replace: true });
-        } else {
-          nav("/home", { replace: true });
+        if (error) {
+          console.error('[AuthCallback] Session error:', error);
+          nav("/login", { replace: true });
+          return;
         }
-      } else {
+
+        if (data.session) {
+          const user = data.session.user;
+          console.log('[AuthCallback] User found:', user.email);
+          console.log('[AuthCallback] Providers:', user.app_metadata?.providers);
+          
+          const providers = user.app_metadata?.providers || [];
+          
+          // If user signed up with OAuth (not email), redirect to password setup
+          if (providers.includes('google') && !providers.includes('email')) {
+            console.log('[AuthCallback] OAuth user - redirecting to password setup');
+            nav("/setup-password", { replace: true });
+          } else {
+            console.log('[AuthCallback] Regular user - redirecting to home');
+            nav("/home", { replace: true });
+          }
+        } else {
+          console.log('[AuthCallback] No session found - redirecting to login');
+          nav("/login", { replace: true });
+        }
+      } catch (err) {
+        console.error('[AuthCallback] Unexpected error:', err);
         nav("/login", { replace: true });
       }
     };
 
     // Give Supabase a moment to process the callback
     setTimeout(checkSession, 1000);
+
+    // Failsafe: redirect after 10 seconds if still stuck
+    timeoutId = setTimeout(() => {
+      console.warn('[AuthCallback] Timeout - redirecting to home');
+      nav("/home", { replace: true });
+    }, 10000);
+
+    return () => clearTimeout(timeoutId);
   }, [nav]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <p className="text-neutral-600">Processing authentication…</p>
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-900 mx-auto mb-4"></div>
+        <p className="text-neutral-600">Processing authentication…</p>
+        <p className="text-xs text-neutral-500 mt-2">This should only take a moment</p>
+      </div>
     </div>
   );
 }
