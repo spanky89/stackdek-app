@@ -10,6 +10,7 @@ import {
 import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
 import LoginPage from "./pages/Login";
+import ResetPasswordPage from "./pages/ResetPassword";
 import HomePage from "./pages/Home";
 import JobStackPage from "./pages/JobStack";
 import RequestListPage from "./pages/RequestList";
@@ -131,6 +132,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route
           path="/home"
