@@ -28,8 +28,13 @@ export default function SettingsPage() {
   const [editItem, setEditItem] = useState<{ name: string; price: string; description: string }>({ name: '', price: '', description: '' })
   const [connectingStripe, setConnectingStripe] = useState(false)
   const [disconnectingStripe, setDisconnectingStripe] = useState(false)
+  const [isOAuthOnly, setIsOAuthOnly] = useState(false)
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
 
-  useEffect(() => { fetchCompany() }, [])
+  useEffect(() => { 
+    fetchCompany()
+    checkAuthMethod()
+  }, [])
 
   // Check for Stripe OAuth callback params
   useEffect(() => {
@@ -67,6 +72,32 @@ export default function SettingsPage() {
       setCompany(company)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
+  }
+
+  async function checkAuthMethod() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const providers = user.app_metadata?.providers || []
+      
+      // Check if user signed up with OAuth but has no email/password
+      if (providers.includes('google') && !providers.includes('email')) {
+        setIsOAuthOnly(true)
+        // Check if user has dismissed this prompt before
+        const dismissed = localStorage.getItem('password-prompt-dismissed')
+        if (!dismissed) {
+          setShowPasswordPrompt(true)
+        }
+      }
+    } catch (err) {
+      console.error('Error checking auth method:', err)
+    }
+  }
+
+  function dismissPasswordPrompt() {
+    setShowPasswordPrompt(false)
+    localStorage.setItem('password-prompt-dismissed', 'true')
   }
 
   async function fetchServices() {
@@ -249,6 +280,43 @@ export default function SettingsPage() {
   return (
     <AppLayout>
       <div>
+        {/* Password Setup Prompt for OAuth-only users */}
+        {showPasswordPrompt && isOAuthOnly && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3 flex-1">
+                <span className="text-blue-600 text-xl">🔐</span>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-900 mb-1">Set up backup login</h3>
+                  <p className="text-sm text-blue-800 mb-3">
+                    You signed up with Google. Add a password so you can also log in with email + password.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => nav('/setup-password')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                    >
+                      Set Up Password
+                    </button>
+                    <button
+                      onClick={dismissPasswordPrompt}
+                      className="px-4 py-2 bg-white border border-blue-300 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={dismissPasswordPrompt}
+                className="text-blue-400 hover:text-blue-600 text-xl leading-none ml-2"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Menu */}
         {view === 'menu' && (
           <div className="space-y-4">
