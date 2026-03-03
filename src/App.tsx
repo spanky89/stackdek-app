@@ -46,6 +46,7 @@ import AdminGuard from "./components/AdminGuard";
 import HelpPage from "./pages/Help";
 import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 import ResetPasswordPage from "./pages/ResetPassword";
+import ContractDemo from "./pages/ContractDemo";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -392,6 +393,14 @@ export default function App() {
               <AdminGuard>
                 <AdminUserDetailPage />
               </AdminGuard>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contract-demo"
+          element={
+            <ProtectedRoute>
+              <ContractDemo />
             </ProtectedRoute>
           }
         />
