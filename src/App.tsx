@@ -87,42 +87,55 @@ function AuthCallbackPage() {
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
+    let redirected = false;
 
     // Supabase automatically parses the callback URL
     // Simple redirect - just get user to home
     const checkSession = async () => {
+      if (redirected) return;
+      
       try {
         console.log('[AuthCallback] Checking session...');
         const { data, error } = await supabase.auth.getSession();
         
+        if (redirected) return; // Double-check before redirecting
+        
         if (error) {
           console.error('[AuthCallback] Session error:', error);
+          redirected = true;
           nav("/login", { replace: true });
           return;
         }
 
         if (data.session) {
           console.log('[AuthCallback] Session found - redirecting to home');
-          // TODO: Add password setup check later, for now just go to home
+          redirected = true;
           nav("/home", { replace: true });
         } else {
           console.log('[AuthCallback] No session found - redirecting to login');
+          redirected = true;
           nav("/login", { replace: true });
         }
       } catch (err) {
         console.error('[AuthCallback] Unexpected error:', err);
-        nav("/login", { replace: true });
+        if (!redirected) {
+          redirected = true;
+          nav("/login", { replace: true });
+        }
       }
     };
 
-    // Give Supabase a moment to process the callback
-    setTimeout(checkSession, 1000);
+    // Try immediately
+    checkSession();
 
-    // Failsafe: redirect after 10 seconds if still stuck
+    // Failsafe: redirect after 3 seconds if still stuck
     timeoutId = setTimeout(() => {
-      console.warn('[AuthCallback] Timeout - redirecting to home');
-      nav("/home", { replace: true });
-    }, 10000);
+      if (!redirected) {
+        console.warn('[AuthCallback] Timeout - force redirecting to home');
+        redirected = true;
+        nav("/home", { replace: true });
+      }
+    }, 3000);
 
     return () => clearTimeout(timeoutId);
   }, [nav]);
