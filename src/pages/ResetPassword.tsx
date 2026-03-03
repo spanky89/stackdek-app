@@ -18,20 +18,48 @@ export default function ResetPasswordPage() {
   }, [])
 
   async function checkRecoverySession() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
+    let attempts = 0
+    const maxAttempts = 5
+    
+    const checkSession = async () => {
+      attempts++
       
-      if (session) {
-        setValidToken(true)
-      } else {
-        setError('Invalid or expired reset link. Please request a new one.')
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError)
+          if (attempts >= maxAttempts) {
+            setError('Failed to verify reset link')
+            setCheckingToken(false)
+          } else {
+            setTimeout(checkSession, 500)
+          }
+          return
+        }
+
+        if (session) {
+          console.log('Valid recovery session found')
+          setValidToken(true)
+          setCheckingToken(false)
+        } else {
+          if (attempts >= maxAttempts) {
+            setError('Invalid or expired reset link. Please request a new one.')
+            setCheckingToken(false)
+          } else {
+            // Try again after a short delay
+            setTimeout(checkSession, 500)
+          }
+        }
+      } catch (err) {
+        console.error('Session check error:', err)
+        setError('Failed to verify reset link')
+        setCheckingToken(false)
       }
-    } catch (err) {
-      console.error('Session check error:', err)
-      setError('Failed to verify reset link')
-    } finally {
-      setCheckingToken(false)
     }
+
+    // Start checking
+    checkSession()
   }
 
   async function handleResetPassword(e: React.FormEvent) {
