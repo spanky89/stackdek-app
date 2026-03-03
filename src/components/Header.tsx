@@ -181,7 +181,7 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
               </button>
               <button 
                 onClick={() => nav('/settings')}
-                className="hidden sm:inline text-sm px-3 py-1.5 text-neutral-900 hover:text-neutral-700 transition"
+                className="text-sm px-3 py-1.5 text-neutral-900 hover:text-neutral-700 transition"
                 title="Settings"
               >
                 ⚙️
