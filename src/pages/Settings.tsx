@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
 import CSVImportExport from '../components/CSVImportExport'
+import ProductsServicesImportExport from '../components/ProductsServicesImportExport'
 
 interface Company {
   id: string; name: string; phone: string; email: string
@@ -13,7 +14,7 @@ interface Company {
 interface Service { id: string; name: string; price: number; description?: string }
 interface Product { id: string; name: string; price: number; description?: string }
 
-type SettingsView = 'menu' | 'business' | 'branding' | 'invoice' | 'payment' | 'services' | 'products' | 'request-form'
+type SettingsView = 'menu' | 'business' | 'branding' | 'invoice' | 'payment' | 'services' | 'products' | 'request-form' | 'data-management'
 
 export default function SettingsPage() {
   const nav = useNavigate()
@@ -278,6 +279,7 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 {menuItem('☰', 'Manage Services', 'services')}
                 {menuItem('□', 'Manage Products', 'products')}
+                {menuItem('📊', 'Import/Export Data', 'data-management')}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4">
@@ -620,6 +622,31 @@ export default function SettingsPage() {
                     <button onClick={() => deleteProduct(p.id)} className="text-red-500 text-sm hover:text-red-700">✕</button>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data Management (Import/Export Products & Services) */}
+        {view === 'data-management' && (
+          <div>
+            {backBtn}
+            <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-neutral-900">Customer Data Management</h2>
+                <p className="text-sm text-neutral-600 mt-2">Import and export products, services, and customer data</p>
+              </div>
+
+              {/* Products & Services Import/Export */}
+              <div className="border-t border-neutral-200 pt-6">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-4">Products & Services</h3>
+                <ProductsServicesImportExport companyId={company.id} />
+              </div>
+
+              {/* Client Data Import/Export */}
+              <div className="border-t border-neutral-200 pt-6">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-4">Customer Data</h3>
+                <CSVImportExport companyId={company.id} />
               </div>
             </div>
           </div>

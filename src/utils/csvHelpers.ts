@@ -103,6 +103,9 @@ function parseCSVLine(line: string): string[] {
 
 /**
  * Validate client data from CSV
+ * Supports two formats:
+ * 1. Simple: name, email, phone, address, vip
+ * 2. Detailed: Display Name, Company Name, First Name, Last Name, Main Phone #s, E-mails, Service Street 1, Service City, Service State, Service Zip code
  */
 export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; errors: string[] } {
   const valid: ClientCSVRow[] = [];
@@ -111,17 +114,72 @@ export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; erro
   data.forEach((row, index) => {
     const rowNum = index + 2; // +2 because index is 0-based and we skip header
     
-    // Name is required
-    if (!row.name || typeof row.name !== 'string' || !row.name.trim()) {
-      errors.push(`Row ${rowNum}: Name is required`);
-      return;
+    // Detect which format is being used
+    const hasDetailedFormat = 
+      ('display name' in row || 'first name' in row || 'last name' in row) ||
+      ('main phone #s' in row) ||
+      ('e-mails' in row) ||
+      ('service street 1' in row);
+    
+    let clientName: string;
+    let clientEmail: string | undefined;
+    let clientPhone: string | undefined;
+    let clientAddress: string | undefined;
+    
+    if (hasDetailedFormat) {
+      // Detailed format - construct name from available fields
+      const displayName = row['display name'] as string;
+      const companyName = row['company name'] as string;
+      const firstName = row['first name'] as string;
+      const lastName = row['last name'] as string;
+      
+      // Priority: Display Name > First+Last > Company Name
+      if (displayName && displayName.trim()) {
+        clientName = displayName.trim();
+      } else if (firstName && lastName) {
+        clientName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      } else if (firstName) {
+        clientName = firstName.trim();
+      } else if (companyName && companyName.trim()) {
+        clientName = companyName.trim();
+      } else {
+        errors.push(`Row ${rowNum}: No name found (need Display Name, First/Last Name, or Company Name)`);
+        return;
+      }
+      
+      // Map phone field
+      clientPhone = (row['main phone #s'] || row['phone']) as string | undefined;
+      
+      // Map email field
+      clientEmail = (row['e-mails'] || row['email']) as string | undefined;
+      
+      // Construct address from street, city, state, zip
+      const street = (row['service street 1'] || '') as string;
+      const city = (row['service city'] || '') as string;
+      const state = (row['service state'] || '') as string;
+      const zip = (row['service zip code'] || '') as string;
+      
+      const addressParts = [street, city, state, zip].filter(p => p && p.trim());
+      clientAddress = addressParts.length > 0 ? addressParts.join(', ') : undefined;
+      
+    } else {
+      // Simple format - use name, email, phone, address directly
+      if (!row.name || typeof row.name !== 'string' || !row.name.trim()) {
+        errors.push(`Row ${rowNum}: Name is required`);
+        return;
+      }
+      
+      clientName = String(row.name).trim();
+      clientEmail = row.email ? String(row.email).trim() : undefined;
+      clientPhone = row.phone ? String(row.phone).trim() : undefined;
+      clientAddress = row.address ? String(row.address).trim() : undefined;
     }
     
     // Email validation (if provided)
-    if (row.email && typeof row.email === 'string' && row.email.trim()) {
+    if (clientEmail && clientEmail.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(row.email.trim())) {
-        errors.push(`Row ${rowNum}: Invalid email format`);
+      if (!emailRegex.test(clientEmail.trim())) {
+        errors.push(`Row ${rowNum}: Invalid email format: ${clientEmail}`);
         return;
       }
     }
@@ -141,10 +199,10 @@ export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; erro
     }
     
     valid.push({
-      name: String(row.name).trim(),
-      email: row.email ? String(row.email).trim() : undefined,
-      phone: row.phone ? String(row.phone).trim() : undefined,
-      address: row.address ? String(row.address).trim() : undefined,
+      name: clientName,
+      email: clientEmail,
+      phone: clientPhone,
+      address: clientAddress,
       vip: vipValue
     });
   });
@@ -208,9 +266,11 @@ export function downloadCSV(filename: string, csvContent: string) {
 
 /**
  * Get sample CSV template for clients
+ * Returns detailed format matching Google Sheets structure
  */
 export function getClientCSVTemplate(): string {
-  return 'name,email,phone,address,vip\n' +
-         'John Doe,john@example.com,(555) 123-4567,"123 Main St, New York, NY 10001",false\n' +
-         'Jane Smith,jane@example.com,(555) 987-6543,"456 Oak Ave, Brooklyn, NY 11201",true';
+  return 'Display Name,Company Name,First Name,Last Name,Main Phone #s,E-mails,Service Street 1,Service City,Service State,Service Zip code\n' +
+         'John Doe,,John,Doe,5551234567,john@example.com,123 Main St,Cumming,Georgia,30040\n' +
+         'Jane Smith,,Jane,Smith,5559876543,jane@example.com,456 Oak Ave,Ball Ground,Georgia,30107\n' +
+         'ACME Corp,ACME Corp,,,5555551234,contact@acme.com,789 Business Blvd,Cumming,Georgia,30041';
 }

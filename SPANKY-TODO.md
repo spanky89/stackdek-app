@@ -7,8 +7,40 @@
 
 ## 🔥 CRITICAL (Do First - Today)
 
-### 1. **Stripe Integration** (60 min)
-**What:** Set up Stripe for contractor payment processing
+### 1. **Storage Buckets for Photo/Video Upload** (5 min) ✅ **COMPLETE - WORKING**
+**What:** Create 2 storage buckets in Supabase for job photo/video uploads
+
+**Steps:**
+1. Go to https://supabase.com/dashboard/project/duhmbhxlmvczrztccmus/storage/buckets
+2. Check if buckets exist:
+   - `quote-videos` (exact spelling, lowercase)
+   - `quote-photos` (exact spelling, lowercase)
+3. If missing or named wrong, create them:
+   - Click "New Bucket"
+   - Name: `quote-videos`
+   - Public: Yes ✅
+   - File size limit: 50 MB (Supabase free tier limit)
+   - Click "Create"
+4. Repeat for photos:
+   - Click "New Bucket"
+   - Name: `quote-photos`
+   - Public: Yes ✅
+   - File size limit: 10 MB
+   - Click "Create"
+5. Test: Go to any job → Notes tab → Upload a photo
+
+**Why:** Photo and video upload failing (error message shown in screenshot)
+
+**Status:** ✅ FIXED - Bucket names were wrong (Mar 3, 8:38 AM)
+
+**Root Cause:** Buckets had wrong names or capitalization. MUST be exactly `quote-photos` and `quote-videos` (lowercase, with hyphens).
+
+**Quick Guide:** See `FIX-PHOTO-VIDEO-UPLOAD.md`
+
+---
+
+### 2. **Stripe Test → Live Mode** (60 min)
+**What:** Switch Stripe from test mode to live mode for real payments
 
 **Steps:**
 1. Create Stripe account at https://stripe.com (or log into existing)
@@ -62,7 +94,7 @@
 
 ---
 
-### 3. **Supabase Storage Buckets** (15 min)
+### 4. **Supabase Storage Buckets - Company Logos** (15 min)
 **What:** File uploads (company logos, invoice attachments, profile pics)
 
 **Steps:**
@@ -96,7 +128,7 @@
 
 ---
 
-### 4. **Domain Linking** (30 min)
+### 5. **Domain Linking** (30 min)
 **What:** Point custom domains to Vercel deployments
 
 **Steps:**
@@ -138,7 +170,36 @@ After domains are live, update in Vercel:
 
 ## 🟡 HIGH PRIORITY (Do Today/Tomorrow)
 
-### 5. **Supabase OAuth Credentials** (15 min)
+### 6. **Supabase Email Provider (3rd Party SMTP)** (20 min) ⚠️ PRODUCTION REQUIREMENT
+**What:** Replace Supabase's built-in email service with a proper SMTP provider
+
+**Why:** Supabase's email service has rate limits and is NOT recommended for production use. You'll get blocked when sending confirmation/reset emails at scale.
+
+**Recommended Providers:**
+- **Resend** (easiest, already have API key) - FREE tier: 3,000 emails/month, 100/day
+- **SendGrid** - FREE tier: 100 emails/day
+- **AWS SES** - $0.10 per 1,000 emails (cheapest at scale)
+- **Mailgun** - FREE tier: 5,000 emails/month
+
+**Steps (Using Resend):**
+1. Go to Supabase Dashboard → Project Settings → Auth → Email Provider
+2. Select "Custom SMTP"
+3. Fill in Resend SMTP settings:
+   - Host: `smtp.resend.com`
+   - Port: `465` or `587`
+   - Username: `resend`
+   - Password: Your Resend API key (`re_63atMTws_DDW7twdEY2eHsHvnXNdkkEa2`)
+   - Sender email: `StackDek <noreply@stackdek.com>`
+4. Click "Save"
+5. Test with signup/password reset
+
+**Status:** ⚠️ Using Supabase built-in (rate limited) - MUST SWITCH before launch
+
+**Docs:** https://supabase.com/docs/guides/auth/auth-smtp
+
+---
+
+### 7. **Supabase OAuth Credentials** (15 min)
 **What:** Google Sign-in already works, but verify config
 
 **Steps:**
@@ -153,7 +214,7 @@ After domains are live, update in Vercel:
 
 ---
 
-### 6. **Test All Flows End-to-End** (60 min)
+### 8. **Test All Flows End-to-End** (60 min)
 **What:** Manual QA before launch
 
 **Checklist:**
@@ -174,7 +235,7 @@ After domains are live, update in Vercel:
 
 ---
 
-### 7. **Update App URLs in Code** (10 min)
+### 9. **Update App URLs in Code** (10 min)
 **What:** After domains are linked, update hardcoded URLs
 
 **Files to check:**
@@ -190,7 +251,7 @@ After domains are live, update in Vercel:
 
 ## 🟢 NICE TO HAVE (Before Launch)
 
-### 8. **Google Maps API Key** (Optional)
+### 10. **Google Maps API Key** (Optional)
 **What:** "Navigate to client" button in job details
 
 **Steps:**
@@ -204,7 +265,7 @@ After domains are live, update in Vercel:
 
 ---
 
-### 9. **Favicon + App Icons** (10 min)
+### 11. **Favicon + App Icons** (10 min)
 **What:** Browser tab icon, mobile home screen icon
 
 **Steps:**
@@ -217,7 +278,7 @@ After domains are live, update in Vercel:
 
 ---
 
-### 10. **Error Monitoring** (15 min)
+### 12. **Error Monitoring** (15 min)
 **What:** Track production errors (Sentry/LogRocket)
 
 **Options:**
@@ -238,33 +299,39 @@ After domains are live, update in Vercel:
 ## 📊 SUMMARY
 
 ### ⏰ Time Estimates
-- **Critical (Do First):** ~2 hours 5 min
-- **High Priority:** ~1 hour 25 min
+- **Critical (Do First):** ~2 hours 10 min
+- **High Priority:** ~1 hour 45 min (added 20 min for email provider)
 - **Nice to Have:** ~35 min
-- **Total:** ~4 hours
+- **Total:** ~4 hours 30 min
 
 ### ✅ Completion Status
 - [x] Help docs deployed
 - [x] Technical SEO deployed
 - [x] Welcome email code built (needs Resend setup)
-- [ ] Stripe integration
-- [ ] Resend setup + deploy
-- [ ] Storage buckets
-- [ ] Domain linking
+- [x] Products/Services import/export feature
+- [x] Domain linking ✅ DONE
+- [x] Email templates customized (confirmation, reset password) ✅ DONE
+- [x] Storage buckets for photo/video ✅ FIXED (Mar 3, 8:38 AM)
+- [ ] Stripe test → live mode
+- [ ] Supabase 3rd party email provider ⚠️ CRITICAL for production
+- [ ] Storage buckets for logos (company-logos, attachments, profile-images)
 - [ ] End-to-end testing
 
 ---
 
 ## 🚀 Quick Launch Path (Minimum Viable)
 
-If you're short on time, **do these 4 things only:**
+If you're short on time, **do these 6 things only:**
 
-1. **Stripe setup** (60 min) - payments are core functionality
-2. **Resend setup** (20 min) - welcome emails set professional tone
-3. **Storage buckets** (15 min) - logo uploads needed in Settings
-4. **End-to-end test** (30 min) - make sure nothing breaks
+1. **Storage buckets for media** (5 min) ⚡ - photo/video upload broken without this
+2. **Stripe setup** (60 min) - payments are core functionality
+3. **3rd party email provider** (20 min) ⚠️ - Supabase built-in will rate limit in production
+4. **Storage buckets for logos** (15 min) - logo uploads needed in Settings
+5. **End-to-end test** (30 min) - make sure nothing breaks
 
-**Total:** 2 hours 5 minutes → Ready to launch
+**Total:** 2 hours 10 minutes → Ready to launch
+
+**Note:** Email templates are already customized (confirmation, reset password) ✅
 
 Domains and nice-to-haves can happen post-launch.
 
