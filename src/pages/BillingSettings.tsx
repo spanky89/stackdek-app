@@ -61,9 +61,6 @@ export default function BillingSettings() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [message, setMessage] = useState('')
-  const [passwordResetSent, setPasswordResetSent] = useState(false)
-  const [passwordResetLoading, setPasswordResetLoading] = useState(false)
-  const [passwordResetError, setPasswordResetError] = useState('')
 
   useEffect(() => {
     fetchCompany()
@@ -85,32 +82,6 @@ export default function BillingSettings() {
       console.error(err)
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handlePasswordReset() {
-    setPasswordResetLoading(true)
-    setPasswordResetError('')
-    setPasswordResetSent(false)
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.email) {
-        setPasswordResetError('No email found for current user')
-        return
-      }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      })
-
-      if (error) throw error
-
-      setPasswordResetSent(true)
-    } catch (err: any) {
-      setPasswordResetError(err.message || 'Failed to send password reset email')
-    } finally {
-      setPasswordResetLoading(false)
     }
   }
 
@@ -249,44 +220,6 @@ export default function BillingSettings() {
                 <p className="text-sm text-neutral-600">/month</p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Password Reset Section */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Password & Security</h2>
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-600">
-              Reset your password by receiving a secure link via email.
-            </p>
-
-            {passwordResetSent && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-green-800">
-                  ✅ <strong>Password reset email sent!</strong> Check your inbox and follow the link to reset your password.
-                </p>
-              </div>
-            )}
-
-            {passwordResetError && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">
-                  ❌ {passwordResetError}
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={handlePasswordReset}
-              disabled={passwordResetLoading || passwordResetSent}
-              className="px-6 py-2.5 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              {passwordResetLoading ? 'Sending...' : passwordResetSent ? 'Email Sent ✓' : 'Send Password Reset Email'}
-            </button>
-
-            <p className="text-xs text-neutral-500">
-              💡 The reset link will expire in 1 hour for security purposes.
-            </p>
           </div>
         </div>
 
