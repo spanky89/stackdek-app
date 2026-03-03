@@ -89,7 +89,7 @@ function AuthCallbackPage() {
     let timeoutId: NodeJS.Timeout;
 
     // Supabase automatically parses the callback URL
-    // Check if OAuth user needs to set up password
+    // Simple redirect - just get user to home
     const checkSession = async () => {
       try {
         console.log('[AuthCallback] Checking session...');
@@ -102,20 +102,9 @@ function AuthCallbackPage() {
         }
 
         if (data.session) {
-          const user = data.session.user;
-          console.log('[AuthCallback] User found:', user.email);
-          console.log('[AuthCallback] Providers:', user.app_metadata?.providers);
-          
-          const providers = user.app_metadata?.providers || [];
-          
-          // If user signed up with OAuth (not email), redirect to password setup
-          if (providers.includes('google') && !providers.includes('email')) {
-            console.log('[AuthCallback] OAuth user - redirecting to password setup');
-            nav("/setup-password", { replace: true });
-          } else {
-            console.log('[AuthCallback] Regular user - redirecting to home');
-            nav("/home", { replace: true });
-          }
+          console.log('[AuthCallback] Session found - redirecting to home');
+          // TODO: Add password setup check later, for now just go to home
+          nav("/home", { replace: true });
         } else {
           console.log('[AuthCallback] No session found - redirecting to login');
           nav("/login", { replace: true });
