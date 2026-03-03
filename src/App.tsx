@@ -86,67 +86,24 @@ function AuthCallbackPage() {
   const nav = useNavigate();
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    let redirected = false;
-
     // Supabase automatically parses the callback URL
-    // Simple redirect - just get user to home
+    // Redirect to home after OAuth login
     const checkSession = async () => {
-      if (redirected) return;
-      
-      try {
-        console.log('[AuthCallback] Checking session...');
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (redirected) return; // Double-check before redirecting
-        
-        if (error) {
-          console.error('[AuthCallback] Session error:', error);
-          redirected = true;
-          nav("/login", { replace: true });
-          return;
-        }
-
-        if (data.session) {
-          console.log('[AuthCallback] Session found - redirecting to home');
-          redirected = true;
-          nav("/home", { replace: true });
-        } else {
-          console.log('[AuthCallback] No session found - redirecting to login');
-          redirected = true;
-          nav("/login", { replace: true });
-        }
-      } catch (err) {
-        console.error('[AuthCallback] Unexpected error:', err);
-        if (!redirected) {
-          redirected = true;
-          nav("/login", { replace: true });
-        }
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        nav("/home", { replace: true });
+      } else {
+        nav("/login", { replace: true });
       }
     };
 
-    // Try immediately
-    checkSession();
-
-    // Failsafe: redirect after 3 seconds if still stuck
-    timeoutId = setTimeout(() => {
-      if (!redirected) {
-        console.warn('[AuthCallback] Timeout - force redirecting to home');
-        redirected = true;
-        nav("/home", { replace: true });
-      }
-    }, 3000);
-
-    return () => clearTimeout(timeoutId);
+    // Give Supabase a moment to process the callback
+    setTimeout(checkSession, 1000);
   }, [nav]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-900 mx-auto mb-4"></div>
-        <p className="text-neutral-600">Processing authentication…</p>
-        <p className="text-xs text-neutral-500 mt-2">This should only take a moment</p>
-      </div>
+      <p className="text-neutral-600">Processing authentication…</p>
     </div>
   );
 }
