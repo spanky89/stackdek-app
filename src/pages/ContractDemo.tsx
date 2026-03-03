@@ -2,19 +2,28 @@ import { useState } from 'react'
 import AppLayout from '../components/AppLayout'
 import ContractUpload from '../components/ContractUpload'
 import ContractPreview from '../components/ContractPreview'
+import SignatureModal from '../components/SignatureModal'
 
 export default function ContractDemo() {
   const [contractFile, setContractFile] = useState<File | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [showSignatureModal, setShowSignatureModal] = useState(false)
+  const [signatureData, setSignatureData] = useState<{ signature: string; name: string } | null>(null)
 
   const handleFileSelect = (file: File | null) => {
     setContractFile(file)
     setShowPreview(false)
+    setSignatureData(null)
   }
 
   const handleSign = () => {
-    alert('Signature modal will open here!')
-    // This will trigger the signature modal in the next phase
+    setShowSignatureModal(true)
+  }
+
+  const handleSignatureComplete = (signature: string, name: string) => {
+    setSignatureData({ signature, name })
+    setShowSignatureModal(false)
+    alert(`Contract signed by ${name}!`)
   }
 
   return (
@@ -100,14 +109,47 @@ export default function ContractDemo() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Contract Status:</span>
-                <span className={`font-medium ${contractFile ? 'text-green-600' : 'text-neutral-400'}`}>
-                  {contractFile ? '✓ Contract Attached' : 'No Contract'}
+                <span className={`font-medium ${signatureData ? 'text-green-600' : contractFile ? 'text-blue-600' : 'text-neutral-400'}`}>
+                  {signatureData ? '✓ Signed' : contractFile ? 'Pending Signature' : 'No Contract'}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Signature Data (if signed) */}
+          {signatureData && (
+            <div className="bg-white rounded-lg border border-green-200 p-6">
+              <h2 className="text-lg font-semibold text-green-900 mb-4">
+                ✓ Contract Signed
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-neutral-600 mb-2">Signed by:</p>
+                  <p className="text-base font-medium text-neutral-900">{signatureData.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-neutral-600 mb-2">Signature:</p>
+                  <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50 inline-block">
+                    <img src={signatureData.signature} alt="Signature" className="max-h-20" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-neutral-600">Signed at:</p>
+                  <p className="text-sm text-neutral-900">{new Date().toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Signature Modal */}
+      <SignatureModal
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        onSign={handleSignatureComplete}
+        quoteName="Mock Quote #Q-1001 - John Smith"
+      />
     </AppLayout>
   )
 }
