@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 
-type AuthMode = 'signin' | 'signup' | 'forgot'
+type AuthMode = 'signin' | 'signup'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [resetEmailSent, setResetEmailSent] = useState(false)
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
@@ -100,31 +99,6 @@ export default function LoginPage() {
     }
   }
 
-  async function handleForgotPassword(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    // Validation
-    if (!EMAIL_RE.test(email)) {
-      setError('Please enter a valid email address.')
-      setLoading(false)
-      return
-    }
-
-    try {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      })
-      if (err) throw err
-      setResetEmailSent(true)
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset email')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -136,7 +110,7 @@ export default function LoginPage() {
           <p className="text-sm text-neutral-600">Built by contractors for contractors</p>
         </div>
 
-        {/* Success State - Signup */}
+        {/* Success State */}
         {success ? (
           <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -160,70 +134,6 @@ export default function LoginPage() {
             >
               Back to sign in →
             </button>
-          </div>
-        ) : resetEmailSent ? (
-          <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold mb-2">Password reset email sent!</h2>
-            <p className="text-sm text-neutral-600 mb-6">
-              Check your inbox at <span className="font-medium text-neutral-700">{email}</span> and follow the link to reset your password.
-            </p>
-            <button
-              onClick={() => {
-                setResetEmailSent(false)
-                setMode('signin')
-                setEmail('')
-              }}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Back to sign in →
-            </button>
-          </div>
-        ) : mode === 'forgot' ? (
-          <div className="bg-white rounded-lg border border-neutral-200 p-6">
-            <h2 className="text-xl font-bold mb-2">Reset your password</h2>
-            <p className="text-sm text-neutral-600 mb-6">
-              Enter your email and we'll send you a link to reset your password.
-            </p>
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
-
-              <button
-                type="submit"
-                disabled={loading || !email}
-                className="w-full py-2.5 bg-neutral-900 text-white font-medium rounded-lg hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-              >
-                {loading ? 'Sending…' : 'Send Reset Link'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signin')
-                  setError('')
-                }}
-                className="w-full text-sm text-neutral-600 hover:text-neutral-900"
-              >
-                ← Back to sign in
-              </button>
-            </form>
           </div>
         ) : (
           <>
@@ -309,13 +219,9 @@ export default function LoginPage() {
                 />
                 <span className="text-neutral-600">Remember me</span>
               </label>
-              <button
-                type="button"
-                onClick={() => setMode('forgot')}
-                className="text-neutral-600 hover:text-neutral-900"
-              >
+              <a href="#" className="text-neutral-600 hover:text-neutral-900">
                 Forgot password?
-              </button>
+              </a>
             </div>
           )}
 
