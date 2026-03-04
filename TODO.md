@@ -35,6 +35,27 @@
 - Verify deposit paid amount shows (if from quote with deposit)
 **Migration:** `12_add_title_to_quote_line_items.sql` ✅ Applied
 
+### 4. Build Public Request Form
+**Status:** Feature planned but not built  
+**Issue:** Settings shows request form URL (`/request/{company_id}`) but the page doesn't exist  
+**What exists:**
+- Settings page with embed code generator
+- Internal requests list/detail pages (protected)
+- Database table probably exists
+**What's missing:**
+- Public request form page (`src/pages/RequestFormPublic.tsx`)
+- Route in App.tsx for `/request/:companyId`
+- Ability for anonymous users to submit requests
+**Priority:** Medium (nice-to-have for lead generation)
+
+### 5. Public Invoice Company Logo/Name Display
+**Status:** Migration created, needs testing  
+**Issue:** Public invoices show "Business Name" instead of real company name, logo not showing  
+**Solution:** Added company_logo_url and company_name columns to invoices table  
+**Migration:** `13_add_company_logo_to_invoices.sql` (needs to be run in Supabase)  
+**Test URL:** https://stackdek-app.vercel.app/invoice/public/3ac3eabe-d78f-489d-aaef-79d818c775d4  
+**After migration:** Should show "Barber Landscaping" and logo
+
 ### 4. Invoice Detail Button Styling
 **Status:** ✅ DONE (Mar 3, 2026)
 - Removed "Request via Stripe" button
