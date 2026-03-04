@@ -61,6 +61,7 @@ export default function BillingSettings() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [message, setMessage] = useState('')
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   useEffect(() => {
     fetchCompany()
@@ -124,6 +125,43 @@ export default function BillingSettings() {
     } catch (err: any) {
       setMessage(`❌ ${err.message}`)
       setProcessing(false)
+    }
+  }
+
+  async function handleManageSubscription() {
+    if (!company) return
+
+    setOpeningPortal(true)
+    setMessage('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setMessage('❌ Not authenticated')
+        setOpeningPortal(false)
+        return
+      }
+
+      const response = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to open portal')
+      }
+
+      // Redirect to Stripe Customer Portal
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (err: any) {
+      setMessage(`❌ ${err.message}`)
+      setOpeningPortal(false)
     }
   }
 
@@ -221,6 +259,22 @@ export default function BillingSettings() {
               </div>
             )}
           </div>
+          
+          {/* Manage Subscription Button */}
+          {(company.subscription_status === 'active' || company.subscription_status === 'past_due') && (
+            <div className="mt-4 pt-4 border-t border-neutral-200">
+              <button
+                onClick={handleManageSubscription}
+                disabled={openingPortal}
+                className="text-sm px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 rounded-lg font-medium disabled:opacity-50 transition"
+              >
+                {openingPortal ? 'Opening...' : '⚙️ Manage Subscription'}
+              </button>
+              <p className="text-xs text-neutral-500 mt-2">
+                Cancel, update payment method, or view invoices
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Trial Warning */}
