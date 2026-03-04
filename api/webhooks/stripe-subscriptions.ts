@@ -118,12 +118,16 @@ export default async function handler(
       }
 
       // Update subscription status and period end
+      const updateData: any = { subscription_status: 'active' };
+      
+      // Only set period_end if it exists
+      if (subscription.current_period_end) {
+        updateData.subscription_current_period_end = new Date(subscription.current_period_end * 1000).toISOString();
+      }
+
       const { error: updateError } = await supabase
         .from('companies')
-        .update({
-          subscription_status: 'active',
-          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        })
+        .update(updateData)
         .eq('id', companyId);
 
       if (updateError) {
@@ -209,13 +213,19 @@ export default async function handler(
       }
 
       // Update subscription details
+      const updateData: any = {
+        subscription_status: subscription.status === 'active' ? 'active' : subscription.status as any,
+        subscription_plan: planId || 'basic',
+      };
+      
+      // Only set period_end if it exists (might be null on first creation)
+      if (subscription.current_period_end) {
+        updateData.subscription_current_period_end = new Date(subscription.current_period_end * 1000).toISOString();
+      }
+
       const { error: updateError } = await supabase
         .from('companies')
-        .update({
-          subscription_status: subscription.status === 'active' ? 'active' : subscription.status as any,
-          subscription_plan: planId || 'basic',
-          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        })
+        .update(updateData)
         .eq('id', companyId);
 
       if (updateError) {
