@@ -158,7 +158,7 @@ export default function LoginPage() {
               }}
               className="text-sm text-blue-600 hover:underline"
             >
-              Back to sign in ΓåÆ
+              Back to sign in
             </button>
           </div>
         ) : resetEmailSent ? (
@@ -180,7 +180,7 @@ export default function LoginPage() {
               }}
               className="text-sm text-blue-600 hover:underline"
             >
-              Back to sign in ΓåÆ
+              Back to sign in
             </button>
           </div>
         ) : mode === 'forgot' ? (
@@ -210,7 +210,7 @@ export default function LoginPage() {
                 disabled={loading || !email}
                 className="w-full py-2.5 bg-neutral-900 text-white font-medium rounded-lg hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
               >
-                {loading ? 'SendingΓÇª' : 'Send Reset Link'}
+                {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
 
               <button
@@ -221,7 +221,7 @@ export default function LoginPage() {
                 }}
                 className="w-full text-sm text-neutral-600 hover:text-neutral-900"
               >
-                ΓåÉ Back to sign in
+                Back to sign in
               </button>
             </form>
           </div>
