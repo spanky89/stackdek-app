@@ -195,6 +195,18 @@ export default function RequestFormPublic() {
           <p className="text-xs text-neutral-500 text-center mt-6">
             By submitting this form, you agree to be contacted about your service request.
           </p>
+
+          <p className="text-xs text-neutral-400 text-center mt-4">
+            Powered by{' '}
+            <a 
+              href="https://stackdek.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-neutral-600 hover:text-neutral-900 underline"
+            >
+              StackDek
+            </a>
+          </p>
         </div>
       </div>
     </div>
