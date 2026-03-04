@@ -321,6 +321,10 @@ export default function App() {
           element={<InvoicePublicPage />}
         />
         <Route
+          path="/request/demo"
+          element={<RequestFormPublic />}
+        />
+        <Route
           path="/request/:companyId"
           element={<RequestFormPublic />}
         />
