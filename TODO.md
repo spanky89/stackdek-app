@@ -31,6 +31,45 @@
 
 ---
 
+## Scheduled: Lead Blaster Build (4:30 AM - March 4, 2026)
+
+### **NEW: Lead Blaster - Sales Outreach Tool**
+**Status:** ⏰ Scheduled for 4:30 AM EST  
+**Duration:** 2-3 hours (complete by 7:00 AM)  
+**Priority:** HIGH - Revenue generation tool
+
+**What It Does:**
+- Simple app for calling/texting 18k contractor leads
+- Click Call → Opens phone dialer (TCPA compliant)
+- Click Text → Modal with templates → Opens SMS app
+- Tracks: Call count, text count, status, notes, last contact
+- Filters: Not contacted, interested, callbacks, DNC
+- Export progress as CSV
+- Mobile-first design
+
+**Build Phases:**
+1. **Phase 1 (45 min):** CSV upload, lead display, mobile layout
+2. **Phase 2 (45 min):** Call/text buttons, templates, counters
+3. **Phase 3 (45 min):** Status tracking, notes, filters
+4. **Phase 4 (30 min):** Stats dashboard, export, deploy to Vercel
+
+**Tech Stack:**
+- React 19 + TypeScript + Vite
+- TailwindCSS (matching StackDek)
+- LocalStorage (no backend)
+- Papa Parse (CSV)
+- Deploy: Vercel
+
+**Expected Results:**
+- 100 calls/day capability
+- 5-10% interested = 900-1,800 warm leads
+- 10-20% conversion = 90-360 customers
+- $2,610-10,440/month recurring revenue
+
+**Documentation:** See `LEAD-BLASTER-PLAN.md` (7,152 bytes)
+
+---
+
 ## Polish Items
 
 ### 1. Welcome Email Setup
