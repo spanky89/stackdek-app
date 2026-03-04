@@ -1,5 +1,17 @@
 # StackDek TODO List
 
+## 🚀 LAUNCH READY - 40 Minutes to Go Live
+
+**Final Steps:**
+1. Run SQL migration 12 (invoice line items) - 2 min
+2. Run SQL migration 13 (invoice logo/name) - 2 min
+3. Test invoice creation from job - 5 min
+4. Switch Stripe to live mode - 30 min
+5. Test deposit payment - 5 min
+**TOTAL: 44 minutes → REVENUE READY**
+
+---
+
 ## Critical - Revenue Blockers
 
 ### 1. Welcome Email Setup
