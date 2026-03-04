@@ -21,9 +21,7 @@ export default function RequestFormPublic() {
     clientName: '',
     clientEmail: '',
     clientPhone: '',
-    serviceType: '',
-    description: '',
-    requestedDate: ''
+    description: ''
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -48,9 +46,7 @@ export default function RequestFormPublic() {
             client_name: formData.clientName,
             client_email: formData.clientEmail || null,
             client_phone: formData.clientPhone || null,
-            service_type: formData.serviceType || null,
             description: formData.description || null,
-            requested_date: formData.requestedDate || null,
             status: 'pending'
           })
 
@@ -91,9 +87,7 @@ export default function RequestFormPublic() {
                 clientName: '',
                 clientEmail: '',
                 clientPhone: '',
-                serviceType: '',
-                description: '',
-                requestedDate: ''
+                description: ''
               })
             }}
             className="px-6 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800"
@@ -165,41 +159,6 @@ export default function RequestFormPublic() {
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 placeholder="(555) 123-4567"
-              />
-            </div>
-
-            {/* Service Type */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Service Type
-              </label>
-              <select
-                name="serviceType"
-                value={formData.serviceType}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-              >
-                <option value="">Select a service...</option>
-                <option value="General Service">General Service</option>
-                <option value="Landscaping">Landscaping</option>
-                <option value="Hardscaping">Hardscaping</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Irrigation">Irrigation</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            {/* Requested Date */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Preferred Date
-              </label>
-              <input
-                type="date"
-                name="requestedDate"
-                value={formData.requestedDate}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
               />
             </div>
 
