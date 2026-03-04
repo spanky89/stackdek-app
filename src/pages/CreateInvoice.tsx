@@ -55,6 +55,8 @@ export default function CreateInvoicePage() {
   const [taxAmount, setTaxAmount] = useState('0')
   const [depositPaidAmount, setDepositPaidAmount] = useState(0)
   const [companyId, setCompanyId] = useState<string | null>(null)
+  const [companyName, setCompanyName] = useState<string | null>(null)
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,9 +66,11 @@ export default function CreateInvoicePage() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
-        const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
+        const { data: company } = await supabase.from('companies').select('id, name, logo_url').eq('owner_id', user.id).single()
         if (!company) return
         setCompanyId(company.id)
+        setCompanyName(company.name || null)
+        setCompanyLogoUrl(company.logo_url || null)
 
         // Fetch all clients
         const { data: clientData } = await supabase
@@ -229,6 +233,8 @@ export default function CreateInvoicePage() {
         total_amount: totalDue,
         deposit_paid_amount: depositPaidAmount,
         status: 'draft',
+        company_name: companyName,
+        company_logo_url: companyLogoUrl,
       }).select().single()
 
       if (invErr) { setError(invErr.message); return }

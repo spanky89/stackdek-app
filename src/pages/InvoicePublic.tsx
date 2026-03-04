@@ -33,6 +33,8 @@ type Invoice = {
   due_date: string | null
   created_at: string
   paid_date: string | null
+  company_name: string | null
+  company_logo_url: string | null
   clients: { 
     id: string
     name: string
@@ -313,16 +315,16 @@ export default function InvoicePublicPage() {
           {/* Header */}
           <div className="flex justify-between items-start mb-12 pb-6 border-b-2 border-neutral-200">
             <div className="flex items-start gap-4">
-              {invoice.companies?.logo_url && (
+              {(invoice.company_logo_url || invoice.companies?.logo_url) && (
                 <img
-                  src={invoice.companies.logo_url}
+                  src={invoice.company_logo_url || invoice.companies?.logo_url || ''}
                   alt="Business Logo"
                   className="h-20 w-20 object-contain flex-shrink-0"
                 />
               )}
               <div>
                 <h1 className="text-3xl font-bold text-neutral-900">
-                  {invoice.companies?.name || 'Business Name'}
+                  {invoice.company_name || invoice.companies?.name || 'Business Name'}
                 </h1>
                 {(invoice.companies?.street_address || invoice.companies?.city) && (
                   <p className="text-sm text-neutral-600 mt-2">
