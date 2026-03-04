@@ -1,14 +1,20 @@
 # StackDek TODO List
 
-## 🚀 LAUNCH READY - 40 Minutes to Go Live
+## 🚀 LAUNCH READY - 5 Minutes to Go Live
 
-**Final Steps:**
-1. Run SQL migration 12 (invoice line items) - 2 min
-2. Run SQL migration 13 (invoice logo/name) - 2 min
-3. Test invoice creation from job - 5 min
-4. Switch Stripe to live mode - 30 min
-5. Test deposit payment - 5 min
-**TOTAL: 44 minutes → REVENUE READY**
+**✅ STRIPE LIVE MODE COMPLETE** (Mar 4, 1:33 AM)
+- All Vercel environment variables updated with live keys
+- Two webhooks created (subscriptions + connect)
+- Webhook signing secrets configured
+- App redeployed with live mode
+
+**Final Test (5 min):**
+1. Create test quote with $1 deposit
+2. Pay with real card
+3. Verify webhook fires
+4. Confirm quote → job creation
+
+**Then:** READY FOR BETA CUSTOMERS & LEAD CAMPAIGN 🎉
 
 ---
 
