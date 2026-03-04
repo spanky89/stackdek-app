@@ -20,6 +20,21 @@
 
 ## Critical - Revenue Blockers
 
+### Stripe Customer Portal (Cancellation & Billing Management)
+**Status:** Not implemented  
+**Issue:** Users have no way to cancel subscriptions or update payment methods  
+**Solution:** Enable Stripe Customer Portal (10 minutes)
+- Stripe Dashboard → Settings → Billing → Customer Portal
+- Configure: Cancel at period end, update payment method, view invoices
+- Add "Manage Subscription" button in BillingSettings.tsx
+- Create API endpoint: `/api/create-portal-session`
+**Priority:** HIGH - Required before charging customers
+**Time:** 10-15 minutes
+
+---
+
+## Polish Items
+
 ### 1. Welcome Email Setup
 **Status:** Ready to deploy  
 **Time:** 30 minutes  
