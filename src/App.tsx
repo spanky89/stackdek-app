@@ -49,6 +49,7 @@ import ResetPasswordPage from "./pages/ResetPassword";
 import ContractDemo from "./pages/ContractDemo";
 import TeamManagement from "./pages/TeamManagement";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import JobCostingDemo from "./pages/JobCostingDemo";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -419,6 +420,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <EmployeeDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/job-costing-demo"
+          element={
+            <ProtectedRoute>
+              <JobCostingDemo />
             </ProtectedRoute>
           }
         />
