@@ -1,37 +1,112 @@
 # StackDek TODO List
 
-## 🔔 Notifications & Monitoring
+## Critical - Revenue Blockers
 
-### Telegram Signup Notifications (Later)
-**Priority:** Medium  
-**Status:** Saved for post-launch
+### 1. Welcome Email Setup
+**Status:** Ready to deploy  
+**Time:** 30 minutes  
+**Steps:**
+- Deploy Edge Function: `supabase/functions/send-welcome-email/index.ts`
+- Add `RESEND_API_KEY` to Supabase Edge Function environment
+- Run SQL migration: `migrations/welcome-email-trigger.sql`
+- Test with new user signup
 
-**What it does:** Instant Telegram message when someone signs up with business name, email, and timestamp.
-
-**Setup steps:**
-1. Create Edge Function `signup-notification` in Supabase
-2. Get bot token from @BotFather on Telegram (send `/newbot`)
-3. Add env vars to Supabase Edge Functions:
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID=8415065631`
-4. Deploy function
-5. Run SQL webhook trigger (saved in notes below)
-
-**Reference:** See conversation from Feb 21, 2026 for full code + SQL.
-
----
-
-## ✅ Completed
-
-- [x] **Supabase Storage Buckets** (Feb 21, 2026)
-  - Created `quotes` bucket (public, for client PDF viewing)
-  - Created `invoices` bucket (private, signed URLs only)
-  - Created `company-logos` bucket (public, for branding)
-  - Applied RLS policies (users can only access their own company files)
-  - File structure: `{bucket}/{company_id}/{filename}`
+### 2. Stripe Live Mode
+**Status:** Manual switch needed  
+**Time:** 30 minutes  
+**Steps:**
+- Switch Stripe dashboard to live mode
+- Update Vercel environment variable `STRIPE_PUBLISHABLE_KEY`
+- Update webhook endpoint to production URL
+- Test deposit payment flow
 
 ---
 
-## 📋 Active Tasks
+## High Priority - Testing & Polish
 
-_(Add current work here)_
+### 3. Test Invoice Creation from Jobs
+**Status:** Migration applied, needs testing  
+**What to test:**
+- Go to completed job
+- Click "Create Invoice"
+- Verify line item titles show up
+- Verify descriptions show up
+- Verify quantities/prices/totals calculate
+- Verify deposit paid amount shows (if from quote with deposit)
+**Migration:** `12_add_title_to_quote_line_items.sql` ✅ Applied
+
+### 4. Invoice Detail Button Styling
+**Status:** ✅ DONE (Mar 3, 2026)
+- Removed "Request via Stripe" button
+- Changed all buttons to black background
+- Kept delete button red
+
+---
+
+## Medium Priority - Pro Features
+
+### 5. Pro Features Database Integration
+**Status:** UI complete, database pending  
+**Branch:** `pro-features`  
+**Time:** 4-6 hours  
+**Tasks:**
+- Create migrations for contracts, team_members, job_expenses, time_entries tables
+- Set up Supabase Storage buckets (receipts, contracts)
+- Wire up CRUD operations for all Pro features
+- Add RLS policies
+- Test with real data
+- Merge to staging, then main
+
+### 6. Job Costing Polish
+**Status:** UI complete, pending accountant consultation  
+**Tasks:**
+- Talk to accountant about approach
+- Validate liability and compliance
+- Add real OCR (Tesseract.js)
+- Build manager approval queue
+- Export to CSV for accountant
+
+### 7. Marketing Suite Build
+**Status:** Planned, not started  
+**Time:** 4 weeks  
+**Reference:** `MARKETING-SUITE-PLAN.md`
+
+---
+
+## Low Priority - Future Enhancements
+
+### 8. QuickBooks Integration Strategy
+**Status:** Research phase  
+**Tasks:**
+- Consult with accountant
+- Define scope (complement vs replace)
+- Understand compliance requirements
+- Plan integration approach
+
+### 9. Help Documentation
+**Status:** Placeholder exists  
+**Tasks:**
+- Write user guides for each feature
+- Add video walkthroughs
+- FAQ section
+- Onboarding checklist
+
+---
+
+## Completed ✅
+
+- ✅ OAuth login stable
+- ✅ Password reset working
+- ✅ Photo/video upload fixed
+- ✅ Client CSV import with address fields
+- ✅ Character encoding fix (arrow symbols)
+- ✅ Invoice line items title/notes fix
+- ✅ Contract signing UI
+- ✅ Team management UI
+- ✅ Employee dashboard UI
+- ✅ Job costing UI
+- ✅ Invoice detail button styling (Mar 3, 2026)
+
+---
+
+*Last updated: March 3, 2026 - 9:39 PM*
