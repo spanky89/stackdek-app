@@ -31,7 +31,9 @@
 
 ---
 
-## Scheduled: Lead Blaster Build (4:30 AM - March 4, 2026)
+## Scheduled Tasks - March 4, 2026
+
+### **4:30 AM: Lead Blaster Build**
 
 ### **NEW: Lead Blaster - Sales Outreach Tool**
 **Status:** ⏰ Scheduled for 4:30 AM EST  
@@ -67,6 +69,40 @@
 - $2,610-10,440/month recurring revenue
 
 **Documentation:** See `LEAD-BLASTER-PLAN.md` (7,152 bytes)
+
+### **5:00 AM: Qwen3.5 Model Downloads** ⚡
+**Status:** ⏰ Scheduled for 5:00 AM EST  
+**Duration:** 15 minutes (5 min download + 10 min testing)  
+**Priority:** HIGH - Speed optimization + cost savings
+
+**What:**
+- Download qwen3.5:2b (~1.3GB) - Primary model replacement
+- Download qwen3.5:4b (~2.7GB) - Better quality backup
+- Test speed and quality vs current qwen2.5:7b-cpu
+- Replace primary model if tests pass
+
+**Why This Matters:**
+- 2-3x faster responses (3-5 sec vs 8-10 sec)
+- Same quality as qwen2.5:7b (MMLU-Pro 55.3%)
+- 262k context vs 32k (8x larger)
+- Save $30-50/month on API costs
+- Better architecture (Gated Delta Networks)
+
+**Testing Plan:**
+1. Speed benchmarks (all 3 models)
+2. Legal definitions (ParaAi accuracy)
+3. SMS writing (Lead Blaster quality)
+4. Reasoning test (logic)
+5. Instruction following (formatting)
+
+**Expected Results:**
+- qwen3.5:2b: 3-5 sec, same quality → **Replace qwen2.5:7b**
+- qwen3.5:4b: 5-8 sec, better quality → **Use for complex tasks**
+- Save ~$360/year on API costs
+
+**Documentation:**
+- `../ollama/QWEN3.5-DOWNLOAD-SCHEDULE.md` (6,329 bytes) - Full test plan
+- `../ollama/QWEN3.5-SMALL-MODELS-RESEARCH.md` (12,240 bytes) - Research details
 
 ---
 
