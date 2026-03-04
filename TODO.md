@@ -35,11 +35,11 @@
 - Verify deposit paid amount shows (if from quote with deposit)
 **Migration:** `12_add_title_to_quote_line_items.sql` ✅ Applied
 
-### 4. Invoice Detail Button Styling
+### 4. Invoice Detail & Public Invoice Updates
 **Status:** ✅ DONE (Mar 3, 2026)
-- Removed "Request via Stripe" button
-- Changed all buttons to black background
-- Kept delete button red
+- Invoice Detail: Removed "Request via Stripe" button, changed buttons to black (except delete stays red)
+- Public Invoice: Removed "Pay Now" button, added company logo display next to company name
+- Print button changed to black styling
 
 ---
 
