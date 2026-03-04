@@ -127,6 +127,8 @@ export default function InvoicePublicPage() {
           .eq('id', invoiceData.company_id)
           .maybeSingle()
         
+        console.log('Company query result:', { company, error: companyErr })
+        
         if (companyErr) {
           console.error('Company load error:', companyErr)
         }
