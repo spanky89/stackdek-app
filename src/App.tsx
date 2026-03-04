@@ -46,6 +46,7 @@ import AdminGuard from "./components/AdminGuard";
 import HelpPage from "./pages/Help";
 import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 import ResetPasswordPage from "./pages/ResetPassword";
+import RequestFormPublic from "./pages/RequestFormPublic";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -318,6 +319,10 @@ export default function App() {
         <Route
           path="/invoice/public/:token"
           element={<InvoicePublicPage />}
+        />
+        <Route
+          path="/request/:companyId"
+          element={<RequestFormPublic />}
         />
         <Route
           path="/invoices"
