@@ -245,7 +245,7 @@ export default function JobStackPage() {
   const [loading, setLoading] = useState(true)
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [upcomingCount, setUpcomingCount] = useState(0)
-  const [estimatedHours, setEstimatedHours] = useState(0)
+  const [estimatedDays, setEstimatedDays] = useState(0)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -331,7 +331,7 @@ export default function JobStackPage() {
       const totalDays = jobs
         .filter((j: Job) => j.status !== 'completed')
         .reduce((sum: number, j: Job) => sum + (j.estimated_days || 0), 0)
-      setEstimatedHours(Math.ceil(totalDays))
+      setEstimatedDays(Math.ceil(totalDays))
     } finally {
       setLoading(false)
     }
@@ -425,7 +425,7 @@ export default function JobStackPage() {
             <div className="text-xs text-neutral-600 mt-1">Upcoming Jobs</div>
           </div>
           <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
-            <div className="text-2xl font-bold text-neutral-900">{estimatedHours}h</div>
+            <div className="text-2xl font-bold text-neutral-900">{estimatedDays}d</div>
             <div className="text-xs text-neutral-600 mt-1">Est. Time</div>
           </div>
         </div>
