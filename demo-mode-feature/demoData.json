@@ -1,0 +1,154 @@
+{
+  "contacts": [
+    {
+      "name": "John Miller",
+      "phone": "770-555-0123",
+      "email": "john.miller@email.com",
+      "address": "123 Maple Street, Cumming, GA 30041",
+      "type": "Homeowner",
+      "notes": "Referred by neighbor. Very interested in deck work."
+    },
+    {
+      "name": "Sarah Johnson",
+      "phone": "678-555-0456",
+      "email": "sarah.j@email.com",
+      "address": "456 Oak Avenue, Alpharetta, GA 30009",
+      "type": "Homeowner",
+      "notes": "Called about spring cleanup and mulching."
+    },
+    {
+      "name": "Mike Chen",
+      "phone": "404-555-0789",
+      "email": "mchen@email.com",
+      "address": "789 Pine Road, Roswell, GA 30075",
+      "type": "Commercial",
+      "notes": "Property manager - oversees 3 HOA communities."
+    },
+    {
+      "name": "Lisa Anderson",
+      "phone": "470-555-0321",
+      "email": "lisa.anderson@email.com",
+      "address": "321 Birch Lane, Johns Creek, GA 30097",
+      "type": "Homeowner",
+      "notes": "Wants quote on patio installation. Budget: $8-10k"
+    },
+    {
+      "name": "Tom Wilson",
+      "phone": "770-555-0654",
+      "email": "twilson@email.com",
+      "address": "654 Cedar Drive, Suwanee, GA 30024",
+      "type": "Repeat Customer",
+      "notes": "Annual maintenance customer since 2023. Great to work with."
+    }
+  ],
+  "jobs": [
+    {
+      "title": "Deck Repair & Staining",
+      "customer": "John Miller",
+      "address": "123 Maple Street, Cumming, GA 30041",
+      "status": "In Progress",
+      "value": 2400,
+      "scheduledDate": "2026-03-18",
+      "description": "Repair damaged boards, sand, and re-stain entire deck. Customer wants medium brown tone.",
+      "tasks": [
+        "Pick up stain from Home Depot",
+        "Remove old boards (6 boards total)",
+        "Sand entire deck"
+      ]
+    },
+    {
+      "title": "Spring Cleanup Package",
+      "customer": "Sarah Johnson",
+      "address": "456 Oak Avenue, Alpharetta, GA 30009",
+      "status": "Quoted",
+      "value": 850,
+      "scheduledDate": "2026-03-20",
+      "description": "Full yard cleanup, mulch refresh (10 bags), trim hedges, edge beds.",
+      "tasks": [
+        "Follow up - sent quote 3 days ago",
+        "Order mulch if she confirms"
+      ]
+    },
+    {
+      "title": "Patio Installation",
+      "customer": "Lisa Anderson",
+      "address": "321 Birch Lane, Johns Creek, GA 30097",
+      "status": "Scheduled",
+      "value": 9200,
+      "scheduledDate": "2026-03-25",
+      "description": "16x20 paver patio with fire pit area. Customer chose Belgard pavers in Sahara blend.",
+      "tasks": [
+        "Rent compactor (2 days)",
+        "Order pavers - delivery by 3/24",
+        "Confirm fire pit insert brand with customer"
+      ]
+    }
+  ],
+  "quotes": [
+    {
+      "customer": "Sarah Johnson",
+      "jobTitle": "Spring Cleanup Package",
+      "date": "2026-03-12",
+      "lineItems": [
+        { "description": "Yard debris removal", "amount": 250 },
+        { "description": "Mulch installation (10 bags)", "amount": 350 },
+        { "description": "Hedge trimming & bed edging", "amount": 250 }
+      ],
+      "total": 850,
+      "notes": "Quote valid for 30 days. Payment due upon completion.",
+      "status": "Sent"
+    },
+    {
+      "customer": "Lisa Anderson",
+      "jobTitle": "Patio Installation",
+      "date": "2026-03-10",
+      "lineItems": [
+        { "description": "Site prep & excavation", "amount": 1200 },
+        { "description": "Base material & compaction", "amount": 1800 },
+        { "description": "Pavers & installation (320 sq ft)", "amount": 5200 },
+        { "description": "Fire pit area setup", "amount": 1000 }
+      ],
+      "total": 9200,
+      "notes": "50% deposit required to schedule. Balance due upon completion.",
+      "status": "Accepted"
+    }
+  ],
+  "invoices": [
+    {
+      "customer": "Tom Wilson",
+      "jobTitle": "Annual Lawn Maintenance - March",
+      "date": "2026-03-01",
+      "dueDate": "2026-03-15",
+      "lineItems": [
+        { "description": "Monthly lawn service", "amount": 280 },
+        { "description": "Spring fertilizer treatment", "amount": 120 }
+      ],
+      "total": 400,
+      "status": "Paid",
+      "paidDate": "2026-03-05"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Follow up with Sarah Johnson",
+      "description": "Check if she wants to move forward with spring cleanup quote",
+      "dueDate": "2026-03-16",
+      "priority": "High",
+      "relatedJob": "Spring Cleanup Package"
+    },
+    {
+      "title": "Order pavers for Anderson patio",
+      "description": "Belgard Sahara blend - need delivery by March 24",
+      "dueDate": "2026-03-17",
+      "priority": "High",
+      "relatedJob": "Patio Installation"
+    },
+    {
+      "title": "Pick up deck stain",
+      "description": "Medium brown - 2 gallons from Home Depot",
+      "dueDate": "2026-03-17",
+      "priority": "Medium",
+      "relatedJob": "Deck Repair & Staining"
+    }
+  ]
+}
