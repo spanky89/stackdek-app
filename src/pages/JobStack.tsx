@@ -36,6 +36,7 @@ type Job = {
   date_scheduled: string
   location: string
   time_scheduled?: string
+  estimated_hours?: number
   client_id?: string
   created_at?: string
   sort_order?: number
@@ -120,7 +121,7 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
           {/* Address */}
           <p className="text-sm text-neutral-500 mb-3">{job.location}</p>
 
-          {/* Date & Time */}
+          {/* Date & Estimated Hours */}
           <div className="flex items-center justify-between text-sm text-neutral-600 mb-4">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +137,7 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
                 <circle cx="12" cy="12" r="10" strokeWidth="2"/>
                 <polyline points="12 6 12 12 16 14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span>{formatTime(job.time_scheduled)}</span>
+              <span>{job.estimated_hours ? `${job.estimated_hours}h` : '—'}</span>
             </div>
           </div>
 
@@ -197,7 +198,7 @@ function StaticJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
       {/* Address */}
       <p className="text-sm text-neutral-500 mb-3">{job.location}</p>
 
-      {/* Date & Time */}
+      {/* Date & Estimated Hours */}
       <div className="flex items-center justify-between text-sm text-neutral-600 mb-4">
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -213,7 +214,7 @@ function StaticJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
             <circle cx="12" cy="12" r="10" strokeWidth="2"/>
             <polyline points="12 6 12 12 16 14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span>{formatTime(job.time_scheduled)}</span>
+          <span>{job.estimated_hours ? `${job.estimated_hours}h` : '—'}</span>
         </div>
       </div>
 
@@ -313,25 +314,24 @@ export default function JobStackPage() {
       setScheduledJobs(scheduled)
 
       // Load stats
-      const [revenueRes, hoursRes] = await Promise.all([
+      const [revenueRes] = await Promise.all([
         // Total revenue from paid invoices
         supabase
           .from('invoices')
           .select('total_amount')
           .eq('company_id', companyId)
           .eq('status', 'paid'),
-        // Estimated hours (assume 8h per job estimate)
-        supabase
-          .from('jobs')
-          .select('id', { count: 'exact', head: true })
-          .eq('company_id', companyId)
-          .neq('status', 'completed'),
       ])
 
       const revenue = (revenueRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
       setTotalRevenue(revenue)
       setUpcomingCount(scheduled.length) // Count all scheduled jobs
-      setEstimatedHours(Math.ceil((hoursRes.count || 0) * 8))
+      
+      // Sum estimated hours from all non-completed jobs
+      const totalHours = jobs
+        .filter((j: Job) => j.status !== 'completed')
+        .reduce((sum: number, j: Job) => sum + (j.estimated_hours || 0), 0)
+      setEstimatedHours(Math.ceil(totalHours))
     } finally {
       setLoading(false)
     }
@@ -425,7 +425,7 @@ export default function JobStackPage() {
             <div className="text-xs text-neutral-600 mt-1">Upcoming Jobs</div>
           </div>
           <div className="bg-white rounded-lg border border-neutral-200 p-4 text-center">
-            <div className="text-2xl font-bold text-neutral-900">{estimatedHours}d</div>
+            <div className="text-2xl font-bold text-neutral-900">{estimatedHours}h</div>
             <div className="text-xs text-neutral-600 mt-1">Est. Time</div>
           </div>
         </div>
