@@ -91,13 +91,13 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   return (
     <div ref={setNodeRef} style={style}>
       <div className="bg-white rounded-xl border border-neutral-200 p-5 cursor-pointer hover:border-neutral-300 transition flex items-start gap-3">
-        {/* Drag Handle */}
+        {/* Drag Handle - Larger touch target for mobile */}
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing pt-1 text-neutral-400 hover:text-neutral-600 transition"
+          className="cursor-grab active:cursor-grabbing pt-1 px-2 -ml-2 text-neutral-400 hover:text-neutral-600 transition touch-manipulation"
         >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
             <path d="M9 3h2v2H9V3zm0 4h2v2H9V7zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-16h2v2h-2V3zm0 4h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
           </svg>
         </div>
@@ -249,8 +249,8 @@ export default function JobStackPage() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // 250ms press delay for mobile
-        tolerance: 5, // Allow 5px movement during delay
+        delay: 150, // 150ms press delay for mobile
+        tolerance: 8, // Allow 8px movement during delay (more forgiving)
       },
     }),
     useSensor(KeyboardSensor, {
