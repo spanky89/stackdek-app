@@ -15,7 +15,7 @@ export default function JobEditPage() {
   const [clients, setClients] = useState<ClientOption[]>([])
   const [form, setForm] = useState({
     title: '', description: '', date_scheduled: '', time_scheduled: '',
-    location: '', client_id: '', estimate_amount: '', status: 'scheduled',
+    location: '', client_id: '', estimate_amount: '', estimated_days: '', status: 'scheduled',
   })
 
   useEffect(() => {
@@ -33,7 +33,9 @@ export default function JobEditPage() {
           title: j.title || '', description: j.description || '',
           date_scheduled: datePart, time_scheduled: timePart?.slice(0, 5) || '',
           location: j.location || '', client_id: j.client_id || '',
-          estimate_amount: String(j.estimate_amount ?? ''), status: j.status || 'scheduled',
+          estimate_amount: String(j.estimate_amount ?? ''),
+          estimated_days: String(j.estimated_days ?? ''),
+          status: j.status || 'scheduled',
         })
         setClients(clientRes.data || [])
       } catch (e: any) { setError(e?.message ?? 'Unknown error') }
@@ -52,6 +54,7 @@ export default function JobEditPage() {
       location: form.location.trim() || null,
       client_id: form.client_id || null,
       estimate_amount: form.estimate_amount ? parseFloat(form.estimate_amount) : 0,
+      estimated_days: form.estimated_days ? parseFloat(form.estimated_days) : null,
       status: form.status,
     }).eq('id', id)
     setSaving(false)
@@ -116,14 +119,18 @@ export default function JobEditPage() {
               <input type="number" step="0.01" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.estimate_amount} onChange={e => setForm({ ...form, estimate_amount: e.target.value })} placeholder="0.00" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                <option value="scheduled">Scheduled</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+              <label className="block text-sm font-medium mb-1">Estimated Days</label>
+              <input type="number" step="0.5" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.estimated_days} onChange={e => setForm({ ...form, estimated_days: e.target.value })} placeholder="0" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+              <option value="scheduled">Scheduled</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
 
           <div className="flex items-center justify-between pt-2">

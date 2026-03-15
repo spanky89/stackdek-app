@@ -13,6 +13,7 @@ export default function CreateJobForm({ onSuccess, prefilledClientId }: { onSucc
   const [location, setLocation] = useState('')
   const [clientId, setClientId] = useState('')
   const [estimateAmount, setEstimateAmount] = useState('')
+  const [estimatedDays, setEstimatedDays] = useState('')
   const [status, setStatus] = useState('scheduled')
   const [clients, setClients] = useState<Client[]>([])
   const [busy, setBusy] = useState(false)
@@ -74,6 +75,7 @@ export default function CreateJobForm({ onSuccess, prefilledClientId }: { onSucc
         location: location.trim() || null,
         client_id: clientId || null,
         estimate_amount: estimateAmount ? parseFloat(estimateAmount) : 0,
+        estimated_days: estimatedDays ? parseFloat(estimatedDays) : null,
         status,
       })
 
@@ -81,7 +83,7 @@ export default function CreateJobForm({ onSuccess, prefilledClientId }: { onSucc
 
       setSuccess(true)
       setTitle(''); setDescription(''); setDateScheduled(''); setTimeScheduled('')
-      setLocation(''); setClientId(''); setEstimateAmount(''); setStatus('scheduled')
+      setLocation(''); setClientId(''); setEstimateAmount(''); setEstimatedDays(''); setStatus('scheduled')
       onSuccess?.()
     } catch (e: any) {
       setError(e?.message ?? 'Unknown error')
@@ -129,13 +131,17 @@ export default function CreateJobForm({ onSuccess, prefilledClientId }: { onSucc
             <input type="number" step="0.01" min="0" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={estimateAmount} onChange={e => setEstimateAmount(e.target.value)} placeholder="0.00" />
           </div>
           <div>
-            <label className="block text-sm mb-1">Status</label>
-            <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={status} onChange={e => setStatus(e.target.value)}>
-              <option value="scheduled">Scheduled</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </select>
+            <label className="block text-sm mb-1">Estimated Days</label>
+            <input type="number" step="0.5" min="0" className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={estimatedDays} onChange={e => setEstimatedDays(e.target.value)} placeholder="0" />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Status</label>
+          <select className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={status} onChange={e => setStatus(e.target.value)}>
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
         {success && <p className="text-green-600 text-sm">Job created!</p>}
