@@ -275,9 +275,6 @@ export default function JobStackPage() {
       }
 
       const now = new Date()
-      const next30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0]
 
       // Load jobs with client data, ordered by in_progress first, then sort_order
       let query = supabase
@@ -316,20 +313,13 @@ export default function JobStackPage() {
       setScheduledJobs(scheduled)
 
       // Load stats
-      const [revenueRes, upcomingRes, hoursRes] = await Promise.all([
+      const [revenueRes, hoursRes] = await Promise.all([
         // Total revenue from paid invoices
         supabase
           .from('invoices')
           .select('total_amount')
           .eq('company_id', companyId)
           .eq('status', 'paid'),
-        // Upcoming jobs count
-        supabase
-          .from('jobs')
-          .select('id', { count: 'exact', head: true })
-          .eq('company_id', companyId)
-          .gte('date_scheduled', now.toISOString().split('T')[0])
-          .lte('date_scheduled', next30days),
         // Estimated hours (assume 8h per job estimate)
         supabase
           .from('jobs')
@@ -340,8 +330,8 @@ export default function JobStackPage() {
 
       const revenue = (revenueRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
       setTotalRevenue(revenue)
-      setUpcomingCount(upcomingRes.count || 0)
-      setEstimatedHours(Math.ceil((upcomingRes.count || 0) * 8))
+      setUpcomingCount(scheduled.length) // Count all scheduled jobs
+      setEstimatedHours(Math.ceil((hoursRes.count || 0) * 8))
     } finally {
       setLoading(false)
     }
