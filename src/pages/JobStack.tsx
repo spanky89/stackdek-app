@@ -89,13 +89,14 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
   }
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 cursor-pointer hover:border-neutral-300 transition flex items-start gap-3">
+    <div ref={setNodeRef} style={{ ...style, touchAction: 'manipulation' }}>
+      <div className="bg-white rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 transition flex items-start gap-3">
         {/* Drag Handle - Larger touch target for mobile */}
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing pt-1 px-2 -ml-2 text-neutral-400 hover:text-neutral-600 transition touch-manipulation"
+          className="cursor-grab active:cursor-grabbing pt-1 px-2 -ml-2 text-neutral-400 hover:text-neutral-600 transition"
+          style={{ touchAction: 'none' }}
         >
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
             <path d="M9 3h2v2H9V3zm0 4h2v2H9V7zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-16h2v2h-2V3zm0 4h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
@@ -103,7 +104,11 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
         </div>
 
         {/* Card Content */}
-        <div className="flex-1" onClick={onClick}>
+        <div 
+          className="flex-1" 
+          onClick={onClick}
+          style={{ touchAction: 'manipulation' }}
+        >
           {/* Title & Price */}
           <div className="flex items-start justify-between mb-2">
             <h3 className="font-bold text-lg text-neutral-900">{job.title}</h3>
