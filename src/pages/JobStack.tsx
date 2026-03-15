@@ -36,7 +36,7 @@ type Job = {
   date_scheduled: string
   location: string
   time_scheduled?: string
-  estimated_hours?: number
+  estimated_days?: number
   client_id?: string
   created_at?: string
   sort_order?: number
@@ -121,7 +121,7 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
           {/* Address */}
           <p className="text-sm text-neutral-500 mb-3">{job.location}</p>
 
-          {/* Date & Estimated Hours */}
+          {/* Date & Estimated Days */}
           <div className="flex items-center justify-between text-sm text-neutral-600 mb-4">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,7 +137,7 @@ function SortableJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
                 <circle cx="12" cy="12" r="10" strokeWidth="2"/>
                 <polyline points="12 6 12 12 16 14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span>{job.estimated_hours ? `${job.estimated_hours}h` : '—'}</span>
+              <span>{job.estimated_days ? `${job.estimated_days}d` : '—'}</span>
             </div>
           </div>
 
@@ -198,7 +198,7 @@ function StaticJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
       {/* Address */}
       <p className="text-sm text-neutral-500 mb-3">{job.location}</p>
 
-      {/* Date & Estimated Hours */}
+      {/* Date & Estimated Days */}
       <div className="flex items-center justify-between text-sm text-neutral-600 mb-4">
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,7 +214,7 @@ function StaticJobCard({ job, onClick }: { job: Job; onClick: () => void }) {
             <circle cx="12" cy="12" r="10" strokeWidth="2"/>
             <polyline points="12 6 12 12 16 14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span>{job.estimated_hours ? `${job.estimated_hours}h` : '—'}</span>
+          <span>{job.estimated_days ? `${job.estimated_days}d` : '—'}</span>
         </div>
       </div>
 
@@ -327,11 +327,11 @@ export default function JobStackPage() {
       setTotalRevenue(revenue)
       setUpcomingCount(scheduled.length) // Count all scheduled jobs
       
-      // Sum estimated hours from all non-completed jobs
-      const totalHours = jobs
+      // Sum estimated days from all non-completed jobs
+      const totalDays = jobs
         .filter((j: Job) => j.status !== 'completed')
-        .reduce((sum: number, j: Job) => sum + (j.estimated_hours || 0), 0)
-      setEstimatedHours(Math.ceil(totalHours))
+        .reduce((sum: number, j: Job) => sum + (j.estimated_days || 0), 0)
+      setEstimatedHours(Math.ceil(totalDays))
     } finally {
       setLoading(false)
     }
