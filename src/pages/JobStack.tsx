@@ -313,18 +313,12 @@ export default function JobStackPage() {
       setInProgressJobs(inProgress)
       setScheduledJobs(scheduled)
 
-      // Load stats
-      const [revenueRes] = await Promise.all([
-        // Total revenue from paid invoices
-        supabase
-          .from('invoices')
-          .select('total_amount')
-          .eq('company_id', companyId)
-          .eq('status', 'paid'),
-      ])
-
-      const revenue = (revenueRes.data || []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0)
+      // Sum revenue from scheduled + in-progress jobs (pipeline value)
+      const revenue = jobs
+        .filter((j: Job) => j.status === 'scheduled' || j.status === 'in_progress')
+        .reduce((sum: number, j: Job) => sum + (j.estimate_amount || 0), 0)
       setTotalRevenue(revenue)
+      
       setUpcomingCount(scheduled.length) // Count all scheduled jobs
       
       // Sum estimated days from all non-completed jobs
