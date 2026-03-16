@@ -390,7 +390,6 @@ export default function JobStackPage() {
             { key: 'all', label: 'All Jobs' },
             { key: 'scheduled', label: 'Scheduled' },
             { key: 'in_progress', label: 'In Progress' },
-            { key: 'completed', label: 'Completed' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -425,67 +424,52 @@ export default function JobStackPage() {
         </div>
 
         {/* Job Cards */}
-        {filter === 'all' || filter === 'scheduled' || filter === 'in_progress' ? (
-          <div className="space-y-8">
-            {/* In Progress Section */}
-            {inProgressJobs.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">
-                  In Progress
-                </h2>
-                <div className="space-y-3">
-                  {inProgressJobs.map((job) => (
-                    <StaticJobCard key={job.id} job={job} onClick={() => nav(`/job/${job.id}`)} />
-                  ))}
-                </div>
+        <div className="space-y-8">
+          {/* In Progress Section */}
+          {inProgressJobs.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                In Progress
+              </h2>
+              <div className="space-y-3">
+                {inProgressJobs.map((job) => (
+                  <StaticJobCard key={job.id} job={job} onClick={() => nav(`/job/${job.id}`)} />
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Scheduled Section (Sortable) */}
-            {scheduledJobs.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">
-                  Scheduled
-                </h2>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+          {/* Scheduled Section (Sortable) */}
+          {scheduledJobs.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">
+                Scheduled
+              </h2>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={scheduledJobs.map((j) => j.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <SortableContext
-                    items={scheduledJobs.map((j) => j.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-3">
-                      {scheduledJobs.map((job) => (
-                        <SortableJobCard key={job.id} job={job} onClick={() => nav(`/job/${job.id}`)} />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </div>
-            )}
+                  <div className="space-y-3">
+                    {scheduledJobs.map((job) => (
+                      <SortableJobCard key={job.id} job={job} onClick={() => nav(`/job/${job.id}`)} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
 
-            {inProgressJobs.length === 0 && scheduledJobs.length === 0 && (
-              <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center text-neutral-600">
-                <p className="text-sm">No jobs found in this category.</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          // Completed jobs (no drag, just list)
-          <div className="space-y-4">
-            {allJobs.length === 0 ? (
-              <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center text-neutral-600">
-                <p className="text-sm">No jobs found in this category.</p>
-              </div>
-            ) : (
-              allJobs.map((job) => (
-                <StaticJobCard key={job.id} job={job} onClick={() => nav(`/job/${job.id}`)} />
-              ))
-            )}
-          </div>
-        )}
+          {inProgressJobs.length === 0 && scheduledJobs.length === 0 && (
+            <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center text-neutral-600">
+              <p className="text-sm">No jobs found in this category.</p>
+            </div>
+          )}
+        </div>
       </>
     </AppLayout>
   )
