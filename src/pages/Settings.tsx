@@ -263,6 +263,14 @@ export default function SettingsPage() {
                   </div>
                   <span className="text-neutral-400">›</span>
                 </button>
+                <button onClick={() => nav('/team')}
+                  className="w-full flex items-center justify-between p-3 hover:bg-neutral-50 transition rounded border-b border-neutral-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-neutral-900">👥 Team Members</span>
+                    <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Pro</span>
+                  </div>
+                  <span className="text-neutral-400">›</span>
+                </button>
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-sm p-4">
