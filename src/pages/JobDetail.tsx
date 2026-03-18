@@ -7,6 +7,7 @@ import { DocumentSummary } from '../components/DocumentSummary'
 import { UnifiedLineItem } from '../types/lineItems'
 import { MediaUpload } from '../components/MediaUpload'
 import { OnMyWayModal } from '../components/OnMyWayModal'
+import AssignEmployeesModal from '../components/AssignEmployeesModal'
 
 type Photo = {
   url: string
@@ -68,6 +69,10 @@ export default function JobDetailPage() {
   // Cancel job modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [canceling, setCanceling] = useState(false)
+
+  // Assign employees modal state
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [companyId, setCompanyId] = useState<string | null>(null)
   
   // On My Way modal state
   const [showOnMyWayModal, setShowOnMyWayModal] = useState(false)
@@ -89,6 +94,10 @@ export default function JobDetailPage() {
           date_scheduled: datePart, time_scheduled: timePart?.slice(0, 5) || '',
           location: data.location || '', status: data.status,
         })
+
+        // Fetch company id
+        const { data: companyData } = await supabase.from('companies').select('id').single()
+        if (companyData) setCompanyId(companyData.id)
 
         // Fetch job line items
         const { data: jobItems, error: jobItemsErr } = await supabase
@@ -811,7 +820,7 @@ export default function JobDetailPage() {
                   Scheduled
                 </button>
                 <button 
-                  onClick={() => changeStatus('in_progress')}
+                  onClick={() => setShowAssignModal(true)}
                   disabled={busy || job.status === 'in_progress'}
                   className={`px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
                     job.status === 'in_progress'
@@ -1121,6 +1130,18 @@ export default function JobDetailPage() {
             clientPhone={job.clients.phone || null}
             address={job.clients.address || null}
             onClose={() => setShowOnMyWayModal(false)}
+          />
+        )}
+
+        {showAssignModal && job && companyId && (
+          <AssignEmployeesModal
+            jobId={job.id}
+            companyId={companyId}
+            onConfirm={async (_selectedIds) => {
+              setShowAssignModal(false)
+              await changeStatus('in_progress')
+            }}
+            onCancel={() => setShowAssignModal(false)}
           />
         )}
       </>
