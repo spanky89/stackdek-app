@@ -50,6 +50,7 @@ import ContractDemo from "./pages/ContractDemo";
 import TeamManagement from "./pages/TeamManagement";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import JobCostingDemo from "./pages/JobCostingDemo";
+import EmployeeJobView from "./pages/EmployeeJobView";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -415,6 +416,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/employee-job/:id"
+            element={
+              <ProtectedRoute>
+                <EmployeeJobView />
+              </ProtectedRoute>
+            }
+          />
         <Route
           path="/employee-dashboard"
           element={

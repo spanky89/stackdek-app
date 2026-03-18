@@ -1,133 +1,207 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
-import ClockInOut from '../components/ClockInOut'
-import MyJobsWidget from '../components/MyJobsWidget'
+
+type AssignedJob = {
+  id: string
+  title: string
+  status: string
+  date_scheduled: string | null
+  location: string | null
+  clients: { name: string } | null
+}
+
+type TimeEntry = {
+  id: string
+  clock_in: string
+  clock_out: string | null
+  hours_worked: number | null
+  job_id: string | null
+}
 
 export default function EmployeeDashboard() {
-  // Mock employee data
-  const employeeName = 'Mike Davis'
-  const employeeRole = 'employee'
+  const nav = useNavigate()
+  const [employee, setEmployee] = useState<{ id: string; full_name: string; role: string } | null>(null)
+  const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([])
+  const [openEntry, setOpenEntry] = useState<TimeEntry | null>(null)
+  const [weekHours, setWeekHours] = useState(0)
+  const [elapsed, setElapsed] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { loadData() }, [])
+
+  useEffect(() => {
+    if (!openEntry) { setElapsed(''); return }
+    const tick = () => {
+      const diff = Date.now() - new Date(openEntry.clock_in).getTime()
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setElapsed(`${h}h ${m}m ${s}s`)
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [openEntry])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { nav('/login'); return }
+
+      // Get team member
+      const { data: tm } = await supabase
+        .from('team_members')
+        .select('id, full_name, role')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!tm) {
+        // Not an employee — redirect to normal home
+        nav('/home')
+        return
+      }
+      setEmployee(tm)
+
+      // Get assigned jobs
+      const { data: assignments } = await supabase
+        .from('job_assignments')
+        .select('job_id')
+        .eq('team_member_id', tm.id)
+
+      if (assignments && assignments.length > 0) {
+        const jobIds = assignments.map(a => a.job_id)
+        const { data: jobs } = await supabase
+          .from('jobs')
+          .select('id, title, status, date_scheduled, location, clients(name)')
+          .in('id', jobIds)
+          .not('status', 'eq', 'completed')
+          .order('date_scheduled')
+        setAssignedJobs((jobs as any) || [])
+      }
+
+      // Get open time entry (clocked in somewhere)
+      const { data: openTime } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('team_member_id', tm.id)
+        .is('clock_out', null)
+        .single()
+      setOpenEntry(openTime || null)
+
+      // Get this week's hours
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      weekStart.setHours(0, 0, 0, 0)
+      const { data: weekEntries } = await supabase
+        .from('time_entries')
+        .select('hours_worked')
+        .eq('team_member_id', tm.id)
+        .gte('clock_in', weekStart.toISOString())
+        .not('hours_worked', 'is', null)
+      const total = weekEntries?.reduce((sum, e) => sum + (e.hours_worked || 0), 0) || 0
+      setWeekHours(Math.round(total * 10) / 10)
+
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return (
+    <AppLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900" />
+      </div>
+    </AppLayout>
+  )
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-2xl mx-auto">
+
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-neutral-900">
-              Welcome, {employeeName}
-            </h1>
-            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
-              Employee
-            </span>
-          </div>
-          <p className="text-neutral-600">
-            Your personalized dashboard. Clock in, view your assignments, and track your tasks.
-          </p>
+          <h1 className="text-2xl font-bold text-neutral-900">
+            Hey, {employee?.full_name?.split(' ')[0]} 👋
+          </h1>
+          <p className="text-neutral-500 text-sm mt-1 capitalize">{employee?.role} · StackDek</p>
         </div>
 
-        {/* Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">ℹ️</span>
+        {/* Clock status */}
+        {openEntry && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-blue-900 mb-1">Employee View</p>
-              <p className="text-sm text-blue-800">
-                You can only see jobs and tasks assigned to you. Prices and billing information are hidden. 
-                For full access, contact your manager.
-              </p>
+              <p className="text-sm font-semibold text-green-800">🟢 Currently Clocked In</p>
+              <p className="text-sm font-mono text-green-700 mt-0.5">{elapsed}</p>
             </div>
-          </div>
-        </div>
-
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Clock In/Out */}
-          <ClockInOut />
-
-          {/* Quick Stats */}
-          <div className="bg-white border border-neutral-200 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">This Week</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-neutral-600">Hours Worked</span>
-                <span className="text-2xl font-bold text-neutral-900">32.5h</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-neutral-600">Jobs Completed</span>
-                <span className="text-2xl font-bold text-green-600">2</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-neutral-600">Tasks Completed</span>
-                <span className="text-2xl font-bold text-blue-600">18</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* My Jobs */}
-        <div className="mb-6">
-          <MyJobsWidget />
-        </div>
-
-        {/* My Tasks */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-neutral-900">My Tasks</h2>
-            <span className="text-sm text-neutral-600">5 pending</span>
-          </div>
-
-          <div className="space-y-2">
-            {[
-              { id: 1, task: 'Measure deck dimensions', job: 'Install Deck', completed: false, priority: 'high' },
-              { id: 2, task: 'Order materials', job: 'Install Deck', completed: false, priority: 'high' },
-              { id: 3, task: 'Prep ground surface', job: 'Install Deck', completed: true, priority: 'medium' },
-              { id: 4, task: 'Install posts', job: 'Install Deck', completed: false, priority: 'medium' },
-              { id: 5, task: 'Apply sealant', job: 'Fence Installation', completed: false, priority: 'low' },
-            ].map(task => (
-              <div
-                key={task.id}
-                className={`border rounded-lg p-3 ${task.completed ? 'bg-neutral-50 border-neutral-200' : 'border-neutral-200 bg-white'}`}
+            {openEntry.job_id && (
+              <button
+                onClick={() => nav(`/employee-job/${openEntry.job_id}`)}
+                className="text-sm text-green-700 font-medium border border-green-300 px-3 py-1.5 rounded-lg"
               >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    readOnly
-                    className="w-5 h-5 rounded border-neutral-300"
-                  />
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${task.completed ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>
-                      {task.task}
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-1">Job: {task.job}</p>
-                  </div>
-                  {!task.completed && (
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                      task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-neutral-100 text-neutral-800'
-                    }`}>
-                      {task.priority}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+                View Job →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Week Stats */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 text-center">
+            <p className="text-3xl font-bold text-neutral-900">{weekHours}h</p>
+            <p className="text-xs text-neutral-500 mt-1">This Week</p>
+          </div>
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 text-center">
+            <p className="text-3xl font-bold text-neutral-900">{assignedJobs.length}</p>
+            <p className="text-xs text-neutral-500 mt-1">Active Jobs</p>
           </div>
         </div>
 
-        {/* Feature Restrictions Info */}
-        <div className="mt-6 bg-neutral-50 border border-neutral-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-neutral-900 mb-2">What you can access:</h3>
-          <ul className="text-sm text-neutral-700 space-y-1">
-            <li>✓ Jobs and tasks assigned to you</li>
-            <li>✓ Clock in/out and time tracking</li>
-            <li>✓ View job details and line items</li>
-            <li>✗ Prices and billing information</li>
-            <li>✗ All company clients and quotes</li>
-            <li>✗ Company settings and team management</li>
-          </ul>
+        {/* Assigned Jobs */}
+        <div>
+          <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">My Jobs</h2>
+          {assignedJobs.length === 0 ? (
+            <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center text-neutral-400 text-sm">
+              No jobs assigned yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {assignedJobs.map(job => (
+                <button
+                  key={job.id}
+                  onClick={() => nav(`/employee-job/${job.id}`)}
+                  className="w-full bg-white border border-neutral-200 rounded-xl p-4 text-left hover:border-neutral-400 transition-colors"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-neutral-900 truncate">{job.title}</p>
+                      {job.clients && <p className="text-sm text-neutral-500 mt-0.5">{job.clients.name}</p>}
+                      {job.location && <p className="text-xs text-neutral-400 mt-0.5 truncate">{job.location}</p>}
+                      {job.date_scheduled && (
+                        <p className="text-xs text-neutral-400 mt-0.5">
+                          {new Date(job.date_scheduled).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
+                        job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                        job.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        'bg-neutral-100 text-neutral-600'
+                      }`}>
+                        {job.status.replace('_', ' ')}
+                      </span>
+                      <span className="text-neutral-400">→</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
       </div>
     </AppLayout>
   )
