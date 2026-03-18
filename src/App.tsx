@@ -43,6 +43,7 @@ import TaskEditPage from "./pages/TaskEdit";
 import AdminPage from "./pages/Admin";
 import AdminUserDetailPage from "./pages/AdminUserDetail";
 import AdminGuard from "./components/AdminGuard";
+import EmployeeGuard from "./components/EmployeeGuard";
 import HelpPage from "./pages/Help";
 import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 import ResetPasswordPage from "./pages/ResetPassword";
@@ -152,7 +153,9 @@ export default function App() {
           path="/home"
           element={
             <ProtectedRoute>
-              <HomePage />
+              <EmployeeGuard>
+                <HomePage />
+              </EmployeeGuard>
             </ProtectedRoute>
           }
         />
@@ -184,7 +187,9 @@ export default function App() {
           path="/clients"
           element={
             <ProtectedRoute>
-              <ClientListPage />
+              <EmployeeGuard>
+                <ClientListPage />
+              </EmployeeGuard>
             </ProtectedRoute>
           }
         />
@@ -200,7 +205,9 @@ export default function App() {
           path="/jobs"
           element={
             <ProtectedRoute>
-              <JobStackPage />
+              <EmployeeGuard>
+                <JobStackPage />
+              </EmployeeGuard>
             </ProtectedRoute>
           }
         />
@@ -288,7 +295,9 @@ export default function App() {
           path="/quotes"
           element={
             <ProtectedRoute>
-              <QuoteListPage />
+              <EmployeeGuard>
+                <QuoteListPage />
+              </EmployeeGuard>
             </ProtectedRoute>
           }
         />
@@ -328,7 +337,9 @@ export default function App() {
           path="/invoices"
           element={
             <ProtectedRoute>
-              <InvoiceListPage />
+              <EmployeeGuard>
+                <InvoiceListPage />
+              </EmployeeGuard>
             </ProtectedRoute>
           }
         />
