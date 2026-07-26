@@ -68,7 +68,25 @@ export default async function handler(
 
     let customerId = company.subscription_stripe_customer_id;
 
-    // Create or retrieve Stripe customer
+    // Customer IDs are scoped to a Stripe account and mode. A company can
+    // retain a test-mode customer ID after production is switched to live
+    // keys, so validate the saved ID before using it for checkout.
+    if (customerId) {
+      try {
+        const customer = await stripe.customers.retrieve(customerId);
+        if (customer.deleted) {
+          customerId = null;
+        }
+      } catch (error: any) {
+        if (error?.code === 'resource_missing') {
+          customerId = null;
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Create a live customer when none exists or the saved ID is stale.
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -80,10 +98,14 @@ export default async function handler(
       customerId = customer.id;
 
       // Save customer ID to database
-      await supabase
+      const { error: updateError } = await supabase
         .from('companies')
         .update({ subscription_stripe_customer_id: customerId })
         .eq('id', company.id);
+
+      if (updateError) {
+        throw new Error('Unable to save Stripe customer');
+      }
     }
 
     // Create checkout session for subscription
