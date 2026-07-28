@@ -14,6 +14,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function planForPrice(priceId?: string): 'basic' | 'pro' | null {
+  if (priceId && priceId === process.env.VITE_STRIPE_PRICE_BASIC) return 'basic';
+  if (priceId && priceId === process.env.VITE_STRIPE_PRICE_PRO) return 'pro';
+  return null;
+}
+
 export const config = {
   api: {
     bodyParser: false, // Disable body parsing for webhook verification
@@ -64,11 +70,12 @@ export default async function handler(
       }
 
       const companyId = session.metadata?.companyId;
-      const planId = session.metadata?.planId || 'basic';
+      const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+      const planId = planForPrice(subscription.items.data[0]?.price.id);
       
-      if (!companyId) {
-        console.error('No companyId in subscription session metadata');
-        return res.status(400).json({ error: 'Missing companyId in metadata' });
+      if (!companyId || !planId) {
+        console.error('Invalid subscription metadata or Stripe price');
+        return res.status(400).json({ error: 'Invalid subscription mapping' });
       }
 
       // Mark subscription as active
@@ -202,10 +209,10 @@ export default async function handler(
     if (event.type === 'customer.subscription.updated') {
       const subscription = event.data.object as Stripe.Subscription;
       const companyId = subscription.metadata?.companyId;
-      const planId = subscription.metadata?.planId;
+      const planId = planForPrice(subscription.items.data[0]?.price.id);
 
-      if (!companyId) {
-        return res.status(200).json({ received: true, skipped: 'no_company_id' });
+      if (!companyId || !planId) {
+        return res.status(400).json({ error: 'Invalid subscription mapping' });
       }
 
       // Update subscription details
@@ -213,7 +220,7 @@ export default async function handler(
         .from('companies')
         .update({
           subscription_status: subscription.status === 'active' ? 'active' : subscription.status as any,
-          subscription_plan: planId || 'basic',
+          subscription_plan: planId,
           subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         })
         .eq('id', companyId);

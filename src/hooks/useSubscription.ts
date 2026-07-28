@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../utils/supabase';
-import { useAuth } from '../context/AuthContext';
+import { supabase } from '../api/supabaseClient';
 import { FEATURE_ACCESS, SubscriptionTier, FeatureName } from '../utils/featureGates';
 
 export interface SubscriptionData {
@@ -35,12 +34,12 @@ export interface SubscriptionHook {
  * }
  */
 export function useSubscription(): SubscriptionHook {
-  const { user } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchSubscriptionData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setLoading(false);
       return;
@@ -64,14 +63,16 @@ export function useSubscription(): SubscriptionHook {
 
       // Parse subscription data
       const subData: SubscriptionData = {
-        tier: company.subscription_tier || 'starter',
-        status: company.subscription_status || 'active',
-        stripeCustomerId: company.stripe_customer_id,
-        stripeSubscriptionId: company.stripe_subscription_id,
+        tier: company.subscription_plan === 'pro' ? 'pro' : 'starter',
+        status: company.subscription_status === 'trial'
+          ? 'trialing'
+          : (company.subscription_status || 'canceled'),
+        stripeCustomerId: company.subscription_stripe_customer_id,
+        stripeSubscriptionId: company.subscription_stripe_subscription_id,
         currentPeriodEnd: company.subscription_current_period_end
           ? new Date(company.subscription_current_period_end)
           : null,
-        cancelAtPeriodEnd: company.subscription_cancel_at_period_end || false,
+        cancelAtPeriodEnd: false,
         trialEndsAt: company.trial_ends_at ? new Date(company.trial_ends_at) : null,
       };
 
@@ -86,16 +87,20 @@ export function useSubscription(): SubscriptionHook {
 
   useEffect(() => {
     fetchSubscriptionData();
-  }, [user?.id]);
+    const { data } = supabase.auth.onAuthStateChange(() => fetchSubscriptionData());
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   const canAccessFeature = (feature: FeatureName): boolean => {
     if (!subscription) return false;
 
+    if (!['active', 'trialing'].includes(subscription.status)) return false;
     const tierFeatures = FEATURE_ACCESS[subscription.tier];
     return tierFeatures.features.includes(feature);
   };
 
-  const isPro = subscription?.tier === 'pro';
+  const isPro = subscription?.tier === 'pro'
+    && ['active', 'trialing'].includes(subscription.status);
   const isStarter = subscription?.tier === 'starter';
   const isTrialing = subscription?.status === 'trialing';
 

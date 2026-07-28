@@ -49,6 +49,7 @@ import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 import ResetPasswordPage from "./pages/ResetPassword";
 import ContractDemo from "./pages/ContractDemo";
 import TeamManagement from "./pages/TeamManagement";
+import ProFeatureGuard from "./components/ProFeatureGuard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import JobCostingDemo from "./pages/JobCostingDemo";
 import EmployeeJobView from "./pages/EmployeeJobView";
@@ -429,7 +430,9 @@ export default function App() {
           path="/team"
           element={
             <ProtectedRoute>
-              <TeamManagement />
+              <ProFeatureGuard>
+                <TeamManagement />
+              </ProFeatureGuard>
             </ProtectedRoute>
           }
         />
@@ -453,7 +456,9 @@ export default function App() {
           path="/job-costing-demo"
           element={
             <ProtectedRoute>
-              <JobCostingDemo />
+              <ProFeatureGuard>
+                <JobCostingDemo />
+              </ProFeatureGuard>
             </ProtectedRoute>
           }
         />

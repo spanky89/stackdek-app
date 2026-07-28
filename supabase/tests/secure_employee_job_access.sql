@@ -10,10 +10,10 @@ values
   ('11000000-0000-0000-0000-000000000004', 'authenticated', 'authenticated', 'job-employee-a@test.local', now(), now()),
   ('11000000-0000-0000-0000-000000000005', 'authenticated', 'authenticated', 'job-inactive-a@test.local', now(), now());
 
-insert into public.companies (id, owner_id, name)
+insert into public.companies (id, owner_id, name, subscription_plan, subscription_status)
 values
-  ('21000000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000001', 'Job Company A'),
-  ('21000000-0000-0000-0000-000000000002', '11000000-0000-0000-0000-000000000002', 'Job Company B');
+  ('21000000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000001', 'Job Company A', 'pro', 'active'),
+  ('21000000-0000-0000-0000-000000000002', '11000000-0000-0000-0000-000000000002', 'Job Company B', 'pro', 'active');
 
 insert into public.clients (id, company_id, name, phone, address)
 values

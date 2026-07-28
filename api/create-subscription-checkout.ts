@@ -35,10 +35,15 @@ export default async function handler(
   }
 
   try {
-    const { priceId, planId } = req.body;
+    const { planId } = req.body;
+    const prices: Record<string, string | undefined> = {
+      basic: process.env.VITE_STRIPE_PRICE_BASIC,
+      pro: process.env.VITE_STRIPE_PRICE_PRO,
+    };
+    const priceId = prices[planId];
 
     if (!priceId || !planId) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Unknown plan or missing server price configuration' });
     }
 
     // Get auth token from header

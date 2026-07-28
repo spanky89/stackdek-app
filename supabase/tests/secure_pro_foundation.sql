@@ -11,10 +11,10 @@ values
   ('10000000-0000-0000-0000-000000000005', 'authenticated', 'authenticated', 'inactive-a@test.local', now(), now()),
   ('10000000-0000-0000-0000-000000000006', 'authenticated', 'authenticated', 'invitee-a@test.local', now(), now());
 
-insert into public.companies (id, owner_id, name)
+insert into public.companies (id, owner_id, name, subscription_plan, subscription_status)
 values
-  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Company A'),
-  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'Company B');
+  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Company A', 'pro', 'active'),
+  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'Company B', 'pro', 'active');
 
 insert into public.jobs (id, company_id, title, date_scheduled)
 values

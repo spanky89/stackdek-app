@@ -9,6 +9,7 @@ import { MediaUpload } from '../components/MediaUpload'
 import { OnMyWayModal } from '../components/OnMyWayModal'
 import AssignEmployeesModal from '../components/AssignEmployeesModal'
 import RealJobCosting from '../components/RealJobCosting'
+import { useSubscription } from '../hooks/useSubscription'
 
 type Photo = {
   url: string
@@ -39,6 +40,7 @@ type InvoiceLineItem = {
 }
 
 export default function JobDetailPage() {
+  const { isPro } = useSubscription()
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const [job, setJob] = useState<Job | null>(null)
@@ -668,12 +670,14 @@ export default function JobDetailPage() {
                 >
                   Notes
                 </button>
-                <button
-                  onClick={() => setActiveTab('costing')}
-                  className={`px-6 py-3 text-sm font-semibold ${activeTab === 'costing' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
-                >
-                  Job Costing
-                </button>
+                {isPro && (
+                  <button
+                    onClick={() => setActiveTab('costing')}
+                    className={`px-6 py-3 text-sm font-semibold ${activeTab === 'costing' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+                  >
+                    Job Costing
+                  </button>
+                )}
               </div>
 
               {/* Job Tab Content */}
@@ -934,7 +938,7 @@ export default function JobDetailPage() {
                 </>
               )}
 
-              {activeTab === 'costing' && job && (
+              {isPro && activeTab === 'costing' && job && (
                 <RealJobCosting jobId={job.id} />
               )}
             </>

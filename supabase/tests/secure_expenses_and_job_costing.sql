@@ -9,10 +9,10 @@ values
   ('12000000-0000-0000-0000-000000000003', 'authenticated', 'authenticated', 'cost-employee@test.local', now(), now()),
   ('12000000-0000-0000-0000-000000000004', 'authenticated', 'authenticated', 'cost-other@test.local', now(), now());
 
-insert into public.companies (id, owner_id, name)
+insert into public.companies (id, owner_id, name, subscription_plan, subscription_status)
 values
-  ('22000000-0000-0000-0000-000000000001', '12000000-0000-0000-0000-000000000001', 'Cost Company'),
-  ('22000000-0000-0000-0000-000000000002', '12000000-0000-0000-0000-000000000004', 'Other Cost Company');
+  ('22000000-0000-0000-0000-000000000001', '12000000-0000-0000-0000-000000000001', 'Cost Company', 'pro', 'active'),
+  ('22000000-0000-0000-0000-000000000002', '12000000-0000-0000-0000-000000000004', 'Other Cost Company', 'pro', 'active');
 
 insert into public.jobs (
   id, company_id, title, date_scheduled, estimate_amount
