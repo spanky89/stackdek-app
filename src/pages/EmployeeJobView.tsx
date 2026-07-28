@@ -83,6 +83,7 @@ export default function EmployeeJobView() {
   const [expenseForm, setExpenseForm] = useState({ amount: '', category: 'materials', description: '', notes: '' })
   const [submittingExpense, setSubmittingExpense] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [expenseError, setExpenseError] = useState('')
 
   // Load everything
   useEffect(() => {
@@ -171,13 +172,10 @@ export default function EmployeeJobView() {
         setOpenEntry(open)
 
         // Get expenses
-        const { data: expData } = await supabase
-          .from('job_expenses')
-          .select('*')
-          .eq('job_id', id)
-          .eq('added_by', user.id)
-          .order('created_at', { ascending: false })
-        setExpenses(expData || [])
+        const { data: expData, error: expenseLoadError } = await supabase
+          .rpc('list_my_job_expenses', { p_job_id: id })
+        if (expenseLoadError) throw expenseLoadError
+        setExpenses((expData as Expense[]) || [])
       }
     } finally {
       setLoading(false)
@@ -249,40 +247,47 @@ export default function EmployeeJobView() {
   async function submitExpense() {
     if (!teamMember || !job || !expenseForm.amount || !expenseForm.category) return
     setSubmittingExpense(true)
+    setExpenseError('')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: company } = await supabase.from('companies').select('id').single()
+      let receiptPath: string | null = null
 
-      let receiptUrl = null
+      if (receiptFile) {
+        const ext = receiptFile.name.split('.').pop() || ''
+        const { data: pathData, error: pathError } = await supabase
+          .rpc('prepare_my_expense_receipt_path', {
+            p_job_id: job.id,
+            p_file_extension: ext,
+          })
+        if (pathError) throw pathError
+        if (!pathData) throw new Error('Could not create a secure receipt path')
 
-      // Upload receipt if provided
-      if (receiptFile && company) {
-        const ext = receiptFile.name.split('.').pop()
-        const path = `${company.id}/${job.id}/${Date.now()}.${ext}`
+        receiptPath = pathData as string
         const { error: uploadErr } = await supabase.storage
           .from('job-receipts')
-          .upload(path, receiptFile)
-        if (!uploadErr) receiptUrl = path
+          .upload(receiptPath, receiptFile, {
+            contentType: receiptFile.type || undefined,
+            upsert: false,
+          })
+        if (uploadErr) throw uploadErr
       }
 
-      const { error } = await supabase.from('job_expenses').insert({
-        job_id: job.id,
-        company_id: company?.id,
-        added_by: user!.id,
-        amount: parseFloat(expenseForm.amount),
-        category: expenseForm.category,
-        description: expenseForm.description || null,
-        notes: expenseForm.notes || null,
-        receipt_url: receiptUrl,
-        status: 'pending',
-      })
+      const { error } = await supabase
+        .rpc('submit_my_job_expense', {
+          p_job_id: job.id,
+          p_amount: parseFloat(expenseForm.amount),
+          p_category: expenseForm.category,
+          p_description: expenseForm.description || null,
+          p_notes: expenseForm.notes || null,
+          p_receipt_path: receiptPath,
+        })
+      if (error) throw error
 
-      if (!error) {
-        setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
-        setReceiptFile(null)
-        setShowExpenseForm(false)
-        loadData()
-      }
+      setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
+      setReceiptFile(null)
+      setShowExpenseForm(false)
+      loadData()
+    } catch (err: any) {
+      setExpenseError(err.message || 'Unable to submit expense')
     } finally {
       setSubmittingExpense(false)
     }
@@ -518,6 +523,11 @@ export default function EmployeeJobView() {
             >
               + Add Expense
             </button>
+            {expenseError && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                {expenseError}
+              </p>
+            )}
 
             {/* Add Expense Form */}
             {showExpenseForm && (

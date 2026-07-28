@@ -8,6 +8,7 @@ import { UnifiedLineItem } from '../types/lineItems'
 import { MediaUpload } from '../components/MediaUpload'
 import { OnMyWayModal } from '../components/OnMyWayModal'
 import AssignEmployeesModal from '../components/AssignEmployeesModal'
+import RealJobCosting from '../components/RealJobCosting'
 
 type Photo = {
   url: string
@@ -50,7 +51,7 @@ export default function JobDetailPage() {
   const [saving, setSaving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [showOriginalQuote, setShowOriginalQuote] = useState(false)
-  const [activeTab, setActiveTab] = useState<'job' | 'notes'>('job')
+  const [activeTab, setActiveTab] = useState<'job' | 'notes' | 'costing'>('job')
   const [notes, setNotes] = useState<string>('')
   const [editingNotes, setEditingNotes] = useState(false)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
@@ -667,6 +668,12 @@ export default function JobDetailPage() {
                 >
                   Notes
                 </button>
+                <button
+                  onClick={() => setActiveTab('costing')}
+                  className={`px-6 py-3 text-sm font-semibold ${activeTab === 'costing' ? 'text-neutral-900 border-b-2 border-red-700' : 'text-neutral-500 font-medium'}`}
+                >
+                  Job Costing
+                </button>
               </div>
 
               {/* Job Tab Content */}
@@ -925,6 +932,10 @@ export default function JobDetailPage() {
                     />
                   </div>
                 </>
+              )}
+
+              {activeTab === 'costing' && job && (
+                <RealJobCosting jobId={job.id} />
               )}
             </>
           )}
