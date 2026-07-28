@@ -118,39 +118,45 @@ export default function EmployeeJobView() {
         .single()
       setTeamMember(tm)
 
-      // Get job
-      const { data: jobData } = await supabase
-        .from('jobs')
-        .select('*, clients(name, phone, address)')
-        .eq('id', id)
-        .single()
-      setJob(jobData)
+      // Load only the assigned operational fields exposed by secure RPCs.
+      // Quote prices, estimates, billing, and unassigned jobs are never returned.
+      const { data: jobRows, error: jobError } = await supabase
+        .rpc('get_my_operational_job', { p_job_id: id })
+      if (jobError) throw jobError
 
-      // Get line items (from job_line_items first, fallback to quote_line_items)
-      const { data: jobItems } = await supabase
-        .from('job_line_items')
-        .select('id, description, quantity, sort_order')
-        .eq('job_id', id)
-        .order('sort_order')
+      const jobData = Array.isArray(jobRows) ? jobRows[0] : jobRows
+      if (!jobData) throw new Error('Assigned job not found')
 
-      if (jobItems && jobItems.length > 0) {
-        setLineItems(jobItems)
-      } else if (jobData?.quote_id) {
-        const { data: quoteItems } = await supabase
-          .from('quote_line_items')
-          .select('id, description, quantity, sort_order')
-          .eq('quote_id', jobData.quote_id)
-          .order('sort_order')
-        setLineItems(quoteItems || [])
-      }
+      setJob({
+        id: jobData.id,
+        title: jobData.title,
+        description: jobData.description,
+        date_scheduled: jobData.date_scheduled,
+        location: jobData.location,
+        status: jobData.status,
+        video_url: jobData.video_url,
+        photos: jobData.photos || [],
+        quote_id: null,
+        clients: jobData.client_name
+          ? {
+              name: jobData.client_name,
+              phone: jobData.client_phone,
+              address: jobData.client_address,
+            }
+          : null,
+      })
 
-      // Get tasks for this job
-      const { data: taskData } = await supabase
-        .from('tasks')
-        .select('id, title, is_completed, due_date')
-        .eq('job_id', id)
-        .order('created_at')
-      setTasks(taskData || [])
+      const [
+        { data: jobItems, error: itemsError },
+        { data: taskData, error: tasksError },
+      ] = await Promise.all([
+        supabase.rpc('list_my_job_scope', { p_job_id: id }),
+        supabase.rpc('list_my_job_tasks', { p_job_id: id }),
+      ])
+      if (itemsError) throw itemsError
+      if (tasksError) throw tasksError
+      setLineItems((jobItems as LineItem[]) || [])
+      setTasks((taskData as Task[]) || [])
 
       // Get time entries for this employee + job
       if (tm) {
@@ -228,13 +234,16 @@ export default function EmployeeJobView() {
   }
 
   async function toggleTask(task: Task) {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ is_completed: !task.is_completed })
-      .eq('id', task.id)
-    if (!error) {
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: !t.is_completed } : t))
-    }
+    const { data, error } = await supabase
+      .rpc('set_my_job_task_completed', {
+        p_task_id: task.id,
+        p_completed: !task.is_completed,
+      })
+    if (error) return
+
+    const updated = Array.isArray(data) ? data[0] : data
+    if (!updated) return
+    setTasks(prev => prev.map(item => item.id === updated.id ? updated as Task : item))
   }
 
   async function submitExpense() {

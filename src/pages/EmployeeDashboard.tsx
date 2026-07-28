@@ -9,7 +9,7 @@ type AssignedJob = {
   status: string
   date_scheduled: string | null
   location: string | null
-  clients: { name: string } | null
+  client_name: string | null
 }
 
 type TimeEntry = {
@@ -65,22 +65,12 @@ export default function EmployeeDashboard() {
       }
       setEmployee(tm)
 
-      // Get assigned jobs
-      const { data: assignments } = await supabase
-        .from('job_assignments')
-        .select('job_id')
-        .eq('team_member_id', tm.id)
-
-      if (assignments && assignments.length > 0) {
-        const jobIds = assignments.map(a => a.job_id)
-        const { data: jobs } = await supabase
-          .from('jobs')
-          .select('id, title, status, date_scheduled, location, clients(name)')
-          .in('id', jobIds)
-          .not('status', 'eq', 'completed')
-          .order('date_scheduled')
-        setAssignedJobs((jobs as any) || [])
-      }
+      // Load only server-approved operational fields. Pricing and billing data
+      // never enter the employee response.
+      const { data: jobs, error: jobsError } = await supabase
+        .rpc('list_my_operational_jobs')
+      if (jobsError) throw jobsError
+      setAssignedJobs((jobs as AssignedJob[]) || [])
 
       // Get open time entry (clocked in somewhere)
       const { data: openTime } = await supabase
@@ -177,7 +167,7 @@ export default function EmployeeDashboard() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-neutral-900 truncate">{job.title}</p>
-                      {job.clients && <p className="text-sm text-neutral-500 mt-0.5">{job.clients.name}</p>}
+                      {job.client_name && <p className="text-sm text-neutral-500 mt-0.5">{job.client_name}</p>}
                       {job.location && <p className="text-xs text-neutral-400 mt-0.5 truncate">{job.location}</p>}
                       {job.date_scheduled && (
                         <p className="text-xs text-neutral-400 mt-0.5">
