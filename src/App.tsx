@@ -52,6 +52,7 @@ import TeamManagement from "./pages/TeamManagement";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import JobCostingDemo from "./pages/JobCostingDemo";
 import EmployeeJobView from "./pages/EmployeeJobView";
+import AcceptTeamInvitation from "./pages/AcceptTeamInvitation";
 
 /** Minimal session hook (no external libs) */
 function useSupabaseSession() {
@@ -105,7 +106,11 @@ function AuthCallbackPage() {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        nav("/home", { replace: true });
+        const requestedNext = new URLSearchParams(window.location.search).get("next");
+        const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+          ? requestedNext
+          : "/home";
+        nav(safeNext, { replace: true });
       } else {
         nav("/login", { replace: true });
       }
@@ -149,6 +154,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/accept-invite" element={<AcceptTeamInvitation />} />
         <Route
           path="/home"
           element={

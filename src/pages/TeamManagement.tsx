@@ -62,6 +62,7 @@ export default function TeamManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [inviteLink, setInviteLink] = useState('')
   const [companyId, setCompanyId] = useState<string | null>(null)
 
   const MAX_MEMBERS = 10
@@ -132,31 +133,38 @@ export default function TeamManagement() {
   async function handleInvite(email: string, role: TeamRole) {
     if (!companyId) return
     try {
-      const { error } = await supabase
-        .from('team_members')
-        .insert({
-          company_id: companyId,
-          email: email.toLowerCase().trim(),
-          full_name: email.split('@')[0], // placeholder until they set their name
-          role,
-          is_active: false, // stays false until invite accepted
-          invited_at: new Date().toISOString(),
+      const normalizedEmail = email.toLowerCase().trim()
+      const { data, error } = await supabase
+        .rpc('create_team_invitation', {
+          p_company_id: companyId,
+          p_email: normalizedEmail,
+          p_full_name: normalizedEmail.split('@')[0],
+          p_role: role,
+          p_hourly_rate: null,
         })
 
-      if (error) {
-        if (error.code === '23505') {
-          flash('❌ This email is already on your team')
-        } else {
-          throw error
-        }
-        return
-      }
+      if (error) throw error
 
+      const invitation = Array.isArray(data) ? data[0] : data
+      if (!invitation?.invitation_token) throw new Error('Invitation token was not returned')
+
+      setInviteLink(
+        `${window.location.origin}/accept-invite?token=${encodeURIComponent(invitation.invitation_token)}`
+      )
       setShowInviteModal(false)
-      flash(`✅ Invitation recorded for ${email}`)
+      flash(`✅ Invitation created for ${normalizedEmail}`)
       loadTeam()
     } catch (err: any) {
-      flash(`❌ ${err.message || 'Failed to send invitation'}`)
+      flash(`❌ ${err.message || 'Failed to create invitation'}`)
+    }
+  }
+
+  async function copyInviteLink() {
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      flash('✅ Invitation link copied')
+    } catch {
+      flash('❌ Could not copy automatically. Select and copy the link below.')
     }
   }
 
@@ -265,6 +273,27 @@ export default function TeamManagement() {
           {error && (
             <div className="mt-3 p-3 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200">
               {error}
+            </div>
+          )}
+          {inviteLink && (
+            <div className="mt-3 p-3 rounded-lg border border-blue-200 bg-blue-50">
+              <p className="text-sm font-medium text-blue-900 mb-2">
+                Share this secure, single-use invitation link:
+              </p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={inviteLink}
+                  onFocus={event => event.currentTarget.select()}
+                  className="min-w-0 flex-1 px-3 py-2 text-xs bg-white border border-blue-200 rounded-lg"
+                />
+                <button
+                  onClick={copyInviteLink}
+                  className="px-3 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg"
+                >
+                  Copy
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -76,6 +76,7 @@ export default function EmployeeJobView() {
   const [clockingIn, setClockingIn] = useState(false)
   const [clockingOut, setClockinOut] = useState(false)
   const [elapsed, setElapsed] = useState('')
+  const [clockError, setClockError] = useState('')
 
   // Add expense state
   const [showExpenseForm, setShowExpenseForm] = useState(false)
@@ -180,27 +181,22 @@ export default function EmployeeJobView() {
   async function clockIn() {
     if (!teamMember || !job) return
     setClockingIn(true)
+    setClockError('')
     try {
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .single()
-
       const { data, error } = await supabase
-        .from('time_entries')
-        .insert({
-          team_member_id: teamMember.id,
-          job_id: job.id,
-          company_id: company?.id,
-          clock_in: new Date().toISOString(),
+        .rpc('clock_in_to_job', {
+          p_job_id: job.id,
+          p_notes: null,
         })
-        .select()
-        .single()
 
-      if (!error && data) {
-        setOpenEntry(data)
-        setTimeEntries(prev => [data, ...prev])
-      }
+      if (error) throw error
+      if (!data) throw new Error('Clock-in did not return a time entry')
+
+      const entry = data as TimeEntry
+      setOpenEntry(entry)
+      setTimeEntries(prev => [entry, ...prev])
+    } catch (err: any) {
+      setClockError(err.message || 'Unable to clock in')
     } finally {
       setClockingIn(false)
     }
@@ -209,26 +205,23 @@ export default function EmployeeJobView() {
   async function clockOut() {
     if (!openEntry) return
     setClockinOut(true)
+    setClockError('')
     try {
-      const clockOutTime = new Date().toISOString()
-      const hoursWorked = (Date.now() - new Date(openEntry.clock_in).getTime()) / 3600000
-
-      const { error } = await supabase
-        .from('time_entries')
-        .update({
-          clock_out: clockOutTime,
-          hours_worked: Math.round(hoursWorked * 100) / 100,
+      const { data, error } = await supabase
+        .rpc('clock_out_current', {
+          p_notes: null,
         })
-        .eq('id', openEntry.id)
 
-      if (!error) {
-        setOpenEntry(null)
-        setTimeEntries(prev => prev.map(e =>
-          e.id === openEntry.id
-            ? { ...e, clock_out: clockOutTime, hours_worked: Math.round(hoursWorked * 100) / 100 }
-            : e
-        ))
-      }
+      if (error) throw error
+      if (!data) throw new Error('Clock-out did not return a time entry')
+
+      const completedEntry = data as TimeEntry
+      setOpenEntry(null)
+      setTimeEntries(prev => prev.map(entry =>
+        entry.id === completedEntry.id ? completedEntry : entry
+      ))
+    } catch (err: any) {
+      setClockError(err.message || 'Unable to clock out')
     } finally {
       setClockinOut(false)
     }
@@ -366,6 +359,11 @@ export default function EmployeeJobView() {
               </button>
             )}
           </div>
+          {clockError && (
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2 mb-3">
+              {clockError}
+            </p>
+          )}
           {/* Time history */}
           {timeEntries.length > 0 && (
             <div className="border-t border-neutral-200 pt-3 mt-2 space-y-1">

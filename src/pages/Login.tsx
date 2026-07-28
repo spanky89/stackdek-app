@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 
 type AuthMode = 'signin' | 'signup' | 'forgot'
@@ -8,6 +8,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedNext = searchParams.get('next')
+  const safeNext = requestedNext?.startsWith('/') && !requestedNext.startsWith('//')
+    ? requestedNext
+    : '/home'
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,7 +36,7 @@ export default function LoginPage() {
       if (err) throw err
       // Check session to ensure it's set before navigating
       await supabase.auth.getSession()
-      nav('/home', { replace: true })
+      nav(safeNext, { replace: true })
     } catch (err: any) {
       setError(err.message || 'Sign in failed')
     } finally {
@@ -62,7 +67,7 @@ export default function LoginPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
         },
       })
       if (authErr) throw authErr
@@ -90,7 +95,7 @@ export default function LoginPage() {
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
         },
       })
       if (err) throw err
