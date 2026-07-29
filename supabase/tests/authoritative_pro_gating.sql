@@ -63,6 +63,31 @@ select public.create_team_invitation(
 );
 
 reset role;
+update public.team_members
+set user_id = '13000000-0000-0000-0000-000000000002',
+    is_active = true,
+    accepted_at = now()
+where company_id = '23000000-0000-0000-0000-000000000001'
+  and email = 'gate-worker@test.local';
+
+insert into public.jobs (id, company_id, title, date_scheduled)
+values (
+  '33000000-0000-0000-0000-000000000001',
+  '23000000-0000-0000-0000-000000000001',
+  'Gated Job',
+  current_date
+);
+
+insert into public.job_assignments (job_id, team_member_id, company_id, assigned_by)
+select
+  '33000000-0000-0000-0000-000000000001',
+  tm.id,
+  tm.company_id,
+  '13000000-0000-0000-0000-000000000001'
+from public.team_members tm
+where tm.company_id = '23000000-0000-0000-0000-000000000001'
+  and tm.email = 'gate-worker@test.local';
+
 update public.companies
 set subscription_status = 'canceled'
 where id = '23000000-0000-0000-0000-000000000001';
@@ -109,6 +134,39 @@ begin
   end if;
 end;
 $$;
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"13000000-0000-0000-0000-000000000002","email":"gate-worker@test.local","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  if (select count(*) from public.list_my_operational_jobs()) <> 0 then
+    raise exception 'Canceled Pro employee retained assigned-job access';
+  end if;
+
+  if public.can_access_operational_job(
+    '33000000-0000-0000-0000-000000000001'
+  ) then
+    raise exception 'Canceled Pro employee retained direct job access';
+  end if;
+
+  begin
+    perform public.clock_in_to_job(
+      '33000000-0000-0000-0000-000000000001',
+      'should fail'
+    );
+    raise exception 'Canceled Pro employee clocked in';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
 
 rollback;
 \echo authoritative_pro_gating: all tests passed
