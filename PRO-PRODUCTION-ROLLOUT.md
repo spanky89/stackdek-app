@@ -1,22 +1,23 @@
 # StackDek Pro Production Rollout
 
 **Prepared:** July 28, 2026  
+**Deployed:** July 28, 2026
 **App branch:** `pro-mvp-secure-foundation`  
 **App checkpoint:** `aeff019`  
 **Landing branch:** `pro-mvp-claims-alignment`  
 **Landing checkpoint:** `d25cfa6`
 
-## Current Recommendation
+## Deployment Result
 
-**NO-GO until the three preflight gates below are complete.**
+**GO completed successfully.**
 
-The application and database changes are ready based on local and preview
-evidence, but production is missing `VITE_STRIPE_PRICE_PRO`, the four database
-migrations are not applied remotely, and no fresh production backup has been
-taken immediately before rollout.
-
-After those three gates pass, the recommendation becomes **GO with monitored,
-reversible application deployment**.
+- Fresh backup: `StackDek-Supabase-Backups/20260728-221648`
+- App production deployment: `dpl_9dueZir7e92ybrfox3rchTgo1YwM`
+- Landing production deployment: `dpl_92q6RrZoHU7TqVAKFDLKh8RkKumZ`
+- Prior app rollback deployment: `dpl_8wfayCuCdsEWNP9GkiiQhyhHhoLP`
+- Prior landing rollback deployment: `dpl_DBatrEV57b119MZeJMx9JujTt5vG`
+- All four migrations applied and remote database lint is clean.
+- Both custom domains are aliased to the new Ready deployments.
 
 ## Evidence Already Complete
 
@@ -62,7 +63,11 @@ live schema differs materially from the July 26 audited backup.
 
 Add the existing Pro Stripe price to Vercel **Production**:
 
-- `VITE_STRIPE_PRICE_PRO=price_1T2tLqFeASePKLFe6IDmjQhY`
+- `VITE_STRIPE_PRICE_PRO=price_1T2uSBFqUBajwnjnBMZ4tpVQ`
+
+The originally proposed price did not exist in the live StackDek Stripe
+account. Deployment stopped at the gate, then resumed after explicit approval
+to use the verified active live $69/month price above.
 
 Verify these production names exist without printing their secret values:
 
@@ -167,4 +172,3 @@ Rollback immediately for any of these:
 - Confirm no real customer row shares an ID or email with a cleanup target.
 - Preserve logs and test evidence.
 - Update `memory/projects/stackdek.md` and `memory/TODO.md`.
-
