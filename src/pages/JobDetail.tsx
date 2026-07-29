@@ -19,6 +19,7 @@ type Photo = {
 
 type Job = {
   id: string; title: string; description: string | null; date_scheduled: string
+  company_id: string
   location: string | null; estimate_amount: number; status: string
   client_id: string | null; quote_id: string | null; completed_at: string | null
   notes: string | null
@@ -98,9 +99,8 @@ export default function JobDetailPage() {
           location: data.location || '', status: data.status,
         })
 
-        // Fetch company id
-        const { data: companyData } = await supabase.from('companies').select('id').single()
-        if (companyData) setCompanyId(companyData.id)
+        // The job row is the authoritative company scope for assignments.
+        setCompanyId(data.company_id)
 
         // Fetch job line items
         const { data: jobItems, error: jobItemsErr } = await supabase

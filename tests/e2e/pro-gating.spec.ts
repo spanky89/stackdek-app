@@ -4,10 +4,22 @@ const password = 'StackDek-E2E-2026!'
 
 async function signIn(page: Page, email: string) {
   await page.goto('/login')
+  await completeSignIn(page, email)
+}
+
+async function completeSignIn(page: Page, email: string) {
   await page.getByPlaceholder('Enter your email').fill(email)
   await page.getByPlaceholder('Enter your password').fill(password)
   await page.getByRole('button', { name: 'Sign In' }).last().click()
   await page.waitForURL(/\/(home|employee-dashboard)/)
+}
+
+async function clearSession(page: Page) {
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+  await page.goto('/login')
 }
 
 test('Starter owner is blocked from Team Management', async ({ page }) => {
@@ -28,4 +40,61 @@ test('Job Costing is visible to active Pro owner', async ({ page }) => {
   await signIn(page, 'pro-owner@test.local')
   await page.goto('/job/34000000-0000-0000-0000-000000000001')
   await expect(page.getByRole('button', { name: 'Job Costing' })).toBeVisible()
+})
+
+test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
+  test.setTimeout(60_000)
+  // Owner creates a secure single-use invitation.
+  await signIn(page, 'pro-owner@test.local')
+  await page.goto('/team')
+  await page.getByRole('button', { name: /Invite Team Member/ }).click()
+  await page.getByPlaceholder('teammate@example.com').fill('pro-employee@test.local')
+  await page.getByRole('button', { name: 'Send Invitation' }).click()
+  const invitationUrl = await page.locator('input[readonly]').inputValue()
+  expect(invitationUrl).toContain('/accept-invite?token=')
+
+  // The invited employee signs in with the matching email and accepts.
+  await clearSession(page)
+  await page.goto(invitationUrl)
+  await page.getByRole('button', { name: 'Sign in or create account' }).click()
+  await completeSignIn(page, 'pro-employee@test.local')
+  await page.waitForURL(/\/employee-dashboard/)
+
+  // Owner assigns the accepted employee and starts the job.
+  await clearSession(page)
+  await signIn(page, 'pro-owner@test.local')
+  await page.goto('/job/34000000-0000-0000-0000-000000000001')
+  await page.getByRole('button', { name: 'In Progress' }).click()
+  await page.getByRole('button', { name: /pro-employee/ }).click()
+  await page.getByRole('button', { name: 'Assign 1 & Start' }).click()
+  await expect(page.getByRole('button', { name: 'In Progress' })).toBeDisabled()
+
+  // Employee sees only the assigned job, clocks time, and submits an expense.
+  await clearSession(page)
+  await signIn(page, 'pro-employee@test.local')
+  await expect(page.getByText('Pro E2E Job')).toBeVisible()
+  await page.getByText('Pro E2E Job').click()
+  await page.waitForURL(/\/employee-job\//)
+  await page.getByRole('button', { name: 'Clock In' }).click()
+  await expect(page.getByRole('button', { name: 'Clock Out' })).toBeVisible()
+  await page.getByRole('button', { name: 'Clock Out' }).click()
+  await expect(page.getByRole('button', { name: 'Clock In' })).toBeVisible()
+  await page.getByRole('button', { name: 'expenses' }).click()
+  await page.getByRole('button', { name: '+ Add Expense' }).click()
+  await page.getByPlaceholder('0.00').fill('125.50')
+  await page.getByPlaceholder('e.g. Pressure treated lumber').fill('E2E lumber')
+  await page.getByRole('button', { name: 'Submit' }).click()
+  await expect(page.getByText('$125.50')).toBeVisible()
+  await expect(page.getByText('pending')).toBeVisible()
+
+  // Owner approves the employee expense and sees the resulting profit.
+  await clearSession(page)
+  await signIn(page, 'pro-owner@test.local')
+  await page.goto('/job/34000000-0000-0000-0000-000000000001')
+  await page.getByRole('button', { name: 'Job Costing' }).click()
+  await expect(page.getByText('E2E lumber')).toBeVisible()
+  await page.getByRole('button', { name: 'Approve' }).click()
+  await expect(page.getByText('approved')).toBeVisible()
+  await expect(page.getByText('$125.50 expenses')).toBeVisible()
+  await expect(page.getByText('$874.50')).toBeVisible()
 })

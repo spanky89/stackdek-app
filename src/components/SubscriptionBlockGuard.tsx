@@ -18,6 +18,7 @@ export default function SubscriptionBlockGuard({ children }: { children: JSX.Ele
   const location = useLocation()
   const [loading, setLoading] = useState(true)
   const [hasAccess, setHasAccess] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
 
   useEffect(() => {
     checkAccess()
@@ -42,25 +43,45 @@ export default function SubscriptionBlockGuard({ children }: { children: JSX.Ele
         return
       }
 
-      const { data: company } = await supabase
-        .from('companies')
-        .select('subscription_status, trial_ends_at, subscription_current_period_end')
-        .eq('owner_id', user.id)
-        .single()
+      // Resolve active team membership first. Invited users may also have an
+      // auto-created owner company from signup, but employee routes must use
+      // the company they actually joined.
+      const { data: membership, error: membershipError } = await supabase
+        .from('team_members')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle()
+      if (membershipError) throw membershipError
 
-      if (!company) {
-        setHasAccess(false)
-        setLoading(false)
+      if (membership) {
+        setIsOwner(false)
+        const { data: employeeAccess, error: accessError } = await supabase
+          .rpc('company_has_active_pro', { p_company_id: membership.company_id })
+        if (accessError) throw accessError
+        setHasAccess(employeeAccess === true)
         return
       }
 
-      const access = isSubscriptionValid(company)
-      setHasAccess(access)
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('subscription_status, trial_ends_at, subscription_current_period_end')
+        .eq('owner_id', user.id)
+        .limit(1)
+        .maybeSingle()
+      if (companyError) throw companyError
 
-      // If no access, redirect to billing
-      if (!access) {
-        nav('/settings/billing', { replace: true })
+      if (company) {
+        setIsOwner(true)
+        const access = isSubscriptionValid(company)
+        setHasAccess(access)
+        if (!access) nav('/settings/billing', { replace: true })
+        return
       }
+
+      setIsOwner(false)
+      setHasAccess(false)
     } catch (err) {
       console.error('Subscription check error:', err)
       setHasAccess(false)
@@ -113,14 +134,18 @@ export default function SubscriptionBlockGuard({ children }: { children: JSX.Ele
           <div className="text-6xl mb-4">🔒</div>
           <h1 className="text-2xl font-bold text-neutral-900 mb-3">Subscription Required</h1>
           <p className="text-neutral-600 mb-6">
-            Your trial has expired. Subscribe to continue using StackDek.
+            {isOwner
+              ? 'Your trial has expired. Subscribe to continue using StackDek.'
+              : 'Your company’s Pro subscription is inactive. Contact the account owner.'}
           </p>
-          <button
-            onClick={() => nav('/settings/billing')}
-            className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition"
-          >
-            View Pricing & Subscribe
-          </button>
+          {isOwner && (
+            <button
+              onClick={() => nav('/settings/billing')}
+              className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition"
+            >
+              View Pricing & Subscribe
+            </button>
+          )}
         </div>
       </div>
     )

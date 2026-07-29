@@ -27,21 +27,56 @@ export default async function globalSetup() {
       email: 'pro-owner@test.local',
       plan: 'pro',
     },
+    {
+      userId: '14000000-0000-0000-0000-000000000003',
+      companyId: null,
+      email: 'pro-employee@test.local',
+      plan: null,
+    },
   ]
 
+  await supabase
+    .from('job_expenses')
+    .delete()
+    .eq('job_id', '34000000-0000-0000-0000-000000000001')
+  await supabase
+    .from('time_entries')
+    .delete()
+    .eq('job_id', '34000000-0000-0000-0000-000000000001')
+  await supabase
+    .from('job_assignments')
+    .delete()
+    .eq('job_id', '34000000-0000-0000-0000-000000000001')
+  await supabase
+    .from('team_members')
+    .delete()
+    .eq('company_id', '24000000-0000-0000-0000-000000000002')
+
+  const { data: existingUsers, error: listUsersError } =
+    await supabase.auth.admin.listUsers({ perPage: 1000 })
+  if (listUsersError) throw listUsersError
+
   for (const fixture of fixtures) {
-    await supabase.auth.admin.deleteUser(fixture.userId)
-    const { error: userError } = await supabase.auth.admin.createUser({
-      id: fixture.userId,
-      email: fixture.email,
-      password: 'StackDek-E2E-2026!',
-      email_confirm: true,
-    })
+    const existing = existingUsers.users.find(user => user.email === fixture.email)
+    const userId = existing?.id || fixture.userId
+    const { error: userError } = existing
+      ? await supabase.auth.admin.updateUserById(userId, {
+          password: 'StackDek-E2E-2026!',
+          email_confirm: true,
+        })
+      : await supabase.auth.admin.createUser({
+          id: userId,
+          email: fixture.email,
+          password: 'StackDek-E2E-2026!',
+          email_confirm: true,
+        })
     if (userError) throw userError
+
+    if (!fixture.companyId) continue
 
     const { error: companyError } = await supabase.from('companies').upsert({
       id: fixture.companyId,
-      owner_id: fixture.userId,
+      owner_id: userId,
       name: fixture.plan === 'pro' ? 'Pro E2E Company' : 'Starter E2E Company',
       subscription_plan: fixture.plan,
       subscription_status: 'active',
