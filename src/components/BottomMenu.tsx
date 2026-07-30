@@ -183,6 +183,7 @@ export default function BottomMenu({ onNewTask, onNewRequest }: BottomMenuProps)
     { label: 'Add Client', path: '/clients/create', Icon: UserPlusIcon },
     { label: 'New Quote', path: '/quotes/create', Icon: FileTextIcon },
     { label: 'New Task', action: 'newTask', Icon: ClipboardIcon },
+    { label: 'Team Operations', path: '/team', Icon: UserPlusIcon },
     ...(isAdmin ? [{ label: 'Admin', path: '/admin', Icon: AdminIcon }] : []),
   ]
 

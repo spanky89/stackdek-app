@@ -123,6 +123,7 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
     { label: 'Quotes', icon: '📝', path: '/quotes' },
     { label: 'Invoices', icon: '💰', path: '/invoices' },
     { label: 'Clients', icon: '👥', path: '/clients' },
+    { label: 'Team Operations', icon: '🕒', path: '/team' },
     { label: 'Help', icon: '❓', path: '/help' },
     { label: 'Settings', icon: '⚙️', path: '/settings' },
   ]

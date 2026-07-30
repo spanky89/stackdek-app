@@ -54,7 +54,12 @@ function EditRoleModal({
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-export default function TeamManagement() {
+function Embedded({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
+
+export default function TeamManagement({ embedded = false }: { embedded?: boolean }) {
+  const Wrapper = embedded ? Embedded : AppLayout
   const [teamMembers, setTeamMembers] = useState<TeamMemberWithStats[]>([])
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMemberWithStats | null>(null)
@@ -233,16 +238,16 @@ export default function TeamManagement() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <Wrapper>
         <div className="flex items-center justify-center py-20">
           <p className="text-neutral-600">Loading team…</p>
         </div>
-      </AppLayout>
+      </Wrapper>
     )
   }
 
   return (
-    <AppLayout>
+    <Wrapper>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -389,6 +394,6 @@ export default function TeamManagement() {
           onSave={handleRoleChange}
         />
       )}
-    </AppLayout>
+    </Wrapper>
   )
 }

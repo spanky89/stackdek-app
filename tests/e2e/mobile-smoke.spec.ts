@@ -21,7 +21,8 @@ async function expectNoHorizontalOverflow(page: Page) {
 test('Pro team management remains usable on a phone viewport', async ({ page }) => {
   await signIn(page)
   await page.goto('/team')
-  await expect(page.getByRole('heading', { name: 'Team Management' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Team Operations' })).toBeVisible()
+  await page.getByRole('button', { name: 'Team', exact: true }).click()
   await expect(page.getByRole('button', { name: /Invite Team Member/ })).toBeVisible()
   await expectNoHorizontalOverflow(page)
 })

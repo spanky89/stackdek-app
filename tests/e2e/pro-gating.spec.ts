@@ -29,10 +29,11 @@ test('Starter owner is blocked from Team Management', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'View Pro plan' })).toBeVisible()
 })
 
-test('active Pro owner can open Team Management', async ({ page }) => {
+test('active Pro owner can open Team Operations', async ({ page }) => {
   await signIn(page, 'pro-owner@test.local')
   await page.goto('/team')
-  await expect(page.getByRole('heading', { name: 'Team Management' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Team Operations' })).toBeVisible()
+  await page.getByRole('button', { name: 'Team', exact: true }).click()
   await expect(page.getByRole('button', { name: /Invite Team Member/ })).toBeVisible()
 })
 
@@ -47,6 +48,7 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   // Owner creates a secure single-use invitation.
   await signIn(page, 'pro-owner@test.local')
   await page.goto('/team')
+  await page.getByRole('button', { name: 'Team', exact: true }).click()
   await page.getByRole('button', { name: /Invite Team Member/ }).click()
   await page.getByPlaceholder('Mike Davis').fill('Pro Employee')
   await page.getByPlaceholder('teammate@example.com').fill('pro-employee@test.local')
@@ -73,6 +75,11 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   // Owner assigns the accepted employee and starts the job.
   await clearSession(page)
   await signIn(page, 'pro-owner@test.local')
+  await page.goto('/team')
+  await page.getByRole('button', { name: 'Timesheets', exact: true }).click()
+  await expect(page.getByText('General shop cleanup')).toBeVisible()
+  await page.getByRole('button', { name: 'Approve', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Approved ✓' })).toBeVisible()
   await page.goto('/job/34000000-0000-0000-0000-000000000001')
   await page.getByRole('button', { name: 'In Progress' }).click()
   await page.getByRole('button', { name: /Pro Employee/ }).click()

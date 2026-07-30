@@ -48,7 +48,7 @@ import HelpPage from "./pages/Help";
 import SubscriptionBlockGuard from "./components/SubscriptionBlockGuard";
 import ResetPasswordPage from "./pages/ResetPassword";
 import ContractDemo from "./pages/ContractDemo";
-import TeamManagement from "./pages/TeamManagement";
+import TeamOperations from "./pages/TeamOperations";
 import ProFeatureGuard from "./components/ProFeatureGuard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import JobCostingDemo from "./pages/JobCostingDemo";
@@ -431,7 +431,7 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ProFeatureGuard>
-                <TeamManagement />
+                <TeamOperations />
               </ProFeatureGuard>
             </ProtectedRoute>
           }
