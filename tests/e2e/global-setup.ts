@@ -14,6 +14,9 @@ export default async function globalSetup() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
+  const { error: bucketError } = await supabase.storage.createBucket('job-receipts', { public: false })
+  if (bucketError && !/already exists/i.test(bucketError.message)) throw bucketError
+
   const fixtures = [
     {
       userId: '14000000-0000-0000-0000-000000000001',

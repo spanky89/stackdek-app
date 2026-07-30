@@ -145,9 +145,16 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   await page.getByRole('button', { name: '+ Add Expense' }).click()
   await page.getByPlaceholder('0.00').fill('125.50')
   await page.getByPlaceholder('e.g. Pressure treated lumber').fill('E2E lumber')
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'receipt.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+  })
+  await expect(page.getByText(/Receipt ready/)).toBeVisible()
   await page.getByRole('button', { name: 'Submit' }).click()
   await expect(page.getByText('$125.50')).toBeVisible()
   await expect(page.getByText('pending')).toBeVisible()
+  await expect(page.getByText('Receipt attached')).toBeVisible()
 
   // Owner approves the employee expense and sees the resulting profit.
   await clearSession(page)
@@ -155,6 +162,7 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   await page.goto('/job/34000000-0000-0000-0000-000000000001')
   await page.getByRole('button', { name: 'Job Costing' }).click()
   await expect(page.getByText('E2E lumber')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Receipt' })).toBeVisible()
   await page.getByRole('button', { name: 'Approve' }).click()
   await expect(page.getByText('approved')).toBeVisible()
   await expect(page.getByText('$125.50 expenses')).toBeVisible()

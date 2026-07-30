@@ -85,7 +85,9 @@ export default function EmployeeJobView() {
   const [expenseForm, setExpenseForm] = useState({ amount: '', category: 'materials', description: '', notes: '' })
   const [submittingExpense, setSubmittingExpense] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState('')
   const [expenseError, setExpenseError] = useState('')
+  const [expenseStage, setExpenseStage] = useState('')
 
   // Load everything
   useEffect(() => {
@@ -253,11 +255,17 @@ export default function EmployeeJobView() {
     if (!teamMember || !job || !expenseForm.amount || !expenseForm.category) return
     setSubmittingExpense(true)
     setExpenseError('')
+    setExpenseStage(receiptFile ? 'Uploading receipt…' : 'Saving expense…')
     try {
       let receiptPath: string | null = null
 
       if (receiptFile) {
-        const ext = receiptFile.name.split('.').pop() || ''
+        const mimeExtensions: Record<string, string> = {
+          'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+          'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf',
+        }
+        const namedExtension = receiptFile.name.includes('.') ? receiptFile.name.split('.').pop()?.toLowerCase() : ''
+        const ext = mimeExtensions[receiptFile.type.toLowerCase()] || namedExtension || ''
         const { data: pathData, error: pathError } = await supabase
           .rpc('prepare_my_expense_receipt_path', {
             p_job_id: job.id,
@@ -274,6 +282,7 @@ export default function EmployeeJobView() {
             upsert: false,
           })
         if (uploadErr) throw uploadErr
+        setExpenseStage('Saving expense…')
       }
 
       const { error } = await supabase
@@ -289,13 +298,24 @@ export default function EmployeeJobView() {
 
       setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
       setReceiptFile(null)
+      if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl)
+      setReceiptPreviewUrl('')
       setShowExpenseForm(false)
-      loadData()
+      await loadData()
     } catch (err: any) {
       setExpenseError(err.message || 'Unable to submit expense')
     } finally {
       setSubmittingExpense(false)
+      setExpenseStage('')
     }
+  }
+
+  function selectReceipt(file: File | null) {
+    if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl)
+    setReceiptFile(file)
+    setExpenseError('')
+    const browserPreviewable = file?.type.startsWith('image/') && !/hei[cf]/i.test(file.type)
+    setReceiptPreviewUrl(browserPreviewable && file ? URL.createObjectURL(file) : '')
   }
 
   function totalHours() {
@@ -602,12 +622,18 @@ export default function EmployeeJobView() {
                   <label className="text-xs font-medium text-neutral-600 block mb-1">Receipt Photo (optional)</label>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
                     capture="environment"
-                    onChange={e => setReceiptFile(e.target.files?.[0] || null)}
+                    onChange={e => selectReceipt(e.target.files?.[0] || null)}
                     className="w-full text-sm text-neutral-600"
                   />
-                  {receiptFile && <p className="text-xs text-green-600 mt-1">✓ {receiptFile.name}</p>}
+                  {receiptPreviewUrl && <img src={receiptPreviewUrl} alt="Receipt preview" className="mt-3 h-36 w-full rounded-lg border border-neutral-200 object-contain bg-neutral-50" />}
+                  {receiptFile && (
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-xs text-green-700">✓ Receipt ready · {(receiptFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                      <button type="button" onClick={() => selectReceipt(null)} className="text-xs text-red-600">Remove</button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2 pt-1">
@@ -622,7 +648,7 @@ export default function EmployeeJobView() {
                     disabled={submittingExpense || !expenseForm.amount}
                     className="flex-1 bg-neutral-900 text-white font-semibold py-2 rounded-lg text-sm disabled:opacity-50"
                   >
-                    {submittingExpense ? 'Submitting...' : 'Submit'}
+                    {submittingExpense ? expenseStage || 'Submitting…' : 'Submit'}
                   </button>
                 </div>
               </div>
@@ -639,6 +665,7 @@ export default function EmployeeJobView() {
                     <p className="font-semibold text-neutral-900">${exp.amount.toFixed(2)}</p>
                     <p className="text-sm text-neutral-600 capitalize">{exp.category}</p>
                     {exp.description && <p className="text-xs text-neutral-400 mt-0.5">{exp.description}</p>}
+                    {exp.receipt_url && <p className="text-xs text-green-700 mt-1">✓ Receipt attached</p>}
                   </div>
                   <span className={`text-xs font-medium px-2 py-1 rounded-full ${
                     exp.status === 'approved' ? 'bg-green-100 text-green-700' :
