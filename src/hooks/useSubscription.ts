@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../api/supabaseClient';
 import { FEATURE_ACCESS, SubscriptionTier, FeatureName } from '../utils/featureGates';
+import { useAccess } from '../context/AccessContext';
 
 export interface SubscriptionData {
   tier: SubscriptionTier;
@@ -34,6 +35,7 @@ export interface SubscriptionHook {
  * }
  */
 export function useSubscription(): SubscriptionHook {
+  const { companyId } = useAccess();
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -49,11 +51,16 @@ export function useSubscription(): SubscriptionHook {
       setLoading(true);
       setError(null);
 
-      // Fetch company with subscription data
+      if (!companyId) {
+        throw new Error('No company found for user');
+      }
+
+      // Resolve the active company from AccessContext so managers use the
+      // owner's subscription without receiving owner billing access.
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .select('*')
-        .eq('owner_id', user.id)
+        .eq('id', companyId)
         .single();
 
       if (companyError) throw companyError;
@@ -89,7 +96,7 @@ export function useSubscription(): SubscriptionHook {
     fetchSubscriptionData();
     const { data } = supabase.auth.onAuthStateChange(() => fetchSubscriptionData());
     return () => data.subscription.unsubscribe();
-  }, []);
+  }, [companyId]);
 
   const canAccessFeature = (feature: FeatureName): boolean => {
     if (!subscription) return false;

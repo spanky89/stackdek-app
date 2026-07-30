@@ -42,7 +42,9 @@ export default function AcceptTeamInvitation() {
       }
 
       setState('success')
-      window.setTimeout(() => nav('/employee-dashboard', { replace: true }), 1200)
+      // Reload once so the shared access provider resolves the newly-created
+      // membership instead of retaining the pre-acceptance owner fallback.
+      window.setTimeout(() => window.location.assign('/employee-dashboard'), 1200)
     }
 
     acceptInvitation()

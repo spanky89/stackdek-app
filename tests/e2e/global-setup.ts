@@ -36,6 +36,12 @@ export default async function globalSetup() {
       email: 'pro-employee@test.local',
       plan: null,
     },
+    {
+      userId: '14000000-0000-0000-0000-000000000004',
+      companyId: null,
+      email: 'pro-manager@test.local',
+      plan: null,
+    },
   ]
 
   await supabase
@@ -87,6 +93,21 @@ export default async function globalSetup() {
     })
     if (companyError) throw companyError
   }
+
+  const managerUser = (await supabase.auth.admin.listUsers({ perPage: 1000 })).data.users
+    .find(user => user.email === 'pro-manager@test.local')
+  if (!managerUser) throw new Error('Manager fixture user was not created')
+  const { error: managerError } = await supabase.from('team_members').insert({
+    id: '25000000-0000-0000-0000-000000000004',
+    company_id: fixtures[1].companyId,
+    user_id: managerUser.id,
+    email: 'pro-manager@test.local',
+    full_name: 'Pro Manager',
+    role: 'manager',
+    hourly_rate: 35,
+    is_active: true,
+  })
+  if (managerError) throw managerError
 
   const { error: clientError } = await supabase.from('clients').upsert({
     id: '33000000-0000-0000-0000-000000000001',

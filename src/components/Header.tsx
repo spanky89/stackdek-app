@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useCompany } from '../context/CompanyContext'
+import { useAccess } from '../context/AccessContext'
 
 type SearchResult = { id: string; type: 'client' | 'request' | 'quote' | 'job' | 'invoice'; name: string; details?: string }
 
@@ -9,6 +10,8 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
   const nav = useNavigate()
   const location = useLocation()
   const { companyId } = useCompany()
+  const { role } = useAccess()
+  const isOwner = !role
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -125,7 +128,7 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
     { label: 'Clients', icon: '👥', path: '/clients' },
     { label: 'Team Operations', icon: '🕒', path: '/team' },
     { label: 'Help', icon: '❓', path: '/help' },
-    { label: 'Settings', icon: '⚙️', path: '/settings' },
+    ...(isOwner ? [{ label: 'Settings', icon: '⚙️', path: '/settings' }] : []),
   ]
 
   return (
@@ -180,13 +183,15 @@ export default function Header({ showSignOut = true }: { showSignOut?: boolean }
               >
                 ❓
               </button>
-              <button 
-                onClick={() => nav('/settings')}
-                className="text-sm px-3 py-1.5 text-neutral-900 hover:text-neutral-700 transition"
-                title="Settings"
-              >
-                ⚙️
-              </button>
+              {isOwner && (
+                <button
+                  onClick={() => nav('/settings')}
+                  className="text-sm px-3 py-1.5 text-neutral-900 hover:text-neutral-700 transition"
+                  title="Settings"
+                >
+                  ⚙️
+                </button>
+              )}
               <button onClick={signOut} className="hidden sm:inline text-sm px-3 py-1.5 bg-white border border-neutral-200 rounded-lg">
                 Sign Out
               </button>

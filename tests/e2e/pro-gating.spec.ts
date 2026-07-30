@@ -37,6 +37,29 @@ test('active Pro owner can open Team Operations', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Invite Team Member/ })).toBeVisible()
 })
 
+test('manager gets operational access but not owner settings or team administration', async ({ page }) => {
+  await signIn(page, 'pro-manager@test.local')
+  await expect(page).toHaveURL(/\/home$/)
+
+  for (const path of ['/clients', '/requests', '/jobs', '/tasks', '/quotes', '/invoices', '/team']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(new RegExp(`${path.replace('/', '\\/')}$`))
+    await expect(page.getByText('Checking permissions…')).toHaveCount(0)
+  }
+
+  await page.goto('/team')
+  await expect(page.getByRole('heading', { name: 'Team Operations' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Team', exact: true })).toHaveCount(0)
+
+  for (const path of ['/settings', '/settings/billing', '/account']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/home$/)
+  }
+
+  await page.goto('/employee-dashboard')
+  await expect(page).toHaveURL(/\/home$/)
+})
+
 test('owner can set and persist the company time zone', async ({ page }) => {
   await signIn(page, 'pro-owner@test.local')
   await page.goto('/settings')

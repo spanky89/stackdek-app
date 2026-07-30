@@ -6,6 +6,7 @@ import {
   Route,
   Navigate,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 import { CompanyProvider } from "./context/CompanyContext";
 import LandingPage from "./pages/Landing";
@@ -55,6 +56,7 @@ import JobCostingDemo from "./pages/JobCostingDemo";
 import EmployeeJobView from "./pages/EmployeeJobView";
 import AcceptTeamInvitation from "./pages/AcceptTeamInvitation";
 import { AccessProvider, useAccess } from "./context/AccessContext";
+import RoleGuard from "./components/RoleGuard";
 
 /** Auth callback handler for OAuth redirects */
 function AuthCallbackPage() {
@@ -99,6 +101,7 @@ function AuthCallbackPage() {
 /** Route guard with CompanyProvider */
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { loading, session, error } = useAccess();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -119,11 +122,28 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
       </div>
     );
   }
-  return session ? (
-    <SubscriptionBlockGuard>{children}</SubscriptionBlockGuard>
-  ) : (
+  if (!session) {
+    return (
     <Navigate to="/login" replace />
-  );
+    )
+  }
+
+  const ownerOnly = ['/account', '/settings', '/contract-demo', '/job-costing-demo']
+    .some(path => location.pathname === path || location.pathname.startsWith(`${path}/`))
+  const employeeOnly = location.pathname === '/employee-dashboard'
+    || location.pathname.startsWith('/employee-job/')
+  const employeeAllowed = employeeOnly || location.pathname === '/help'
+  const allowedRoles: Array<'owner' | 'manager' | 'employee'> = ownerOnly
+    ? ['owner']
+    : employeeAllowed
+      ? employeeOnly ? ['employee'] : ['owner', 'manager', 'employee']
+      : ['owner', 'manager']
+
+  return (
+    <SubscriptionBlockGuard>
+      <RoleGuard allow={allowedRoles}>{children}</RoleGuard>
+    </SubscriptionBlockGuard>
+  )
 }
 
 export default function App() {

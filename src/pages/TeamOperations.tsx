@@ -4,6 +4,7 @@ import TeamManagement from './TeamManagement'
 import { supabase } from '../api/supabaseClient'
 import { useCompany } from '../context/CompanyContext'
 import { companyDateKey, companyDateTimeInput, companyInputToUtc, DEFAULT_TIME_ZONE, formatCompanyDate, formatCompanyTime, formatDateKey, payPeriodDateKeys, TIME_ZONE_LABELS } from '../utils/companyTime'
+import { useAccess } from '../context/AccessContext'
 
 type Tab = 'overview' | 'timesheets' | 'team' | 'labor'
 type Member = {
@@ -40,6 +41,8 @@ const money = (value: number) => value.toLocaleString('en-US', { style: 'currenc
 const hours = (value: number) => `${value.toFixed(2)}h`
 export default function TeamOperations() {
   const { companyId } = useCompany()
+  const { role } = useAccess()
+  const isOwner = !role
   const [tab, setTab] = useState<Tab>('overview')
   const [members, setMembers] = useState<Member[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
@@ -163,7 +166,7 @@ export default function TeamOperations() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'timesheets', label: 'Timesheets' },
-    { key: 'team', label: 'Team' },
+    ...(isOwner ? [{ key: 'team' as Tab, label: 'Team' }] : []),
     { key: 'labor', label: 'Job Labor' },
   ]
 

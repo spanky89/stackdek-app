@@ -2,8 +2,8 @@ import { Navigate } from 'react-router-dom'
 import { useAccess } from '../context/AccessContext'
 
 /**
- * EmployeeGuard — redirects team members with role 'employee' or 'manager'
- * away from owner-only routes and toward /employee-dashboard.
+ * EmployeeGuard — redirects employees away from operational routes.
+ * Managers share the operational workspace with owners.
  *
  * Owners (no team_members record, or role='owner') pass through normally.
  */
@@ -20,7 +20,7 @@ export default function EmployeeGuard({ children }: { children: JSX.Element }) {
   }
 
   // Employees and managers are redirected to their dashboard
-  if (role === 'employee' || role === 'manager') {
+  if (role === 'employee') {
     return <Navigate to="/employee-dashboard" replace />
   }
 
