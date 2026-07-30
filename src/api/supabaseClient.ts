@@ -12,6 +12,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    // AuthCallbackPage owns PKCE code exchange. Letting the client also detect
+    // the callback URL races two consumers for Google's one-time auth code.
+    detectSessionInUrl: false
   }
 })
