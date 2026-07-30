@@ -21,6 +21,7 @@ export default function AssignEmployeesModal({ jobId, companyId, onConfirm, onCa
   const [existing, setExisting] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadMembers()
@@ -62,23 +63,26 @@ export default function AssignEmployeesModal({ jobId, companyId, onConfirm, onCa
 
   async function handleConfirm() {
     setSaving(true)
+    setError('')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) throw userError || new Error('Your session expired. Please sign in again.')
 
       // Remove deselected existing assignments
       const toRemove = [...existing].filter(id => !selected.has(id))
       if (toRemove.length > 0) {
-        await supabase
+        const { error: removeError } = await supabase
           .from('job_assignments')
           .delete()
           .eq('job_id', jobId)
           .in('team_member_id', toRemove)
+        if (removeError) throw removeError
       }
 
       // Add new assignments
       const toAdd = [...selected].filter(id => !existing.has(id))
       if (toAdd.length > 0) {
-        await supabase.from('job_assignments').insert(
+        const { error: addError } = await supabase.from('job_assignments').insert(
           toAdd.map(memberId => ({
             job_id: jobId,
             team_member_id: memberId,
@@ -86,9 +90,13 @@ export default function AssignEmployeesModal({ jobId, companyId, onConfirm, onCa
             assigned_by: user!.id,
           }))
         )
+        if (addError) throw addError
       }
 
+      setExisting(new Set(selected))
       onConfirm([...selected])
+    } catch (err: any) {
+      setError(err?.message || 'Could not save the crew. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -102,8 +110,8 @@ export default function AssignEmployeesModal({ jobId, companyId, onConfirm, onCa
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-neutral-100">
-          <h2 className="text-lg font-bold text-neutral-900">Assign Team Members</h2>
-          <p className="text-sm text-neutral-500 mt-1">Who's working this job?</p>
+          <h2 className="text-lg font-bold text-neutral-900">Manage Crew</h2>
+          <p className="text-sm text-neutral-500 mt-1">Choose who can access and log time to this job.</p>
         </div>
 
         {/* Body */}
@@ -159,6 +167,9 @@ export default function AssignEmployeesModal({ jobId, companyId, onConfirm, onCa
         </div>
 
         {/* Footer */}
+        {error && (
+          <p className="mx-6 mb-3 text-sm text-red-700" role="alert">{error}</p>
+        )}
         <div className="px-6 pb-6 pt-4 border-t border-neutral-100 flex gap-3">
           <button
             onClick={onCancel}
@@ -171,7 +182,7 @@ export default function AssignEmployeesModal({ jobId, companyId, onConfirm, onCa
             disabled={saving}
             className="flex-1 bg-neutral-900 text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-50"
           >
-            {saving ? 'Saving...' : selected.size === 0 ? 'Start Job (No Assignments)' : `Assign ${selected.size} & Start`}
+            {saving ? 'Saving...' : selected.size === 0 ? 'Save Empty Crew' : `Save Crew (${selected.size})`}
           </button>
         </div>
 

@@ -76,6 +76,7 @@ export default function JobDetailPage() {
 
   // Assign employees modal state
   const [showAssignModal, setShowAssignModal] = useState(false)
+  const [assignModalVersion, setAssignModalVersion] = useState(0)
   const [companyId, setCompanyId] = useState<string | null>(null)
   
   // On My Way modal state
@@ -831,7 +832,7 @@ export default function JobDetailPage() {
                   Scheduled
                 </button>
                 <button 
-                  onClick={() => setShowAssignModal(true)}
+                  onClick={() => changeStatus('in_progress')}
                   disabled={busy || job.status === 'in_progress'}
                   className={`px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${
                     job.status === 'in_progress'
@@ -853,6 +854,17 @@ export default function JobDetailPage() {
                   Completed
                 </button>
               </div>
+
+              <button
+                onClick={() => {
+                  setAssignModalVersion(version => version + 1)
+                  setShowAssignModal(true)
+                }}
+                disabled={busy || !companyId}
+                className="w-full mb-6 px-4 py-3 bg-white border border-neutral-300 text-neutral-800 rounded-lg text-sm font-semibold hover:bg-neutral-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Manage Crew
+              </button>
 
               {/* Cancel & Complete Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1150,11 +1162,11 @@ export default function JobDetailPage() {
 
         {showAssignModal && job && companyId && (
           <AssignEmployeesModal
+            key={assignModalVersion}
             jobId={job.id}
             companyId={companyId}
             onConfirm={async (_selectedIds) => {
               setShowAssignModal(false)
-              await changeStatus('in_progress')
             }}
             onCancel={() => setShowAssignModal(false)}
           />

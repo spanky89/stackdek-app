@@ -89,7 +89,7 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   await page.getByRole('button', { name: 'Clock Out' }).last().click()
   await expect(page.getByText('READY FOR WORK?')).toBeVisible()
 
-  // Owner assigns the accepted employee and starts the job.
+  // Owner assigns the accepted employee independently, then starts the job.
   await clearSession(page)
   await signIn(page, 'pro-owner@test.local')
   await page.goto('/team')
@@ -98,10 +98,20 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   await page.getByRole('button', { name: 'Approve', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Approved ✓' })).toBeVisible()
   await page.goto('/job/34000000-0000-0000-0000-000000000001')
-  await page.getByRole('button', { name: 'In Progress' }).click()
+  await page.getByRole('button', { name: 'Manage Crew' }).click()
   await page.getByRole('button', { name: /Pro Employee/ }).click()
-  await page.getByRole('button', { name: 'Assign 1 & Start' }).click()
+  await page.getByRole('button', { name: 'Save Crew (1)' }).click()
+  await expect(page.getByRole('heading', { name: 'Manage Crew' })).not.toBeVisible()
+  await page.getByRole('button', { name: 'In Progress' }).click()
   await expect(page.getByRole('button', { name: 'In Progress' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Manage Crew' }).click()
+  await page.getByRole('button', { name: /Pro Employee/ }).click()
+  await page.getByRole('button', { name: 'Save Empty Crew' }).click()
+  await expect(page.getByRole('heading', { name: 'Manage Crew' })).not.toBeVisible()
+  await page.getByRole('button', { name: 'Manage Crew' }).click()
+  await page.getByRole('button', { name: /Pro Employee/ }).click()
+  await page.getByRole('button', { name: 'Save Crew (1)' }).click()
+  await expect(page.getByRole('heading', { name: 'Manage Crew' })).not.toBeVisible()
 
   // Employee sees only the assigned job, clocks time, and submits an expense.
   await clearSession(page)
