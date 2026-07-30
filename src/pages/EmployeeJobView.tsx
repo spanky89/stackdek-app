@@ -312,6 +312,7 @@ export default function EmployeeJobView() {
   )
 
   const completedTasks = tasks.filter(t => t.is_completed).length
+  const jobAddress = job.clients?.address || job.location
 
   return (
     <EmployeeLayout>
@@ -342,6 +343,22 @@ export default function EmployeeJobView() {
             </span>
           </div>
         </div>
+
+        {/* Job address */}
+        {jobAddress && (
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-1">Job Address</p>
+            <p className="text-sm font-medium text-neutral-900 whitespace-pre-line">{jobAddress}</p>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(jobAddress)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Navigate to Job
+            </a>
+          </div>
+        )}
 
         {/* Clock In/Out Card */}
         <div className={`rounded-xl p-5 mb-4 ${openEntry ? 'bg-green-50 border border-green-200' : 'bg-white border border-neutral-200'}`}>

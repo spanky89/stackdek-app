@@ -84,9 +84,18 @@ export default async function globalSetup() {
     if (companyError) throw companyError
   }
 
+  const { error: clientError } = await supabase.from('clients').upsert({
+    id: '33000000-0000-0000-0000-000000000001',
+    company_id: fixtures[1].companyId,
+    name: 'Pro E2E Client',
+    address: '123 Pro Street',
+  })
+  if (clientError) throw clientError
+
   const { error: jobError } = await supabase.from('jobs').upsert({
     id: '34000000-0000-0000-0000-000000000001',
     company_id: fixtures[1].companyId,
+    client_id: '33000000-0000-0000-0000-000000000001',
     title: 'Pro E2E Job',
     date_scheduled: new Date().toISOString().slice(0, 10),
     status: 'scheduled',

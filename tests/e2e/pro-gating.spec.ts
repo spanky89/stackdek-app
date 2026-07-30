@@ -119,6 +119,12 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   await expect(page.getByText('Pro E2E Job')).toBeVisible()
   await page.getByText('Pro E2E Job').click()
   await page.waitForURL(/\/employee-job\//)
+  const navigateLink = page.getByRole('link', { name: 'Navigate to Job' })
+  await expect(page.getByText('123 Pro Street')).toBeVisible()
+  await expect(navigateLink).toHaveAttribute(
+    'href',
+    'https://www.google.com/maps/search/?api=1&query=123%20Pro%20Street',
+  )
   await page.getByRole('button', { name: 'Clock In' }).click()
   await expect(page.getByRole('button', { name: 'Clock Out' })).toBeVisible()
   await page.getByRole('button', { name: 'Clock Out' }).click()
