@@ -1,198 +1,162 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
-import AppLayout from '../components/AppLayout'
+import EmployeeLayout from '../components/EmployeeLayout'
 
-type AssignedJob = {
-  id: string
-  title: string
-  status: string
-  date_scheduled: string | null
-  location: string | null
-  client_name: string | null
+type Workspace = {
+  member_id: string; full_name: string; email: string; role: string
+  hourly_rate: number | null; company_name: string
+  pay_period_frequency: 'weekly' | 'biweekly'; pay_period_start_date: string
+}
+type Job = { id: string; title: string; status: string; date_scheduled: string | null; location: string | null; client_name: string | null }
+type Entry = { id: string; clock_in: string; clock_out: string | null; hours_worked: number | null; job_id: string | null; notes: string | null; activity_summary: string | null }
+
+function payPeriod(anchor: string, frequency: 'weekly' | 'biweekly') {
+  const startAnchor = new Date(`${anchor}T00:00:00`)
+  const now = new Date()
+  const days = frequency === 'biweekly' ? 14 : 7
+  const elapsed = Math.floor((now.getTime() - startAnchor.getTime()) / 86400000)
+  const start = new Date(startAnchor)
+  start.setDate(start.getDate() + Math.floor(elapsed / days) * days)
+  const end = new Date(start)
+  end.setDate(end.getDate() + days - 1)
+  end.setHours(23, 59, 59, 999)
+  return { start, end }
 }
 
-type TimeEntry = {
-  id: string
-  clock_in: string
-  clock_out: string | null
-  hours_worked: number | null
-  job_id: string | null
-}
+const fmtDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 export default function EmployeeDashboard() {
   const nav = useNavigate()
-  const [employee, setEmployee] = useState<{ id: string; full_name: string; role: string } | null>(null)
-  const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([])
-  const [openEntry, setOpenEntry] = useState<TimeEntry | null>(null)
-  const [weekHours, setWeekHours] = useState(0)
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [entries, setEntries] = useState<Entry[]>([])
   const [elapsed, setElapsed] = useState('')
   const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState('')
+  const [showClockOut, setShowClockOut] = useState(false)
+  const [summary, setSummary] = useState('')
+  const [note, setNote] = useState('')
+  const openEntry = entries.find(entry => !entry.clock_out) || null
 
-  useEffect(() => { loadData() }, [])
+  const period = useMemo(() => workspace ? payPeriod(workspace.pay_period_start_date, workspace.pay_period_frequency) : null, [workspace])
+  const periodEntries = useMemo(() => period ? entries.filter(e => new Date(e.clock_in) >= period.start && new Date(e.clock_in) <= period.end) : [], [entries, period])
+  const completedHours = periodEntries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0)
+  const liveHours = openEntry ? Math.max(0, (Date.now() - new Date(openEntry.clock_in).getTime()) / 3600000) : 0
+  const totalHours = completedHours + liveHours
+  const estimatedPay = workspace?.hourly_rate == null ? null : totalHours * Number(workspace.hourly_rate)
 
+  useEffect(() => { load() }, [])
   useEffect(() => {
     if (!openEntry) { setElapsed(''); return }
     const tick = () => {
-      const diff = Date.now() - new Date(openEntry.clock_in).getTime()
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      setElapsed(`${h}h ${m}m ${s}s`)
+      const seconds = Math.max(0, Math.floor((Date.now() - new Date(openEntry.clock_in).getTime()) / 1000))
+      setElapsed(`${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`)
     }
     tick()
-    const interval = setInterval(tick, 1000)
-    return () => clearInterval(interval)
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
   }, [openEntry])
 
-  async function loadData() {
-    setLoading(true)
+  async function load() {
+    setLoading(true); setError('')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { nav('/login'); return }
-
-      // Get team member
-      const { data: tm } = await supabase
-        .from('team_members')
-        .select('id, full_name, role')
-        .eq('user_id', user.id)
-        .single()
-
-      if (!tm) {
-        // Not an employee — redirect to normal home
-        nav('/home')
-        return
-      }
-      setEmployee(tm)
-
-      // Load only server-approved operational fields. Pricing and billing data
-      // never enter the employee response.
-      const { data: jobs, error: jobsError } = await supabase
-        .rpc('list_my_operational_jobs')
-      if (jobsError) throw jobsError
-      setAssignedJobs((jobs as AssignedJob[]) || [])
-
-      // Get open time entry (clocked in somewhere)
-      const { data: openTime } = await supabase
-        .from('time_entries')
-        .select('*')
-        .eq('team_member_id', tm.id)
-        .is('clock_out', null)
-        .single()
-      setOpenEntry(openTime || null)
-
-      // Get this week's hours
-      const weekStart = new Date()
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-      weekStart.setHours(0, 0, 0, 0)
-      const { data: weekEntries } = await supabase
-        .from('time_entries')
-        .select('hours_worked')
-        .eq('team_member_id', tm.id)
-        .gte('clock_in', weekStart.toISOString())
-        .not('hours_worked', 'is', null)
-      const total = weekEntries?.reduce((sum, e) => sum + (e.hours_worked || 0), 0) || 0
-      setWeekHours(Math.round(total * 10) / 10)
-
-    } finally {
-      setLoading(false)
-    }
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) { nav('/login'); return }
+      const { data: workspaceData, error: workspaceError } = await supabase.rpc('get_my_employee_workspace')
+      if (workspaceError) throw workspaceError
+      const ws = (Array.isArray(workspaceData) ? workspaceData[0] : workspaceData) as Workspace | undefined
+      if (!ws) { nav('/home'); return }
+      setWorkspace(ws)
+      const [{ data: jobData, error: jobError }, { data: timeData, error: timeError }] = await Promise.all([
+        supabase.rpc('list_my_operational_jobs'),
+        supabase.from('time_entries').select('id, clock_in, clock_out, hours_worked, job_id, notes, activity_summary').eq('team_member_id', ws.member_id).order('clock_in', { ascending: false }).limit(120),
+      ])
+      if (jobError) throw jobError
+      if (timeError) throw timeError
+      setJobs((jobData as Job[]) || [])
+      setEntries((timeData as Entry[]) || [])
+    } catch (err: any) { setError(err.message || 'Unable to load your workspace') }
+    finally { setLoading(false) }
   }
 
-  if (loading) return (
-    <AppLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900" />
-      </div>
-    </AppLayout>
-  )
+  async function clockIn() {
+    setWorking(true); setError('')
+    const { error: clockError } = await supabase.rpc('clock_in_general', { p_job_id: null, p_notes: null })
+    if (clockError) setError(clockError.message)
+    else await load()
+    setWorking(false)
+  }
+
+  async function clockOut() {
+    setWorking(true); setError('')
+    const { error: clockError } = await supabase.rpc('clock_out_current', {
+      p_notes: note || null, p_activity_summary: summary || null,
+    })
+    if (clockError) setError(clockError.message)
+    else { setShowClockOut(false); setSummary(''); setNote(''); await load() }
+    setWorking(false)
+  }
+
+  if (loading) return <EmployeeLayout><div className="text-center py-20 text-neutral-500">Loading your day…</div></EmployeeLayout>
 
   return (
-    <AppLayout>
-      <div className="max-w-2xl mx-auto">
+    <EmployeeLayout>
+      <section className="mb-5">
+        <h1 className="text-2xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {workspace?.full_name?.split(' ')[0]}</h1>
+        <p className="text-sm text-neutral-500 mt-1 capitalize">{workspace?.role} · {workspace?.company_name}</p>
+      </section>
 
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            Hey, {employee?.full_name?.split(' ')[0]} 👋
-          </h1>
-          <p className="text-neutral-500 text-sm mt-1 capitalize">{employee?.role} · StackDek</p>
+      {error && <p className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</p>}
+
+      <section className={`rounded-2xl p-6 mb-5 text-center border ${openEntry ? 'bg-green-50 border-green-200' : 'bg-white border-neutral-200'}`}>
+        <p className="text-sm font-semibold text-neutral-600">{openEntry ? 'CLOCKED IN' : 'READY FOR WORK?'}</p>
+        {openEntry && <p className="text-4xl font-bold text-green-800 my-4 tabular-nums">{elapsed}</p>}
+        <button onClick={openEntry ? () => setShowClockOut(true) : clockIn} disabled={working}
+          className={`w-full py-4 rounded-xl text-lg font-bold text-white disabled:opacity-50 ${openEntry ? 'bg-red-600' : 'bg-green-600'}`}>
+          {working ? 'Saving…' : openEntry ? 'Clock Out' : 'Clock In'}
+        </button>
+        <p className="text-xs text-neutral-500 mt-3">Your shift records even when no job is selected.</p>
+      </section>
+
+      {period && <section id="history" className="bg-white border border-neutral-200 rounded-2xl p-5 mb-5 scroll-mt-6">
+        <div className="flex justify-between items-start mb-4">
+          <div><p className="font-semibold">Current pay period</p><p className="text-xs text-neutral-500">{fmtDate(period.start)} – {fmtDate(period.end)}</p></div>
+          {openEntry && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">In progress</span>}
         </div>
-
-        {/* Clock status */}
-        {openEntry && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-green-800">🟢 Currently Clocked In</p>
-              <p className="text-sm font-mono text-green-700 mt-0.5">{elapsed}</p>
-            </div>
-            {openEntry.job_id && (
-              <button
-                onClick={() => nav(`/employee-job/${openEntry.job_id}`)}
-                className="text-sm text-green-700 font-medium border border-green-300 px-3 py-1.5 rounded-lg"
-              >
-                View Job →
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Week Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-white border border-neutral-200 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-neutral-900">{weekHours}h</p>
-            <p className="text-xs text-neutral-500 mt-1">This Week</p>
-          </div>
-          <div className="bg-white border border-neutral-200 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-neutral-900">{assignedJobs.length}</p>
-            <p className="text-xs text-neutral-500 mt-1">Active Jobs</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-neutral-50 rounded-xl p-3"><p className="text-2xl font-bold">{totalHours.toFixed(1)}h</p><p className="text-xs text-neutral-500">Hours logged</p></div>
+          <div className="bg-neutral-50 rounded-xl p-3"><p className="text-2xl font-bold">{estimatedPay == null ? '—' : `$${estimatedPay.toFixed(2)}`}</p><p className="text-xs text-neutral-500">Estimated gross pay</p></div>
         </div>
-
-        {/* Assigned Jobs */}
-        <div>
-          <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">My Jobs</h2>
-          {assignedJobs.length === 0 ? (
-            <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center text-neutral-400 text-sm">
-              No jobs assigned yet.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {assignedJobs.map(job => (
-                <button
-                  key={job.id}
-                  onClick={() => nav(`/employee-job/${job.id}`)}
-                  className="w-full bg-white border border-neutral-200 rounded-xl p-4 text-left hover:border-neutral-400 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-neutral-900 truncate">{job.title}</p>
-                      {job.client_name && <p className="text-sm text-neutral-500 mt-0.5">{job.client_name}</p>}
-                      {job.location && <p className="text-xs text-neutral-400 mt-0.5 truncate">{job.location}</p>}
-                      {job.date_scheduled && (
-                        <p className="text-xs text-neutral-400 mt-0.5">
-                          {new Date(job.date_scheduled).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-3">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
-                        job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        job.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        'bg-neutral-100 text-neutral-600'
-                      }`}>
-                        {job.status.replace('_', ' ')}
-                      </span>
-                      <span className="text-neutral-400">→</span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+        {workspace?.hourly_rate != null && <p className="text-xs text-neutral-500 mt-3">${Number(workspace.hourly_rate).toFixed(2)}/hr · Before taxes and adjustments</p>}
+        <div className="mt-4 divide-y divide-neutral-100">
+          {periodEntries.filter(e => e.clock_out).map(e => <div key={e.id} className="py-3 flex justify-between text-sm"><span>{new Date(e.clock_in).toLocaleDateString()}</span><span className="font-semibold">{Number(e.hours_worked || 0).toFixed(2)}h</span></div>)}
+          {!periodEntries.length && <p className="py-3 text-sm text-neutral-400">No time logged this period.</p>}
         </div>
+      </section>}
 
-      </div>
-    </AppLayout>
+      <section id="jobs" className="scroll-mt-6">
+        <h2 className="font-semibold mb-3">My Jobs</h2>
+        <div className="space-y-2">
+          {jobs.map(job => <button key={job.id} onClick={() => nav(`/employee-job/${job.id}`)} className="w-full text-left bg-white border border-neutral-200 rounded-xl p-4">
+            <div className="flex justify-between gap-3"><div><p className="font-semibold">{job.title}</p><p className="text-sm text-neutral-500">{job.client_name || job.location || 'Assigned job'}</p></div><span>→</span></div>
+          </button>)}
+          {!jobs.length && <div className="bg-white border border-neutral-200 rounded-xl p-6 text-center text-sm text-neutral-400">No jobs assigned. You can still clock in normally.</div>}
+        </div>
+      </section>
+
+      {showClockOut && <div className="fixed inset-0 z-50 bg-black/50 p-4 flex items-end sm:items-center justify-center">
+        <div className="bg-white rounded-2xl p-5 w-full max-w-md">
+          <h2 className="text-xl font-bold">Wrap up your day</h2>
+          <p className="text-sm text-neutral-500 mt-1 mb-4">A quick summary helps the office understand what got done.</p>
+          <label className="text-sm font-medium">Tasks and activities</label>
+          <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={4} placeholder="Installed fence panels, picked up materials, cleaned the site…" className="w-full mt-1 mb-3 p-3 border border-neutral-200 rounded-xl" />
+          <label className="text-sm font-medium">Optional note</label>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Anything the owner should know" className="w-full mt-1 p-3 border border-neutral-200 rounded-xl" />
+          <div className="grid grid-cols-2 gap-3 mt-5"><button onClick={() => setShowClockOut(false)} className="py-3 border rounded-xl font-semibold">Cancel</button><button onClick={clockOut} disabled={working} className="py-3 bg-red-600 text-white rounded-xl font-semibold">{working ? 'Saving…' : 'Clock Out'}</button></div>
+        </div>
+      </div>}
+    </EmployeeLayout>
   )
 }

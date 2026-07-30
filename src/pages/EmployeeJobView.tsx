@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
-import AppLayout from '../components/AppLayout'
+import EmployeeLayout from '../components/EmployeeLayout'
 
 type Photo = { url: string; caption: string; order: number }
 
@@ -298,23 +298,23 @@ export default function EmployeeJobView() {
   }
 
   if (loading) return (
-    <AppLayout>
+    <EmployeeLayout>
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900" />
       </div>
-    </AppLayout>
+    </EmployeeLayout>
   )
 
   if (!job) return (
-    <AppLayout>
+    <EmployeeLayout>
       <div className="text-center py-16 text-neutral-500">Job not found or not assigned to you.</div>
-    </AppLayout>
+    </EmployeeLayout>
   )
 
   const completedTasks = tasks.filter(t => t.is_completed).length
 
   return (
-    <AppLayout>
+    <EmployeeLayout>
       <div className="max-w-2xl mx-auto pb-24">
 
         {/* Header */}
@@ -632,6 +632,6 @@ export default function EmployeeJobView() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </EmployeeLayout>
   )
 }

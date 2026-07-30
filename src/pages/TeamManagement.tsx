@@ -130,7 +130,7 @@ export default function TeamManagement() {
   }
 
   // ── Invite ────────────────────────────────────────────────────────────────
-  async function handleInvite(email: string, role: TeamRole) {
+  async function handleInvite(fullName: string, email: string, role: TeamRole, hourlyRate: number | null) {
     if (!companyId) return
     try {
       const normalizedEmail = email.toLowerCase().trim()
@@ -138,9 +138,9 @@ export default function TeamManagement() {
         .rpc('create_team_invitation', {
           p_company_id: companyId,
           p_email: normalizedEmail,
-          p_full_name: normalizedEmail.split('@')[0],
+          p_full_name: fullName,
           p_role: role,
-          p_hourly_rate: null,
+          p_hourly_rate: hourlyRate,
         })
 
       if (error) throw error

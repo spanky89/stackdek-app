@@ -4,7 +4,7 @@ import { TeamRole } from '../types/teamMember'
 interface InviteTeamMemberModalProps {
   isOpen: boolean
   onClose: () => void
-  onInvite: (email: string, role: TeamRole) => void
+  onInvite: (fullName: string, email: string, role: TeamRole, hourlyRate: number | null) => void
   currentMemberCount: number
   maxMembers: number
 }
@@ -17,13 +17,15 @@ export default function InviteTeamMemberModal({
   maxMembers
 }: InviteTeamMemberModalProps) {
   const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [hourlyRate, setHourlyRate] = useState('')
   const [role, setRole] = useState<TeamRole>('employee')
 
   if (!isOpen) return null
 
   const handleInvite = () => {
-    if (!email.trim()) {
-      alert('Please enter an email address')
+    if (!fullName.trim() || !email.trim()) {
+      alert('Please enter their name and email address')
       return
     }
 
@@ -38,15 +40,19 @@ export default function InviteTeamMemberModal({
       return
     }
 
-    onInvite(email, role)
+    onInvite(fullName.trim(), email, role, hourlyRate ? Number(hourlyRate) : null)
     
     // Reset form
     setEmail('')
+    setFullName('')
+    setHourlyRate('')
     setRole('employee')
   }
 
   const handleClose = () => {
     setEmail('')
+    setFullName('')
+    setHourlyRate('')
     setRole('employee')
     onClose()
   }
@@ -89,6 +95,14 @@ export default function InviteTeamMemberModal({
             </div>
           )}
 
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
+              Full Name <span className="text-red-600">*</span>
+            </label>
+            <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+              placeholder="Mike Davis" className="w-full px-4 py-2.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" disabled={atLimit} />
+          </div>
+
           {/* Email Input */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -103,8 +117,17 @@ export default function InviteTeamMemberModal({
               disabled={atLimit}
             />
             <p className="text-xs text-neutral-500 mt-1">
-              They'll receive an invitation link to join your team
+              A secure invitation link will be created for you to share.
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">Hourly Rate</label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-neutral-500">$</span>
+              <input type="number" min="0" step="0.01" value={hourlyRate} onChange={e => setHourlyRate(e.target.value)}
+                placeholder="0.00" className="w-full pl-7 pr-4 py-2.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" disabled={atLimit} />
+            </div>
           </div>
 
           {/* Role Selection */}
