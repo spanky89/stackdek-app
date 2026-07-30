@@ -93,32 +93,68 @@ function AuthCallbackPage() {
   const nav = useNavigate();
 
   useEffect(() => {
+    let finished = false;
+    const requestedNext = new URLSearchParams(window.location.search).get("next");
+    const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/home";
+
+    const finish = (path: string) => {
+      if (finished) return;
+      finished = true;
+      nav(path, { replace: true });
+    };
+
     // Check if this is a password recovery callback
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const type = hashParams.get('type');
     
     if (type === 'recovery') {
       // Password reset flow - redirect to reset password page
-      nav("/reset-password", { replace: true });
+      finish("/reset-password");
       return;
     }
 
-    // Regular OAuth login - redirect to home after session check
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        const requestedNext = new URLSearchParams(window.location.search).get("next");
-        const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
-          ? requestedNext
-          : "/home";
-        nav(safeNext, { replace: true });
-      } else {
-        nav("/login", { replace: true });
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) finish(safeNext);
+    });
+
+    const timeout = window.setTimeout(() => {
+      finish(`/login?error=${encodeURIComponent("Authentication took too long. Please sign in again.")}`);
+    }, 10000);
+
+    const completeAuth = async () => {
+      try {
+        const code = new URLSearchParams(window.location.search).get("code");
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (data.session) {
+            finish(safeNext);
+            return;
+          }
+        }
+
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (data.session) {
+          finish(safeNext);
+          return;
+        }
+
+        finish(`/login?error=${encodeURIComponent("We could not complete sign-in. Please try again.")}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "We could not complete sign-in.";
+        finish(`/login?error=${encodeURIComponent(message)}`);
       }
     };
 
-    // Give Supabase a moment to process the callback
-    setTimeout(checkSession, 1000);
+    void completeAuth();
+
+    return () => {
+      window.clearTimeout(timeout);
+      authListener.subscription.unsubscribe();
+    };
   }, [nav]);
 
   return (

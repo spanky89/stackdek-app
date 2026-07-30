@@ -10,6 +10,7 @@ export default function LoginPage() {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const requestedNext = searchParams.get('next')
+  const callbackError = searchParams.get('error')
   const safeNext = requestedNext?.startsWith('/') && !requestedNext.startsWith('//')
     ? requestedNext
     : '/home'
@@ -19,7 +20,7 @@ export default function LoginPage() {
   const [company, setCompany] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(callbackError || '')
   const [success, setSuccess] = useState(false)
   const [resetEmailSent, setResetEmailSent] = useState(false)
 
