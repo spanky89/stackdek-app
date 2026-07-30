@@ -150,7 +150,11 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
   })
-  await expect(page.getByText(/Receipt ready/)).toBeVisible()
+  await expect(page.getByText(/Receipt uploaded and ready/)).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'expenses' })).toHaveClass(/border-b-2/)
+  await expect(page.getByPlaceholder('0.00')).toHaveValue('125.50')
+  await expect(page.getByText(/Receipt uploaded and ready/)).toBeVisible()
   await page.getByRole('button', { name: 'Submit' }).click()
   await expect(page.getByText('$125.50')).toBeVisible()
   await expect(page.getByText('pending')).toBeVisible()

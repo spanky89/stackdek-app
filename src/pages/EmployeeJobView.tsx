@@ -59,9 +59,26 @@ const CATEGORIES = [
   { value: 'other', label: '💰 Other' },
 ]
 
+type ExpenseDraft = {
+  form: { amount: string; category: string; description: string; notes: string }
+  receiptPath: string
+  receiptName: string
+}
+
+function readExpenseDraft(jobId?: string) {
+  if (!jobId) return null
+  try {
+    const value = sessionStorage.getItem(`stackdek-expense-draft:${jobId}`)
+    return value ? JSON.parse(value) as ExpenseDraft : null
+  } catch {
+    return null
+  }
+}
+
 export default function EmployeeJobView() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
+  const initialExpenseDraft = readExpenseDraft(id)
 
   const [job, setJob] = useState<Job | null>(null)
   const [lineItems, setLineItems] = useState<LineItem[]>([])
@@ -71,7 +88,7 @@ export default function EmployeeJobView() {
   const [teamMember, setTeamMember] = useState<{ id: string; full_name: string } | null>(null)
   const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'expenses'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'expenses'>(initialExpenseDraft ? 'expenses' : 'overview')
 
   // Clock in/out state
   const [openEntry, setOpenEntry] = useState<TimeEntry | null>(null)
@@ -81,11 +98,13 @@ export default function EmployeeJobView() {
   const [clockError, setClockError] = useState('')
 
   // Add expense state
-  const [showExpenseForm, setShowExpenseForm] = useState(false)
-  const [expenseForm, setExpenseForm] = useState({ amount: '', category: 'materials', description: '', notes: '' })
+  const [showExpenseForm, setShowExpenseForm] = useState(Boolean(initialExpenseDraft))
+  const [expenseForm, setExpenseForm] = useState(initialExpenseDraft?.form || { amount: '', category: 'materials', description: '', notes: '' })
   const [submittingExpense, setSubmittingExpense] = useState(false)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState('')
+  const [receiptPath, setReceiptPath] = useState(initialExpenseDraft?.receiptPath || '')
+  const [receiptName, setReceiptName] = useState(initialExpenseDraft?.receiptName || '')
   const [expenseError, setExpenseError] = useState('')
   const [expenseStage, setExpenseStage] = useState('')
 
@@ -93,6 +112,15 @@ export default function EmployeeJobView() {
   useEffect(() => {
     loadData()
   }, [id])
+
+  useEffect(() => {
+    if (!id || !showExpenseForm) return
+    sessionStorage.setItem(`stackdek-expense-draft:${id}`, JSON.stringify({
+      form: expenseForm,
+      receiptPath,
+      receiptName,
+    } satisfies ExpenseDraft))
+  }, [id, showExpenseForm, expenseForm, receiptPath, receiptName])
 
   // Elapsed timer
   useEffect(() => {
@@ -255,36 +283,8 @@ export default function EmployeeJobView() {
     if (!teamMember || !job || !expenseForm.amount || !expenseForm.category) return
     setSubmittingExpense(true)
     setExpenseError('')
-    setExpenseStage(receiptFile ? 'Uploading receipt…' : 'Saving expense…')
+    setExpenseStage('Saving expense…')
     try {
-      let receiptPath: string | null = null
-
-      if (receiptFile) {
-        const mimeExtensions: Record<string, string> = {
-          'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
-          'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf',
-        }
-        const namedExtension = receiptFile.name.includes('.') ? receiptFile.name.split('.').pop()?.toLowerCase() : ''
-        const ext = mimeExtensions[receiptFile.type.toLowerCase()] || namedExtension || ''
-        const { data: pathData, error: pathError } = await supabase
-          .rpc('prepare_my_expense_receipt_path', {
-            p_job_id: job.id,
-            p_file_extension: ext,
-          })
-        if (pathError) throw pathError
-        if (!pathData) throw new Error('Could not create a secure receipt path')
-
-        receiptPath = pathData as string
-        const { error: uploadErr } = await supabase.storage
-          .from('job-receipts')
-          .upload(receiptPath, receiptFile, {
-            contentType: receiptFile.type || undefined,
-            upsert: false,
-          })
-        if (uploadErr) throw uploadErr
-        setExpenseStage('Saving expense…')
-      }
-
       const { error } = await supabase
         .rpc('submit_my_job_expense', {
           p_job_id: job.id,
@@ -292,15 +292,18 @@ export default function EmployeeJobView() {
           p_category: expenseForm.category,
           p_description: expenseForm.description || null,
           p_notes: expenseForm.notes || null,
-          p_receipt_path: receiptPath,
+          p_receipt_path: receiptPath || null,
         })
       if (error) throw error
 
       setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
       setReceiptFile(null)
+      setReceiptPath('')
+      setReceiptName('')
       if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl)
       setReceiptPreviewUrl('')
       setShowExpenseForm(false)
+      if (id) sessionStorage.removeItem(`stackdek-expense-draft:${id}`)
       await loadData()
     } catch (err: any) {
       setExpenseError(err.message || 'Unable to submit expense')
@@ -310,12 +313,65 @@ export default function EmployeeJobView() {
     }
   }
 
-  function selectReceipt(file: File | null) {
+  async function selectReceipt(file: File | null) {
     if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl)
     setReceiptFile(file)
     setExpenseError('')
     const browserPreviewable = file?.type.startsWith('image/') && !/hei[cf]/i.test(file.type)
     setReceiptPreviewUrl(browserPreviewable && file ? URL.createObjectURL(file) : '')
+    if (!file) {
+      if (receiptPath) await supabase.storage.from('job-receipts').remove([receiptPath])
+      setReceiptPath('')
+      setReceiptName('')
+      return
+    }
+    if (!job) return
+
+    setExpenseStage('Uploading receipt…')
+    try {
+      if (receiptPath) {
+        await supabase.storage.from('job-receipts').remove([receiptPath])
+      }
+      const mimeExtensions: Record<string, string> = {
+        'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+        'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf',
+      }
+      const namedExtension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : ''
+      const ext = mimeExtensions[file.type.toLowerCase()] || namedExtension || ''
+      const { data: pathData, error: pathError } = await supabase.rpc('prepare_my_expense_receipt_path', {
+        p_job_id: job.id,
+        p_file_extension: ext,
+      })
+      if (pathError) throw pathError
+      if (!pathData) throw new Error('Could not create a secure receipt path')
+
+      const path = pathData as string
+      const { error: uploadError } = await supabase.storage.from('job-receipts').upload(path, file, {
+        contentType: file.type || undefined,
+        upsert: false,
+      })
+      if (uploadError) throw uploadError
+      setReceiptPath(path)
+      setReceiptName(file.name || 'Camera receipt')
+    } catch (err: any) {
+      setReceiptPath('')
+      setReceiptName('')
+      setExpenseError(err.message || 'Unable to upload receipt')
+    } finally {
+      setExpenseStage('')
+    }
+  }
+
+  async function discardReceiptDraft() {
+    if (receiptPath) await supabase.storage.from('job-receipts').remove([receiptPath])
+    if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl)
+    setReceiptFile(null)
+    setReceiptPreviewUrl('')
+    setReceiptPath('')
+    setReceiptName('')
+    setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
+    setShowExpenseForm(false)
+    if (id) sessionStorage.removeItem(`stackdek-expense-draft:${id}`)
   }
 
   function totalHours() {
@@ -624,31 +680,32 @@ export default function EmployeeJobView() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
                     capture="environment"
-                    onChange={e => selectReceipt(e.target.files?.[0] || null)}
+                    onChange={e => void selectReceipt(e.target.files?.[0] || null)}
                     className="w-full text-sm text-neutral-600"
                   />
                   {receiptPreviewUrl && <img src={receiptPreviewUrl} alt="Receipt preview" className="mt-3 h-36 w-full rounded-lg border border-neutral-200 object-contain bg-neutral-50" />}
-                  {receiptFile && (
+                  {expenseStage === 'Uploading receipt…' && <p className="text-xs text-blue-700 mt-2">Uploading receipt…</p>}
+                  {receiptPath && (
                     <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="text-xs text-green-700">✓ Receipt ready · {(receiptFile.size / 1024 / 1024).toFixed(1)} MB</p>
-                      <button type="button" onClick={() => selectReceipt(null)} className="text-xs text-red-600">Remove</button>
+                      <p className="text-xs text-green-700">✓ Receipt uploaded and ready{receiptName ? ` · ${receiptName}` : ''}</p>
+                      <button type="button" onClick={() => void selectReceipt(null)} className="text-xs text-red-600">Remove</button>
                     </div>
                   )}
                 </div>
 
                 <div className="flex gap-2 pt-1">
                   <button
-                    onClick={() => setShowExpenseForm(false)}
+                    onClick={() => void discardReceiptDraft()}
                     className="flex-1 border border-neutral-200 text-neutral-700 font-medium py-2 rounded-lg text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={submitExpense}
-                    disabled={submittingExpense || !expenseForm.amount}
+                    disabled={submittingExpense || Boolean(expenseStage) || !expenseForm.amount || (Boolean(receiptFile) && !receiptPath)}
                     className="flex-1 bg-neutral-900 text-white font-semibold py-2 rounded-lg text-sm disabled:opacity-50"
                   >
-                    {submittingExpense ? expenseStage || 'Submitting…' : 'Submit'}
+                    {expenseStage || (submittingExpense ? 'Submitting…' : 'Submit')}
                   </button>
                 </div>
               </div>
