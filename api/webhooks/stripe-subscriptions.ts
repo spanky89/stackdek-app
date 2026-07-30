@@ -205,8 +205,13 @@ export default async function handler(
       return res.status(200).json({ received: true, companyId, status: 'canceled' });
     }
 
-    // Handle customer.subscription.updated (plan change, etc.)
-    if (event.type === 'customer.subscription.updated') {
+    // Handle subscription creation and updates. Stripe can deliver these
+    // before checkout.session.completed, so either event must be sufficient
+    // to activate the purchased plan.
+    if (
+      event.type === 'customer.subscription.created' ||
+      event.type === 'customer.subscription.updated'
+    ) {
       const subscription = event.data.object as Stripe.Subscription;
       const companyId = subscription.metadata?.companyId;
       const planId = planForPrice(subscription.items.data[0]?.price.id);
@@ -215,13 +220,19 @@ export default async function handler(
         return res.status(400).json({ error: 'Invalid subscription mapping' });
       }
 
+      const periodEnd = subscription.items.data[0]?.current_period_end;
+
       // Update subscription details
       const { error: updateError } = await supabase
         .from('companies')
         .update({
           subscription_status: subscription.status === 'active' ? 'active' : subscription.status as any,
           subscription_plan: planId,
-          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          subscription_stripe_subscription_id: subscription.id,
+          subscription_stripe_customer_id: subscription.customer as string,
+          ...(periodEnd
+            ? { subscription_current_period_end: new Date(periodEnd * 1000).toISOString() }
+            : {}),
         })
         .eq('id', companyId);
 
