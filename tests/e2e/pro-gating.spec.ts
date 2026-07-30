@@ -37,6 +37,18 @@ test('active Pro owner can open Team Operations', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Invite Team Member/ })).toBeVisible()
 })
 
+test('owner can set and persist the company time zone', async ({ page }) => {
+  await signIn(page, 'pro-owner@test.local')
+  await page.goto('/settings')
+  await page.getByRole('button', { name: /Business Information/ }).click()
+  await page.getByLabel('Company Time Zone').selectOption('America/Los_Angeles')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('✅ Saved successfully')).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: /Business Information/ }).click()
+  await expect(page.getByLabel('Company Time Zone')).toHaveValue('America/Los_Angeles')
+})
+
 test('owner navigation reuses access state without permission screens', async ({ page }) => {
   await signIn(page, 'pro-owner@test.local')
 

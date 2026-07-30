@@ -80,6 +80,7 @@ export default async function globalSetup() {
       name: fixture.plan === 'pro' ? 'Pro E2E Company' : 'Starter E2E Company',
       subscription_plan: fixture.plan,
       subscription_status: 'active',
+      time_zone: 'America/New_York',
     })
     if (companyError) throw companyError
   }

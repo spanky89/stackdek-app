@@ -3,6 +3,7 @@ import AppLayout from '../components/AppLayout'
 import TeamManagement from './TeamManagement'
 import { supabase } from '../api/supabaseClient'
 import { useCompany } from '../context/CompanyContext'
+import { companyDateKey, companyDateTimeInput, companyInputToUtc, DEFAULT_TIME_ZONE, formatCompanyDate, formatCompanyTime, formatDateKey, payPeriodDateKeys, TIME_ZONE_LABELS } from '../utils/companyTime'
 
 type Tab = 'overview' | 'timesheets' | 'team' | 'labor'
 type Member = {
@@ -37,24 +38,6 @@ type Correction = {
 
 const money = (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 const hours = (value: number) => `${value.toFixed(2)}h`
-const localInput = (value: string) => {
-  const date = new Date(value)
-  const offset = date.getTimezoneOffset() * 60000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
-
-function currentPeriod(anchor: string, frequency: 'weekly' | 'biweekly') {
-  const startAnchor = new Date(`${anchor}T00:00:00`)
-  const now = new Date()
-  const days = frequency === 'biweekly' ? 14 : 7
-  const elapsed = Math.floor((now.getTime() - startAnchor.getTime()) / 86400000)
-  const start = new Date(startAnchor)
-  start.setDate(start.getDate() + Math.floor(elapsed / days) * days)
-  const end = new Date(start)
-  end.setDate(end.getDate() + days)
-  return { start, end }
-}
-
 export default function TeamOperations() {
   const { companyId } = useCompany()
   const [tab, setTab] = useState<Tab>('overview')
@@ -63,6 +46,7 @@ export default function TeamOperations() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [frequency, setFrequency] = useState<'weekly' | 'biweekly'>('weekly')
   const [anchor, setAnchor] = useState('2026-01-04')
+  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState('')
   const [error, setError] = useState('')
@@ -76,7 +60,7 @@ export default function TeamOperations() {
     setError('')
     try {
       const [companyResult, memberResult, jobResult, entryResult] = await Promise.all([
-        supabase.from('companies').select('pay_period_frequency, pay_period_start_date').eq('id', companyId).single(),
+        supabase.from('companies').select('pay_period_frequency, pay_period_start_date, time_zone').eq('id', companyId).single(),
         supabase.from('team_members').select('id, full_name, email, role, hourly_rate, is_active').eq('company_id', companyId).order('full_name'),
         supabase.from('jobs').select('id, title').eq('company_id', companyId).order('title'),
         supabase.from('time_entries').select('id, team_member_id, job_id, clock_in, clock_out, hours_worked, labor_cost, activity_summary, notes, approval_status, corrected_at').eq('company_id', companyId).order('clock_in', { ascending: false }).limit(500),
@@ -89,6 +73,7 @@ export default function TeamOperations() {
       setEntries((entryResult.data as Entry[]) || [])
       if (companyResult.data?.pay_period_frequency) setFrequency(companyResult.data.pay_period_frequency)
       if (companyResult.data?.pay_period_start_date) setAnchor(companyResult.data.pay_period_start_date)
+      if (companyResult.data?.time_zone) setTimeZone(companyResult.data.time_zone)
     } catch (err: any) {
       setError(err.message || 'Unable to load team operations')
     } finally {
@@ -96,13 +81,13 @@ export default function TeamOperations() {
     }
   }
 
-  const period = useMemo(() => currentPeriod(anchor, frequency), [anchor, frequency])
+  const period = useMemo(() => payPeriodDateKeys(anchor, frequency, timeZone), [anchor, frequency, timeZone])
   const periodEntries = useMemo(
     () => entries.filter(entry => {
-      const time = new Date(entry.clock_in)
-      return time >= period.start && time < period.end
+      const date = companyDateKey(entry.clock_in, timeZone)
+      return date >= period.start && date <= period.end
     }),
-    [entries, period],
+    [entries, period, timeZone],
   )
   const completed = periodEntries.filter(entry => entry.clock_out)
   const open = entries.filter(entry => !entry.clock_out)
@@ -111,7 +96,7 @@ export default function TeamOperations() {
   const pending = completed.filter(entry => entry.approval_status !== 'approved')
   const memberById = new Map(members.map(member => [member.id, member]))
   const jobById = new Map(jobs.map(job => [job.id, job]))
-  const fmtPeriod = `${period.start.toLocaleDateString()} – ${new Date(period.end.getTime() - 1).toLocaleDateString()}`
+  const fmtPeriod = `${formatDateKey(period.start)} – ${formatDateKey(period.end)}`
 
   const memberTotals = members.map(member => {
     const memberEntries = completed.filter(entry => entry.team_member_id === member.id)
@@ -152,8 +137,8 @@ export default function TeamOperations() {
   function edit(entry: Entry) {
     setCorrection({
       entry,
-      clockIn: localInput(entry.clock_in),
-      clockOut: entry.clock_out ? localInput(entry.clock_out) : '',
+      clockIn: companyDateTimeInput(entry.clock_in, timeZone),
+      clockOut: entry.clock_out ? companyDateTimeInput(entry.clock_out, timeZone) : '',
       jobId: entry.job_id || '',
       reason: '',
     })
@@ -165,8 +150,8 @@ export default function TeamOperations() {
     setError('')
     const { error: correctionError } = await supabase.rpc('correct_team_time_entry', {
       p_entry_id: correction.entry.id,
-      p_clock_in: new Date(correction.clockIn).toISOString(),
-      p_clock_out: new Date(correction.clockOut).toISOString(),
+      p_clock_in: companyInputToUtc(correction.clockIn, timeZone),
+      p_clock_out: companyInputToUtc(correction.clockOut, timeZone),
       p_job_id: correction.jobId || null,
       p_reason: correction.reason || null,
     })
@@ -211,7 +196,7 @@ export default function TeamOperations() {
           <section className="bg-white border border-neutral-200 rounded-xl p-4 mb-5">
             <div className="flex justify-between gap-3 mb-3"><h2 className="font-semibold">Working now</h2><span className="text-xs text-neutral-500">{fmtPeriod}</span></div>
             {open.map(entry => <div key={entry.id} className="flex justify-between gap-3 py-3 border-t first:border-t-0">
-              <div><p className="font-medium">{memberById.get(entry.team_member_id)?.full_name || 'Team member'}</p><p className="text-xs text-neutral-500">{entry.job_id ? jobById.get(entry.job_id)?.title : 'General time'} · since {new Date(entry.clock_in).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p></div>
+              <div><p className="font-medium">{memberById.get(entry.team_member_id)?.full_name || 'Team member'}</p><p className="text-xs text-neutral-500">{entry.job_id ? jobById.get(entry.job_id)?.title : 'General time'} · since {formatCompanyTime(entry.clock_in, timeZone)}</p></div>
               <span className="text-xs h-fit bg-green-100 text-green-700 px-2 py-1 rounded-full">Clocked in</span>
             </div>)}
             {!open.length && <p className="text-sm text-neutral-400 py-5 text-center">Nobody is clocked in.</p>}
@@ -232,7 +217,7 @@ export default function TeamOperations() {
             const approved = entry.approval_status === 'approved'
             return <div key={entry.id} className="p-4 border-b last:border-0">
               <div className="flex justify-between gap-3">
-                <div><p className="font-medium">{member?.full_name || 'Team member'}</p><p className="text-sm text-neutral-600">{new Date(entry.clock_in).toLocaleDateString()} · {new Date(entry.clock_in).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}–{entry.clock_out && new Date(entry.clock_out).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p><p className="text-xs text-neutral-500 mt-1">{entry.job_id ? jobById.get(entry.job_id)?.title : 'General / Unallocated'}{entry.activity_summary ? ` · ${entry.activity_summary}` : ''}</p></div>
+                <div><p className="font-medium">{member?.full_name || 'Team member'}</p><p className="text-sm text-neutral-600">{formatCompanyDate(entry.clock_in, timeZone)} · {formatCompanyTime(entry.clock_in, timeZone)}–{entry.clock_out && formatCompanyTime(entry.clock_out, timeZone)}</p><p className="text-xs text-neutral-500 mt-1">{entry.job_id ? jobById.get(entry.job_id)?.title : 'General / Unallocated'}{entry.activity_summary ? ` · ${entry.activity_summary}` : ''}</p></div>
                 <div className="text-right"><p className="font-semibold">{hours(Number(entry.hours_worked || 0))}</p><p className="text-xs text-neutral-500">{money(Number(entry.labor_cost || 0))}</p></div>
               </div>
               <div className="flex gap-2 mt-3">
@@ -265,7 +250,7 @@ export default function TeamOperations() {
       {correction && <div className="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center">
         <div className="bg-white rounded-xl p-5 w-full max-w-md">
           <h2 className="text-lg font-bold">Correct time entry</h2>
-          <p className="text-sm text-neutral-500 mb-4">{memberById.get(correction.entry.team_member_id)?.full_name}</p>
+          <p className="text-sm text-neutral-500 mb-4">{memberById.get(correction.entry.team_member_id)?.full_name} · {TIME_ZONE_LABELS[timeZone] || timeZone}</p>
           <label className="text-xs font-medium">Clock in</label>
           <input type="datetime-local" value={correction.clockIn} onChange={e => setCorrection({ ...correction, clockIn: e.target.value })} className="w-full p-2.5 border rounded-lg mb-3" />
           <label className="text-xs font-medium">Clock out</label>

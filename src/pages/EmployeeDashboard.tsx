@@ -2,29 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import EmployeeLayout from '../components/EmployeeLayout'
+import { companyDateKey, clockInstant, DEFAULT_TIME_ZONE, formatCompanyDate, formatDateKey, payPeriodDateKeys } from '../utils/companyTime'
 
 type Workspace = {
   member_id: string; full_name: string; email: string; role: string
   hourly_rate: number | null; company_name: string
   pay_period_frequency: 'weekly' | 'biweekly'; pay_period_start_date: string
+  time_zone: string
 }
 type Job = { id: string; title: string; status: string; date_scheduled: string | null; location: string | null; client_name: string | null }
 type Entry = { id: string; clock_in: string; clock_out: string | null; hours_worked: number | null; job_id: string | null; notes: string | null; activity_summary: string | null }
-
-function payPeriod(anchor: string, frequency: 'weekly' | 'biweekly') {
-  const startAnchor = new Date(`${anchor}T00:00:00`)
-  const now = new Date()
-  const days = frequency === 'biweekly' ? 14 : 7
-  const elapsed = Math.floor((now.getTime() - startAnchor.getTime()) / 86400000)
-  const start = new Date(startAnchor)
-  start.setDate(start.getDate() + Math.floor(elapsed / days) * days)
-  const end = new Date(start)
-  end.setDate(end.getDate() + days - 1)
-  end.setHours(23, 59, 59, 999)
-  return { start, end }
-}
-
-const fmtDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 export default function EmployeeDashboard() {
   const nav = useNavigate()
@@ -40,10 +27,14 @@ export default function EmployeeDashboard() {
   const [note, setNote] = useState('')
   const openEntry = entries.find(entry => !entry.clock_out) || null
 
-  const period = useMemo(() => workspace ? payPeriod(workspace.pay_period_start_date, workspace.pay_period_frequency) : null, [workspace])
-  const periodEntries = useMemo(() => period ? entries.filter(e => new Date(e.clock_in) >= period.start && new Date(e.clock_in) <= period.end) : [], [entries, period])
+  const timeZone = workspace?.time_zone || DEFAULT_TIME_ZONE
+  const period = useMemo(() => workspace ? payPeriodDateKeys(workspace.pay_period_start_date, workspace.pay_period_frequency, timeZone) : null, [workspace, timeZone])
+  const periodEntries = useMemo(() => period ? entries.filter(e => {
+    const key = companyDateKey(e.clock_in, timeZone)
+    return key >= period.start && key <= period.end
+  }) : [], [entries, period, timeZone])
   const completedHours = periodEntries.reduce((sum, e) => sum + Number(e.hours_worked || 0), 0)
-  const liveHours = openEntry ? Math.max(0, (Date.now() - new Date(openEntry.clock_in).getTime()) / 3600000) : 0
+  const liveHours = openEntry ? Math.max(0, (Date.now() - clockInstant(openEntry.clock_in).getTime()) / 3600000) : 0
   const totalHours = completedHours + liveHours
   const estimatedPay = workspace?.hourly_rate == null ? null : totalHours * Number(workspace.hourly_rate)
 
@@ -51,7 +42,7 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     if (!openEntry) { setElapsed(''); return }
     const tick = () => {
-      const seconds = Math.max(0, Math.floor((Date.now() - new Date(openEntry.clock_in).getTime()) / 1000))
+      const seconds = Math.max(0, Math.floor((Date.now() - clockInstant(openEntry.clock_in).getTime()) / 1000))
       setElapsed(`${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`)
     }
     tick()
@@ -122,7 +113,7 @@ export default function EmployeeDashboard() {
 
       {period && <section id="history" className="bg-white border border-neutral-200 rounded-2xl p-5 mb-5 scroll-mt-6">
         <div className="flex justify-between items-start mb-4">
-          <div><p className="font-semibold">Current pay period</p><p className="text-xs text-neutral-500">{fmtDate(period.start)} – {fmtDate(period.end)}</p></div>
+          <div><p className="font-semibold">Current pay period</p><p className="text-xs text-neutral-500">{formatDateKey(period.start)} – {formatDateKey(period.end)}</p></div>
           {openEntry && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">In progress</span>}
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -131,7 +122,7 @@ export default function EmployeeDashboard() {
         </div>
         {workspace?.hourly_rate != null && <p className="text-xs text-neutral-500 mt-3">${Number(workspace.hourly_rate).toFixed(2)}/hr · Before taxes and adjustments</p>}
         <div className="mt-4 divide-y divide-neutral-100">
-          {periodEntries.filter(e => e.clock_out).map(e => <div key={e.id} className="py-3 flex justify-between text-sm"><span>{new Date(e.clock_in).toLocaleDateString()}</span><span className="font-semibold">{Number(e.hours_worked || 0).toFixed(2)}h</span></div>)}
+          {periodEntries.filter(e => e.clock_out).map(e => <div key={e.id} className="py-3 flex justify-between text-sm"><span>{formatCompanyDate(e.clock_in, timeZone)}</span><span className="font-semibold">{Number(e.hours_worked || 0).toFixed(2)}h</span></div>)}
           {!periodEntries.length && <p className="py-3 text-sm text-neutral-400">No time logged this period.</p>}
         </div>
       </section>}

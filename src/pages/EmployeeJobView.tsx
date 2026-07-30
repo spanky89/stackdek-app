@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import EmployeeLayout from '../components/EmployeeLayout'
+import { clockInstant, DEFAULT_TIME_ZONE, formatCompanyDate } from '../utils/companyTime'
 
 type Photo = { url: string; caption: string; order: number }
 
@@ -68,6 +69,7 @@ export default function EmployeeJobView() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [teamMember, setTeamMember] = useState<{ id: string; full_name: string } | null>(null)
+  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'expenses'>('overview')
 
@@ -94,7 +96,7 @@ export default function EmployeeJobView() {
   useEffect(() => {
     if (!openEntry) { setElapsed(''); return }
     const tick = () => {
-      const diff = Date.now() - new Date(openEntry.clock_in).getTime()
+      const diff = Date.now() - clockInstant(openEntry.clock_in).getTime()
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
@@ -118,6 +120,9 @@ export default function EmployeeJobView() {
         .eq('user_id', user.id)
         .single()
       setTeamMember(tm)
+      const { data: workspaceRows } = await supabase.rpc('get_my_employee_workspace')
+      const workspace = Array.isArray(workspaceRows) ? workspaceRows[0] : workspaceRows
+      if (workspace?.time_zone) setTimeZone(workspace.time_zone)
 
       // Load only the assigned operational fields exposed by secure RPCs.
       // Quote prices, estimates, billing, and unassigned jobs are never returned.
@@ -400,7 +405,7 @@ export default function EmployeeJobView() {
             <div className="border-t border-neutral-200 pt-3 mt-2 space-y-1">
               {timeEntries.filter(e => e.clock_out).slice(0, 3).map(e => (
                 <div key={e.id} className="flex justify-between text-xs text-neutral-500">
-                  <span>{new Date(e.clock_in).toLocaleDateString()}</span>
+                  <span>{formatCompanyDate(e.clock_in, timeZone)}</span>
                   <span>{e.hours_worked}h</span>
                 </div>
               ))}

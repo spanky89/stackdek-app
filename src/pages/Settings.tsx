@@ -4,10 +4,12 @@ import { supabase } from '../api/supabaseClient'
 import AppLayout from '../components/AppLayout'
 import CSVImportExport from '../components/CSVImportExport'
 import ProductsServicesImportExport from '../components/ProductsServicesImportExport'
+import { DEFAULT_TIME_ZONE, TIME_ZONE_OPTIONS } from '../utils/companyTime'
 
 interface Company {
   id: string; name: string; phone: string; email: string
   logo_url?: string; website?: string; street_address?: string; city?: string; state?: string; zip?: string; invoice_notes?: string
+  time_zone?: string
   stripe_publishable_key?: string; stripe_secret_key?: string; stripe_webhook_secret?: string
   stripe_connected_account_id?: string; stripe_connect_status?: string; stripe_connected_at?: string
 }
@@ -104,6 +106,7 @@ export default function SettingsPage() {
         name: company.name, email: company.email, phone: company.phone,
         logo_url: company.logo_url, website: company.website, 
         street_address: company.street_address, city: company.city, state: company.state, zip: company.zip,
+        time_zone: company.time_zone || DEFAULT_TIME_ZONE,
         invoice_notes: company.invoice_notes,
         // Note: stripe_publishable_key, stripe_secret_key, stripe_webhook_secret removed - using Stripe Connect instead
       }).eq('id', company.id)
@@ -361,6 +364,15 @@ export default function SettingsPage() {
                     placeholder="10001"
                     className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20" />
                 </div>
+              </div>
+              <div>
+                <label htmlFor="company-time-zone" className="block text-sm font-medium text-neutral-700 mb-2">Company Time Zone</label>
+                <select id="company-time-zone" value={company.time_zone || DEFAULT_TIME_ZONE}
+                  onChange={e => setCompany({ ...company, time_zone: e.target.value })}
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-opacity-20">
+                  {TIME_ZONE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <p className="text-xs text-neutral-500 mt-2">Used for employee shifts, timesheets, and pay periods.</p>
               </div>
               {saveBtn}
             </div>
