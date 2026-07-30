@@ -155,7 +155,9 @@ export default async function handler(
       console.log('Successfully processed recurring payment:', {
         companyId,
         subscriptionId: invoice.subscription,
-        periodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+        periodEnd: subscriptionPeriodEnd(subscription)
+          ? new Date(subscriptionPeriodEnd(subscription)! * 1000).toISOString()
+          : null,
       });
 
       return res.status(200).json({ received: true, companyId });
