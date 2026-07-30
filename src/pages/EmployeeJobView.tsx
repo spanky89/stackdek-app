@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../api/supabaseClient'
 import EmployeeLayout from '../components/EmployeeLayout'
@@ -107,6 +107,10 @@ export default function EmployeeJobView() {
   const [receiptName, setReceiptName] = useState(initialExpenseDraft?.receiptName || '')
   const [expenseError, setExpenseError] = useState('')
   const [expenseStage, setExpenseStage] = useState('')
+  const [showReceiptCamera, setShowReceiptCamera] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const receiptVideoRef = useRef<HTMLVideoElement | null>(null)
+  const receiptStreamRef = useRef<MediaStream | null>(null)
 
   // Load everything
   useEffect(() => {
@@ -121,6 +125,10 @@ export default function EmployeeJobView() {
       receiptName,
     } satisfies ExpenseDraft))
   }, [id, showExpenseForm, expenseForm, receiptPath, receiptName])
+
+  useEffect(() => () => {
+    receiptStreamRef.current?.getTracks().forEach(track => track.stop())
+  }, [])
 
   // Elapsed timer
   useEffect(() => {
@@ -372,6 +380,56 @@ export default function EmployeeJobView() {
     setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
     setShowExpenseForm(false)
     if (id) localStorage.removeItem(`stackdek-expense-draft:${id}`)
+  }
+
+  async function openReceiptCamera() {
+    setCameraError('')
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('In-app camera is not supported by this browser')
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      })
+      receiptStreamRef.current = stream
+      setShowReceiptCamera(true)
+      window.setTimeout(() => {
+        if (receiptVideoRef.current) {
+          receiptVideoRef.current.srcObject = stream
+          void receiptVideoRef.current.play()
+        }
+      }, 0)
+    } catch (err: any) {
+      setCameraError(err.message || 'Unable to open camera. Check Chrome camera permission.')
+    }
+  }
+
+  function closeReceiptCamera() {
+    receiptStreamRef.current?.getTracks().forEach(track => track.stop())
+    receiptStreamRef.current = null
+    if (receiptVideoRef.current) receiptVideoRef.current.srcObject = null
+    setShowReceiptCamera(false)
+  }
+
+  async function captureReceiptPhoto() {
+    const video = receiptVideoRef.current
+    if (!video?.videoWidth || !video.videoHeight) {
+      setCameraError('Camera is still starting. Try again in a moment.')
+      return
+    }
+    const maxWidth = 1600
+    const scale = Math.min(1, maxWidth / video.videoWidth)
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(video.videoWidth * scale)
+    canvas.height = Math.round(video.videoHeight * scale)
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+    if (!blob) {
+      setCameraError('Could not capture the photo. Please try again.')
+      return
+    }
+    const file = new File([blob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    closeReceiptCamera()
+    await selectReceipt(file)
   }
 
   function totalHours() {
@@ -676,13 +734,21 @@ export default function EmployeeJobView() {
 
                 <div>
                   <label className="text-xs font-medium text-neutral-600 block mb-1">Receipt Photo (optional)</label>
+                  <button
+                    type="button"
+                    onClick={() => void openReceiptCamera()}
+                    className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
+                  >
+                    Take Receipt Photo
+                  </button>
+                  <p className="my-2 text-center text-xs text-neutral-400">or choose an existing file</p>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-                    capture="environment"
                     onChange={e => void selectReceipt(e.target.files?.[0] || null)}
                     className="w-full text-sm text-neutral-600"
                   />
+                  {cameraError && <p className="mt-2 text-xs text-red-700">{cameraError}</p>}
                   {receiptPreviewUrl && <img src={receiptPreviewUrl} alt="Receipt preview" className="mt-3 h-36 w-full rounded-lg border border-neutral-200 object-contain bg-neutral-50" />}
                   {expenseStage === 'Uploading receipt…' && <p className="text-xs text-blue-700 mt-2">Uploading receipt…</p>}
                   {receiptPath && (
@@ -738,6 +804,27 @@ export default function EmployeeJobView() {
           </div>
         )}
       </div>
+
+      {showReceiptCamera && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between p-4 text-white">
+            <p className="font-semibold">Take Receipt Photo</p>
+            <button type="button" onClick={closeReceiptCamera} className="rounded-lg border border-white/40 px-3 py-1.5 text-sm">Cancel</button>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+            <video ref={receiptVideoRef} autoPlay playsInline muted className="max-h-full w-full object-contain" />
+          </div>
+          <div className="p-5">
+            <button
+              type="button"
+              onClick={() => void captureReceiptPhoto()}
+              className="w-full rounded-xl bg-white py-4 text-lg font-bold text-neutral-900"
+            >
+              Capture Receipt
+            </button>
+          </div>
+        </div>
+      )}
     </EmployeeLayout>
   )
 }

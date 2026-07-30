@@ -72,7 +72,7 @@ test('Job Costing is visible to active Pro owner', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Job Costing' })).toBeVisible()
 })
 
-test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
+test('owner-to-employee-to-profit workflow succeeds', async ({ page, context }) => {
   test.setTimeout(60_000)
   // Owner creates a secure single-use invitation.
   await signIn(page, 'pro-owner@test.local')
@@ -143,14 +143,15 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Clock In' })).toBeVisible()
   await page.getByRole('button', { name: 'expenses' }).click()
   await page.getByRole('button', { name: '+ Add Expense' }).click()
+  await expect(page.getByRole('button', { name: 'Take Receipt Photo' })).toBeVisible()
+  await context.grantPermissions(['camera'], { origin: 'http://127.0.0.1:4174' })
+  await page.getByRole('button', { name: 'Take Receipt Photo' }).click()
+  await expect(page.getByRole('button', { name: 'Capture Receipt' })).toBeVisible()
+  await page.waitForTimeout(500)
+  await page.getByRole('button', { name: 'Capture Receipt' }).click()
+  await expect(page.getByText(/Receipt uploaded and ready/)).toBeVisible()
   await page.getByPlaceholder('0.00').fill('125.50')
   await page.getByPlaceholder('e.g. Pressure treated lumber').fill('E2E lumber')
-  await page.locator('input[type="file"]').setInputFiles({
-    name: 'receipt.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
-  })
-  await expect(page.getByText(/Receipt uploaded and ready/)).toBeVisible()
   await page.evaluate(() => sessionStorage.clear())
   await page.reload()
   await expect(page.getByRole('button', { name: 'expenses' })).toHaveClass(/border-b-2/)

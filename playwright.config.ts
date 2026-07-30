@@ -14,6 +14,7 @@ export default defineConfig({
     headless: true,
     launchOptions: {
       executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
     },
   },
   projects: [
