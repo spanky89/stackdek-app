@@ -4,6 +4,8 @@ import AppLayout from '../components/AppLayout'
 import TeamMemberCard from '../components/TeamMemberCard'
 import InviteTeamMemberModal from '../components/InviteTeamMemberModal'
 import { TeamMemberWithStats, TeamRole } from '../types/teamMember'
+import { useCompany } from '../context/CompanyContext'
+import { withTimeout } from '../utils/withTimeout'
 
 // ─── Inline Edit-Role Modal ────────────────────────────────────────────────────
 function EditRoleModal({
@@ -60,6 +62,7 @@ function Embedded({ children }: { children: React.ReactNode }) {
 
 export default function TeamManagement({ embedded = false }: { embedded?: boolean }) {
   const Wrapper = embedded ? Embedded : AppLayout
+  const { companyId: contextCompanyId, loading: companyLoading } = useCompany()
   const [teamMembers, setTeamMembers] = useState<TeamMemberWithStats[]>([])
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMemberWithStats | null>(null)
@@ -72,36 +75,31 @@ export default function TeamManagement({ embedded = false }: { embedded?: boolea
 
   const MAX_MEMBERS = 10
 
-  useEffect(() => { loadTeam() }, [])
+  useEffect(() => {
+    if (!companyLoading) void loadTeam()
+  }, [companyLoading, contextCompanyId])
 
   async function loadTeam() {
     setLoading(true)
     setError('')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Get the owner's company
-      const { data: company, error: companyErr } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .single()
-
-      if (companyErr || !company) {
+      if (!contextCompanyId) {
         setError('Company not found. Make sure you are the account owner.')
-        setLoading(false)
         return
       }
 
-      setCompanyId(company.id)
+      setCompanyId(contextCompanyId)
 
       // Load all team members for this company
-      const { data: members, error: membersErr } = await supabase
-        .from('team_members')
-        .select('*')
-        .eq('company_id', company.id)
-        .order('created_at', { ascending: true })
+      const { data: members, error: membersErr } = await withTimeout(
+        supabase
+          .from('team_members')
+          .select('*')
+          .eq('company_id', contextCompanyId)
+          .order('created_at', { ascending: true }),
+        10000,
+        'StackDek could not load the team. Check your connection and try again.',
+      )
 
       if (membersErr) throw membersErr
 

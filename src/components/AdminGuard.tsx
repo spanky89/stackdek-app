@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../api/supabaseClient';
 import { useCompany } from '../context/CompanyContext';
+import { withTimeout } from '../utils/withTimeout';
 
 interface AdminGuardProps {
   children: JSX.Element;
@@ -25,11 +26,15 @@ export default function AdminGuard({ children }: AdminGuardProps) {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('companies')
-          .select('is_admin')
-          .eq('id', companyId)
-          .single();
+        const { data, error } = await withTimeout(
+          supabase
+            .from('companies')
+            .select('is_admin')
+            .eq('id', companyId)
+            .single(),
+          10000,
+          'StackDek could not verify permissions. Refresh and try again.',
+        );
 
         if (error) throw error;
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { supabase } from '../api/supabaseClient'
+import { withTimeout } from '../utils/withTimeout'
 
 interface CompanyContextType {
   companyId: string | null
@@ -20,7 +21,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     ;(async () => {
       try {
         // Use getSession() instead of getUser() for better reliability
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          8000,
+          'Your session could not be verified. Refresh the page or sign in again.',
+        )
         if (!session?.user) {
           if (isMounted) {
             setError('Not authenticated')
@@ -31,12 +36,16 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         const user = session.user
 
         // Get existing company (should only be one now)
-        const { data: companies, error: fetchErr } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('owner_id', user.id)
-          .order('created_at', { ascending: true })
-          .limit(1)
+        const { data: companies, error: fetchErr } = await withTimeout(
+          supabase
+            .from('companies')
+            .select('id')
+            .eq('owner_id', user.id)
+            .order('created_at', { ascending: true })
+            .limit(1),
+          10000,
+          'StackDek could not load your company. Check your connection and refresh.',
+        )
 
         if (fetchErr) {
           if (isMounted) {
@@ -53,11 +62,15 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
           }
         } else {
           // Only create if none exists
-          const { data: newCompany, error: insertErr } = await supabase
-            .from('companies')
-            .insert({ owner_id: user.id, name: 'My Company' })
-            .select('id')
-            .single()
+          const { data: newCompany, error: insertErr } = await withTimeout(
+            supabase
+              .from('companies')
+              .insert({ owner_id: user.id, name: 'My Company' })
+              .select('id')
+              .single(),
+            10000,
+            'StackDek could not create your company. Check your connection and refresh.',
+          )
 
           if (insertErr) {
             if (isMounted) {
