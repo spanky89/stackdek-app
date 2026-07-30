@@ -5,6 +5,9 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const nav = useNavigate()
 
   async function signOut() {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('stackdek-expense-draft:')) localStorage.removeItem(key)
+    }
     await supabase.auth.signOut()
     nav('/login', { replace: true })
   }

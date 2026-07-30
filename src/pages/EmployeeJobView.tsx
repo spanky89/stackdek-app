@@ -68,7 +68,7 @@ type ExpenseDraft = {
 function readExpenseDraft(jobId?: string) {
   if (!jobId) return null
   try {
-    const value = sessionStorage.getItem(`stackdek-expense-draft:${jobId}`)
+    const value = localStorage.getItem(`stackdek-expense-draft:${jobId}`)
     return value ? JSON.parse(value) as ExpenseDraft : null
   } catch {
     return null
@@ -115,7 +115,7 @@ export default function EmployeeJobView() {
 
   useEffect(() => {
     if (!id || !showExpenseForm) return
-    sessionStorage.setItem(`stackdek-expense-draft:${id}`, JSON.stringify({
+    localStorage.setItem(`stackdek-expense-draft:${id}`, JSON.stringify({
       form: expenseForm,
       receiptPath,
       receiptName,
@@ -303,7 +303,7 @@ export default function EmployeeJobView() {
       if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl)
       setReceiptPreviewUrl('')
       setShowExpenseForm(false)
-      if (id) sessionStorage.removeItem(`stackdek-expense-draft:${id}`)
+      if (id) localStorage.removeItem(`stackdek-expense-draft:${id}`)
       await loadData()
     } catch (err: any) {
       setExpenseError(err.message || 'Unable to submit expense')
@@ -371,7 +371,7 @@ export default function EmployeeJobView() {
     setReceiptName('')
     setExpenseForm({ amount: '', category: 'materials', description: '', notes: '' })
     setShowExpenseForm(false)
-    if (id) sessionStorage.removeItem(`stackdek-expense-draft:${id}`)
+    if (id) localStorage.removeItem(`stackdek-expense-draft:${id}`)
   }
 
   function totalHours() {
