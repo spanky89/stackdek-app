@@ -20,6 +20,14 @@ function planForPrice(priceId?: string): 'basic' | 'pro' | null {
   return null;
 }
 
+function subscriptionPeriodEnd(subscription: Stripe.Subscription): number | undefined {
+  const current = subscription as Stripe.Subscription & {
+    current_period_end?: number;
+    items: Stripe.ApiList<Stripe.SubscriptionItem & { current_period_end?: number }>;
+  };
+  return current.current_period_end ?? current.items.data[0]?.current_period_end;
+}
+
 export const config = {
   api: {
     bodyParser: false, // Disable body parsing for webhook verification
@@ -129,7 +137,13 @@ export default async function handler(
         .from('companies')
         .update({
           subscription_status: 'active',
-          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          ...(subscriptionPeriodEnd(subscription)
+            ? {
+                subscription_current_period_end: new Date(
+                  subscriptionPeriodEnd(subscription)! * 1000
+                ).toISOString(),
+              }
+            : {}),
         })
         .eq('id', companyId);
 
@@ -220,7 +234,7 @@ export default async function handler(
         return res.status(400).json({ error: 'Invalid subscription mapping' });
       }
 
-      const periodEnd = subscription.items.data[0]?.current_period_end;
+      const periodEnd = subscriptionPeriodEnd(subscription);
 
       // Update subscription details
       const { error: updateError } = await supabase
