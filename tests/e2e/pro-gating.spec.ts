@@ -37,6 +37,23 @@ test('active Pro owner can open Team Operations', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Invite Team Member/ })).toBeVisible()
 })
 
+test('owner navigation reuses access state without permission screens', async ({ page }) => {
+  await signIn(page, 'pro-owner@test.local')
+
+  for (const [path, label] of [
+    ['/jobs', 'Jobs'],
+    ['/home', 'Home'],
+    ['/jobs', 'Jobs'],
+    ['/home', 'Home'],
+    ['/jobs', 'Jobs'],
+  ] as const) {
+    await page.getByRole('button', { name: label, exact: true }).last().click()
+    await page.waitForURL(new RegExp(`${path.replace('/', '\\/')}$`))
+    await expect(page.getByText('Checking permissions…')).toHaveCount(0)
+    await expect(page.getByText('Checking subscription...')).toHaveCount(0)
+  }
+})
+
 test('Job Costing is visible to active Pro owner', async ({ page }) => {
   await signIn(page, 'pro-owner@test.local')
   await page.goto('/job/34000000-0000-0000-0000-000000000001')

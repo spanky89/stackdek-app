@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { supabase } from "./api/supabaseClient";
 import {
   BrowserRouter,
@@ -54,39 +54,7 @@ import EmployeeDashboard from "./pages/EmployeeDashboard";
 import JobCostingDemo from "./pages/JobCostingDemo";
 import EmployeeJobView from "./pages/EmployeeJobView";
 import AcceptTeamInvitation from "./pages/AcceptTeamInvitation";
-
-/** Minimal session hook (no external libs) */
-function useSupabaseSession() {
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<Awaited<
-    ReturnType<typeof supabase.auth.getSession>
-  >["data"]["session"]>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!mounted) return;
-        setSession(data.session ?? null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession ?? null);
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  return { loading, session };
-}
+import { AccessProvider, useAccess } from "./context/AccessContext";
 
 /** Auth callback handler for OAuth redirects */
 function AuthCallbackPage() {
@@ -130,7 +98,7 @@ function AuthCallbackPage() {
 
 /** Route guard with CompanyProvider */
 function ProtectedRoute({ children }: { children: JSX.Element }) {
-  const { loading, session } = useSupabaseSession();
+  const { loading, session, error } = useAccess();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -138,10 +106,21 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
       </div>
     );
   }
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md text-center">
+          <p className="text-neutral-900 font-medium">StackDek could not load your account.</p>
+          <p className="text-neutral-600 mt-2">{error}</p>
+          <button className="mt-5 px-4 py-2 rounded-lg bg-neutral-900 text-white" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
   return session ? (
-    <CompanyProvider>
-      <SubscriptionBlockGuard>{children}</SubscriptionBlockGuard>
-    </CompanyProvider>
+    <SubscriptionBlockGuard>{children}</SubscriptionBlockGuard>
   ) : (
     <Navigate to="/login" replace />
   );
@@ -149,8 +128,10 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <AccessProvider>
+      <CompanyProvider>
+        <BrowserRouter>
+          <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
@@ -463,7 +444,9 @@ export default function App() {
           }
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </CompanyProvider>
+    </AccessProvider>
   );
 }

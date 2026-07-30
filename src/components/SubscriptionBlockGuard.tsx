@@ -1,12 +1,5 @@
-import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../api/supabaseClient'
-
-interface Company {
-  subscription_status: 'trial' | 'active' | 'past_due' | 'canceled' | 'none'
-  trial_ends_at: string | null
-  subscription_current_period_end: string | null
-}
+import { useAccess } from '../context/AccessContext'
 
 /**
  * Hard subscription gate - blocks app access if subscription is invalid
@@ -16,104 +9,11 @@ interface Company {
 export default function SubscriptionBlockGuard({ children }: { children: JSX.Element }) {
   const nav = useNavigate()
   const location = useLocation()
-  const [loading, setLoading] = useState(true)
-  const [hasAccess, setHasAccess] = useState(false)
-  const [isOwner, setIsOwner] = useState(false)
-
-  useEffect(() => {
-    checkAccess()
-  }, [location.pathname])
-
-  async function checkAccess() {
-    try {
-      // Always allow access to billing/settings pages
-      if (
-        location.pathname.startsWith('/settings') ||
-        location.pathname.startsWith('/account')
-      ) {
-        setHasAccess(true)
-        setLoading(false)
-        return
-      }
-
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setHasAccess(false)
-        setLoading(false)
-        return
-      }
-
-      // Resolve active team membership first. Invited users may also have an
-      // auto-created owner company from signup, but employee routes must use
-      // the company they actually joined.
-      const { data: membership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle()
-      if (membershipError) throw membershipError
-
-      if (membership) {
-        setIsOwner(false)
-        const { data: employeeAccess, error: accessError } = await supabase
-          .rpc('company_has_active_pro', { p_company_id: membership.company_id })
-        if (accessError) throw accessError
-        setHasAccess(employeeAccess === true)
-        return
-      }
-
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .select('subscription_status, trial_ends_at, subscription_current_period_end')
-        .eq('owner_id', user.id)
-        .limit(1)
-        .maybeSingle()
-      if (companyError) throw companyError
-
-      if (company) {
-        setIsOwner(true)
-        const access = isSubscriptionValid(company)
-        setHasAccess(access)
-        if (!access) nav('/settings/billing', { replace: true })
-        return
-      }
-
-      setIsOwner(false)
-      setHasAccess(false)
-    } catch (err) {
-      console.error('Subscription check error:', err)
-      setHasAccess(false)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function isSubscriptionValid(company: Company): boolean {
-    const { subscription_status, trial_ends_at } = company
-
-    // Active subscription = full access
-    if (subscription_status === 'active') {
-      return true
-    }
-
-    // Trial: check if still valid
-    if (subscription_status === 'trial' && trial_ends_at) {
-      const now = new Date()
-      const trialEnd = new Date(trial_ends_at)
-      return now < trialEnd // Access if trial hasn't expired
-    }
-
-    // Past due: allow grace period (optional - you can block immediately)
-    // Currently: blocks immediately
-    if (subscription_status === 'past_due') {
-      return false
-    }
-
-    // Canceled or none = no access
-    return false
-  }
+  const { loading, subscriptionValid, role } = useAccess()
+  const isOwner = !role
+  const bypassBillingGate = location.pathname.startsWith('/settings')
+    || location.pathname.startsWith('/account')
+  const hasAccess = bypassBillingGate || subscriptionValid
 
   if (loading) {
     return (
