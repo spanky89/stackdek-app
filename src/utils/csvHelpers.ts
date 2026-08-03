@@ -174,6 +174,11 @@ export function validateClientCSV(data: CSVRow[]): { valid: ClientCSVRow[]; erro
       
       // Map email field
       clientEmail = getValue(['e-mails', 'e-mail', 'email']);
+      // Jobber can export multiple addresses in one cell. StackDek currently
+      // stores one primary email, so consistently keep the first address.
+      if (clientEmail) {
+        clientEmail = clientEmail.split(/[,;]/)[0].trim();
+      }
       
       // Store separate address fields (DON'T combine them)
       clientStreet = getValue(['service street 1', 'street 1', 'street']);

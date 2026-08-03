@@ -88,21 +88,26 @@ export default function CSVImportExport({ companyId }: CSVImportExportProps) {
         .filter(row => row.email)
         .map(row => row.email!);
 
-      let existingEmails: string[] = [];
-      if (emailsToCheck.length > 0) {
+      const existingEmails = new Set<string>();
+      const queryBatchSize = 100;
+      for (let offset = 0; offset < emailsToCheck.length; offset += queryBatchSize) {
+        const emailBatch = emailsToCheck.slice(offset, offset + queryBatchSize);
         const { data: existingClients } = await supabase
           .from('clients')
           .select('email')
           .eq('company_id', companyId)
-          .in('email', emailsToCheck);
+          .in('email', emailBatch);
 
-        existingEmails = existingClients?.map(c => c.email).filter(Boolean) || [];
+        existingClients?.forEach(client => {
+          if (client.email) existingEmails.add(client.email.toLowerCase());
+        });
       }
 
-      // Filter out clients with duplicate emails
+      // Repeated emails within a Jobber file can represent separate service
+      // properties, so only skip records that already exist in the database.
       const clientsToInsert = valid.filter(row => {
         if (!row.email) return true; // Allow clients without email
-        return !existingEmails.includes(row.email);
+        return !existingEmails.has(row.email.toLowerCase());
       });
 
       const duplicateCount = valid.length - clientsToInsert.length;
@@ -121,16 +126,19 @@ export default function CSVImportExport({ companyId }: CSVImportExportProps) {
         vip: row.vip || false
       }));
 
-      const { data: insertedClients, error: insertError } = await supabase
-        .from('clients')
-        .insert(insertData)
-        .select();
+      let successCount = 0;
+      const insertBatchSize = 100;
+      for (let offset = 0; offset < insertData.length; offset += insertBatchSize) {
+        const batch = insertData.slice(offset, offset + insertBatchSize);
+        const { data: insertedClients, error: insertError } = await supabase
+          .from('clients')
+          .insert(batch)
+          .select('id');
 
-      if (insertError) {
-        throw insertError;
+        if (insertError) throw insertError;
+        successCount += insertedClients?.length || 0;
+        setMessage(`Importing clients... ${successCount} of ${insertData.length}`);
       }
-
-      const successCount = insertedClients?.length || 0;
       const allErrors = [...errors];
 
       if (duplicateCount > 0) {
