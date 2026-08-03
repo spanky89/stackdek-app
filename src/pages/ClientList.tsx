@@ -50,18 +50,29 @@ export default function ClientListPage() {
     ;(async () => {
       try {
         console.log('Fetching clients for company:', companyId)
-        const { data, error: fetchErr } = await supabase
-          .from('clients').select('id, name, email, phone, address, vip, created_at')
-          .eq('company_id', companyId).order('name')
-        
-        console.log('Clients response:', { data, fetchErr })
-        
-        if (fetchErr) { 
-          console.error('Fetch error:', fetchErr)
-          setError(fetchErr.message)
-          return 
+        const pageSize = 1000
+        const allClients: Client[] = []
+
+        for (let from = 0; ; from += pageSize) {
+          const { data, error: fetchErr } = await supabase
+            .from('clients')
+            .select('id, name, email, phone, address, vip, created_at')
+            .eq('company_id', companyId)
+            .order('name')
+            .range(from, from + pageSize - 1)
+
+          if (fetchErr) {
+            console.error('Fetch error:', fetchErr)
+            setError(fetchErr.message)
+            return
+          }
+
+          allClients.push(...(data || []))
+          if (!data || data.length < pageSize) break
         }
-        setClients(data || [])
+
+        console.log('Clients response:', { count: allClients.length })
+        setClients(allClients)
         setError(null)
       } catch (e: any) { 
         console.error('Exception:', e)
