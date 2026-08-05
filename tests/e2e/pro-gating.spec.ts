@@ -1,6 +1,16 @@
 import { expect, Page, test } from '@playwright/test'
+import { createClient } from '@supabase/supabase-js'
 
 const password = 'StackDek-E2E-2026!'
+const localSupabaseUrl = 'http://127.0.0.1:54321'
+
+function adminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for E2E assertions')
+  return createClient(localSupabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
 
 async function signIn(page: Page, email: string) {
   await page.goto('/login')
@@ -115,6 +125,12 @@ test('owner-to-employee-to-profit workflow succeeds', async ({ page, context }) 
   await page.getByRole('button', { name: 'Sign in or create account' }).click()
   await completeSignIn(page, 'pro-employee@test.local')
   await page.waitForURL(/\/employee-dashboard/)
+  const { count: accidentalCompanyCount, error: accidentalCompanyError } = await adminClient()
+    .from('companies')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', '14000000-0000-0000-0000-000000000003')
+  expect(accidentalCompanyError).toBeNull()
+  expect(accidentalCompanyCount).toBe(0)
   await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening), Pro/ })).toBeVisible()
   await expect(page.getByText('No jobs assigned. You can still clock in normally.')).toBeVisible()
   await page.getByRole('button', { name: 'Clock In' }).click()

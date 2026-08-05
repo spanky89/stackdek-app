@@ -37,8 +37,17 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
     let requestId = 0
+    let resolvingUserId: string | null = null
+
+    function isAcceptingTeamInvitation() {
+      if (window.location.pathname === '/accept-invite') return true
+      if (window.location.pathname !== '/login') return false
+      const next = new URLSearchParams(window.location.search).get('next')
+      return next?.startsWith('/accept-invite') === true
+    }
 
     async function resolveAccess(session: Session | null) {
+      if (session && resolvingUserId === session.user.id) return
       const currentRequest = ++requestId
 
       if (!session) {
@@ -54,6 +63,10 @@ export function AccessProvider({ children }: { children: ReactNode }) {
         }
         return
       }
+
+      // getSession and SIGNED_IN can fire together. Only one resolver may
+      // create an owner company for a user at a time.
+      resolvingUserId = session.user.id
 
       setState(previous => ({
         ...previous,
@@ -99,6 +112,23 @@ export function AccessProvider({ children }: { children: ReactNode }) {
           return
         }
 
+        // A newly signed-in invitee is linked to team_members by the
+        // invitation page. Never create a blank owner company during that
+        // short pre-acceptance window.
+        if (isAcceptingTeamInvitation()) {
+          if (mounted && currentRequest === requestId) {
+            setState({
+              session,
+              companyId: null,
+              role: null,
+              subscriptionValid: false,
+              loading: false,
+              error: null,
+            })
+          }
+          return
+        }
+
         let { data: company, error: companyError } = await withTimeout(
           supabase
             .from('companies')
@@ -116,7 +146,10 @@ export function AccessProvider({ children }: { children: ReactNode }) {
           const { data: created, error: createError } = await withTimeout(
             supabase
               .from('companies')
-              .insert({ owner_id: session.user.id, name: 'My Company' })
+              .upsert(
+                { owner_id: session.user.id, name: 'My Company' },
+                { onConflict: 'owner_id' },
+              )
               .select('id, subscription_status, trial_ends_at')
               .single(),
             10000,
@@ -147,6 +180,8 @@ export function AccessProvider({ children }: { children: ReactNode }) {
             error: error?.message ?? 'StackDek could not verify your access.',
           })
         }
+      } finally {
+        if (resolvingUserId === session.user.id) resolvingUserId = null
       }
     }
 

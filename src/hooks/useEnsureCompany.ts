@@ -45,7 +45,7 @@ export function useEnsureCompany() {
           // Create company only if none exists
           const { data: newCompany, error: insertErr } = await supabase
             .from('companies')
-            .insert({ owner_id: user.id, name: 'My Company' })
+            .upsert({ owner_id: user.id, name: 'My Company' }, { onConflict: 'owner_id' })
             .select('id')
             .single()
 

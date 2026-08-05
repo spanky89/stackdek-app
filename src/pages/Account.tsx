@@ -53,7 +53,7 @@ export default function AccountPage() {
       if (!company) {
         const { data: newCompany } = await supabase
           .from('companies')
-          .insert({ owner_id: user.id, name: 'My Company' })
+          .upsert({ owner_id: user.id, name: 'My Company' }, { onConflict: 'owner_id' })
           .select()
           .single()
         company = newCompany
