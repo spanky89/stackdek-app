@@ -26,6 +26,7 @@ export default function RequestDetailPage() {
   const [request, setRequest] = useState<Request | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const [archiveError, setArchiveError] = useState('')
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
@@ -223,6 +224,32 @@ export default function RequestDetailPage() {
     }
   }
 
+  const handleArchive = async () => {
+    if (!request || !companyId) return
+
+    const isArchived = request.status === 'archived'
+    if (!isArchived && !window.confirm('Archive this request? You can restore it later from the Archived tab.')) return
+
+    setProcessing(true)
+    setArchiveError('')
+    try {
+      const nextStatus = isArchived ? 'pending' : 'archived'
+      const { error } = await supabase
+        .from('requests')
+        .update({ status: nextStatus })
+        .eq('id', request.id)
+        .eq('company_id', companyId)
+
+      if (error) throw error
+      nav('/requests')
+    } catch (err) {
+      console.error('Request archive failed:', err)
+      setArchiveError(isArchived ? 'Failed to restore request.' : 'Failed to archive request.')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   const openDirections = () => {
     if (!request?.client_address && !request?.client_city) {
       alert('No address available')
@@ -310,20 +337,32 @@ export default function RequestDetailPage() {
 
           {/* Quote Action Buttons */}
           <div className="space-y-3 mb-6">
+            {request.status !== 'archived' && (
+              <>
+                <button
+                  onClick={handleScheduleQuote}
+                  disabled={processing}
+                  className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition disabled:opacity-50"
+                >
+                  Schedule Quote
+                </button>
+                <button
+                  onClick={handleCreateQuote}
+                  disabled={processing}
+                  className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition disabled:opacity-50"
+                >
+                  Create Quote
+                </button>
+              </>
+            )}
             <button
-              onClick={handleScheduleQuote}
+              onClick={handleArchive}
               disabled={processing}
-              className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition disabled:opacity-50"
+              className="w-full py-3 border border-neutral-300 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 transition disabled:opacity-50"
             >
-              Schedule Quote
+              {processing ? 'Saving...' : request.status === 'archived' ? 'Restore Request' : 'Archive Request'}
             </button>
-            <button
-              onClick={handleCreateQuote}
-              disabled={processing}
-              className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-neutral-800 transition disabled:opacity-50"
-            >
-              Create Quote
-            </button>
+            {archiveError && <p className="text-sm text-red-600">{archiveError}</p>}
           </div>
 
           {/* Details Section */}
@@ -381,6 +420,7 @@ export default function RequestDetailPage() {
                 request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                 request.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
                 request.status === 'converted' ? 'bg-green-100 text-green-800' :
+                request.status === 'archived' ? 'bg-neutral-200 text-neutral-700' :
                 'bg-neutral-100 text-neutral-800'
               }`}>
                 {request.status.charAt(0).toUpperCase() + request.status.slice(1)}

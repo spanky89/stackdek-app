@@ -37,8 +37,8 @@ export default function RequestListPage() {
           .order('created_at', { ascending: false })
 
         if (filter === 'all') {
-          // Exclude converted requests from default view
-          query = query.neq('status', 'converted')
+          // Keep completed and archived requests out of the active inbox.
+          query = query.not('status', 'in', '(converted,archived)')
         } else {
           query = query.eq('status', filter)
         }
@@ -79,6 +79,8 @@ export default function RequestListPage() {
         return <span className="text-xs font-medium text-neutral-700">Contacted</span>
       case 'converted':
         return <span className="text-xs font-medium text-neutral-700">Converted</span>
+      case 'archived':
+        return <span className="text-xs font-medium text-neutral-700">Archived</span>
       default:
         return <span className="text-xs font-medium text-neutral-700">New</span>
     }
@@ -123,10 +125,11 @@ export default function RequestListPage() {
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto">
           {[
-            { key: 'all', label: 'All Requests' },
+            { key: 'all', label: 'Active' },
             { key: 'pending', label: 'New' },
-            { key: 'contacted', label: 'Pending' },
-            { key: 'converted', label: 'Contacted' },
+            { key: 'contacted', label: 'Contacted' },
+            { key: 'converted', label: 'Converted' },
+            { key: 'archived', label: 'Archived' },
           ].map(tab => (
             <button
               key={tab.key}
