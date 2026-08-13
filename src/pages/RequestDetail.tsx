@@ -19,6 +19,30 @@ type Request = {
   created_at: string
 }
 
+type ScheduleEvent = { id: string; type: 'quote' | 'job'; title: string; clientName: string; date: string; time: string | null }
+
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function weekStartFor(date: Date) {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  result.setDate(result.getDate() - result.getDay())
+  return result
+}
+
+function shiftDays(date: Date, days: number) {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+function eventTime(time: string | null) {
+  if (!time) return 'Time not set'
+  const [hours, minutes] = time.slice(0, 5).split(':').map(Number)
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
@@ -32,6 +56,9 @@ export default function RequestDetailPage() {
   const [scheduleTime, setScheduleTime] = useState('')
   const [scheduleNotes, setScheduleNotes] = useState('')
   const [scheduleService, setScheduleService] = useState('')
+  const [calendarWeekStart, setCalendarWeekStart] = useState(() => weekStartFor(new Date()))
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([])
+  const [calendarLoading, setCalendarLoading] = useState(false)
 
   useEffect(() => {
     const loadRequest = async () => {
@@ -58,6 +85,34 @@ export default function RequestDetailPage() {
 
     loadRequest()
   }, [id, companyId, companyLoading])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!companyId || !showScheduleModal) return
+      setCalendarLoading(true)
+      const start = dateKey(calendarWeekStart)
+      const end = dateKey(shiftDays(calendarWeekStart, 6))
+      const [quotesResult, jobsResult] = await Promise.all([
+        supabase.from('quotes').select('id, title, scheduled_date, scheduled_time, clients(name)')
+          .eq('company_id', companyId).not('scheduled_date', 'is', null).gte('scheduled_date', start).lte('scheduled_date', end),
+        supabase.from('jobs').select('id, title, date_scheduled, time_scheduled, clients(name)')
+          .eq('company_id', companyId).neq('status', 'cancelled').gte('date_scheduled', `${start}T00:00:00`).lte('date_scheduled', `${end}T23:59:59`),
+      ])
+      if (cancelled) return
+      const quoteEvents: ScheduleEvent[] = (quotesResult.data || []).map((item: any) => ({
+        id: item.id, type: 'quote', title: item.title, clientName: item.clients?.name || 'Unknown client',
+        date: item.scheduled_date, time: item.scheduled_time,
+      }))
+      const jobEvents: ScheduleEvent[] = (jobsResult.data || []).map((item: any) => {
+        const [day, embeddedTime] = String(item.date_scheduled).split('T')
+        return { id: item.id, type: 'job', title: item.title, clientName: item.clients?.name || 'Unknown client', date: day, time: item.time_scheduled || embeddedTime?.slice(0, 5) || null }
+      })
+      setScheduleEvents([...quoteEvents, ...jobEvents].sort((a, b) => `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`)))
+      setCalendarLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [companyId, showScheduleModal, calendarWeekStart])
 
   const handleScheduleQuote = () => {
     setScheduleService(request?.service_type || '')
@@ -433,13 +488,53 @@ export default function RequestDetailPage() {
       {/* Schedule Quote Modal */}
       {showScheduleModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowScheduleModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Schedule Quote Appointment</h2>
               <button onClick={() => setShowScheduleModal(false)} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
             </div>
 
             <div className="space-y-4">
+              <section className="rounded-xl border border-neutral-200 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-900">Company schedule</h3>
+                    <p className="text-xs text-neutral-500">Quotes are blue. Jobs are green. Tap a day to select it.</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setCalendarWeekStart(weekStartFor(new Date()))} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium hover:bg-neutral-100">Today</button>
+                    <button type="button" aria-label="Previous week" onClick={() => setCalendarWeekStart(value => shiftDays(value, -7))} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm hover:bg-neutral-100">←</button>
+                    <button type="button" aria-label="Next week" onClick={() => setCalendarWeekStart(value => shiftDays(value, 7))} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm hover:bg-neutral-100">→</button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="grid min-w-[700px] grid-cols-7">
+                    {Array.from({ length: 7 }, (_, index) => shiftDays(calendarWeekStart, index)).map(day => {
+                      const dayKey = dateKey(day)
+                      const events = scheduleEvents.filter(event => event.date === dayKey)
+                      const selected = scheduleDate === dayKey
+                      const today = dayKey === dateKey(new Date())
+                      return (
+                        <button type="button" key={dayKey} onClick={() => setScheduleDate(dayKey)} className={`min-h-40 border-r border-neutral-200 p-2 text-left last:border-r-0 transition ${selected ? 'bg-amber-50 ring-2 ring-inset ring-amber-500' : 'bg-white hover:bg-neutral-50'}`}>
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-[11px] font-semibold uppercase text-neutral-500">{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                            <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${today ? 'bg-neutral-900 text-white' : 'text-neutral-800'}`}>{day.getDate()}</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {calendarLoading ? <span className="text-xs text-neutral-400">Loading…</span> : events.length === 0 ? <span className="text-xs text-neutral-400">Open</span> : events.map(event => (
+                              <div key={`${event.type}-${event.id}`} className={`rounded-md border-l-4 px-2 py-1.5 ${event.type === 'quote' ? 'border-blue-500 bg-blue-50' : 'border-emerald-500 bg-emerald-50'}`}>
+                                <div className="text-[11px] font-bold text-neutral-900">{eventTime(event.time)}</div>
+                                <div className="truncate text-[11px] font-medium text-neutral-800">{event.title}</div>
+                                <div className="truncate text-[10px] text-neutral-500">{event.clientName}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </section>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
                 <input
