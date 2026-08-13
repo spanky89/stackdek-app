@@ -106,7 +106,9 @@ export default function QuoteListPage() {
   }, [companyId, refreshKey])
 
   // Split quotes into draft, scheduled, and pending
-  const draftQuotes = quotes.filter(q => q.status === 'draft').sort((a, b) => {
+  // Scheduled appointments are draft estimates internally until the quote is
+  // built, but they belong only in the Scheduled section of this page.
+  const draftQuotes = quotes.filter(q => q.status === 'draft' && !q.scheduled_date).sort((a, b) => {
     const dateA = a.created_at || ''
     const dateB = b.created_at || ''
     return dateB.localeCompare(dateA) // Most recent first
