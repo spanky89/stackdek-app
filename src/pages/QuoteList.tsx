@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '../api/supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import { useAccess } from '../context/AccessContext'
 
 type Quote = {
   id: string; title: string; status: string; amount: number
@@ -12,6 +13,7 @@ type Quote = {
 
 export default function QuoteListPage() {
   const nav = useNavigate()
+  const { companyId } = useAccess()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
   const [showSchedule, setShowSchedule] = useState(false)
@@ -21,35 +23,27 @@ export default function QuoteListPage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          console.log('No user found')
-          return
-        }
-        console.log('User ID:', user.id)
-        
-        const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
-        if (!company) {
+        if (!companyId) {
           console.log('No company found for user')
           return
         }
-        console.log('Company ID:', company.id)
+        console.log('Company ID:', companyId)
         
         // Fetch quotes, clients, and requests in parallel
         const [quotesRes, clientsRes, requestsRes] = await Promise.all([
           supabase
             .from('quotes')
             .select('*')
-            .eq('company_id', company.id)
+            .eq('company_id', companyId)
             .order('created_at', { ascending: false }),
           supabase
             .from('clients')
             .select('id, name, avatar_url')
-            .eq('company_id', company.id),
+            .eq('company_id', companyId),
           supabase
             .from('requests')
             .select('id')
-            .eq('company_id', company.id)
+            .eq('company_id', companyId)
             .eq('status', 'pending')
         ])
         
@@ -72,7 +66,7 @@ export default function QuoteListPage() {
         setNewRequestsCount(requestsRes.data?.length || 0)
       } finally { setLoading(false) }
     })()
-  }, [refreshKey])
+  }, [companyId, refreshKey])
 
   // Split quotes into draft, scheduled, and pending
   const draftQuotes = quotes.filter(q => q.status === 'draft').sort((a, b) => {
@@ -311,6 +305,7 @@ export default function QuoteListPage() {
 
 // Schedule Quote Modal Component
 function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { companyId } = useAccess()
   const [clients, setClients] = useState<{ id: string; name: string }[]>([])
   const [formData, setFormData] = useState({
     client_id: '',
@@ -323,14 +318,11 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 
   useEffect(() => {
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
-      if (!company) return
-      const { data } = await supabase.from('clients').select('id, name').eq('company_id', company.id).order('name')
+      if (!companyId) return
+      const { data } = await supabase.from('clients').select('id, name').eq('company_id', companyId).order('name')
       setClients((data as any) || [])
     })()
-  }, [])
+  }, [companyId])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -342,13 +334,10 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 
     setSubmitting(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-      const { data: company } = await supabase.from('companies').select('id').eq('owner_id', user.id).single()
-      if (!company) throw new Error('No company found')
+      if (!companyId) throw new Error('No company found')
 
       const { error } = await supabase.from('quotes').insert({
-        company_id: company.id,
+        company_id: companyId,
         client_id: formData.client_id,
         title: formData.title,
         amount: 0,
