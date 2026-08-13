@@ -11,6 +11,43 @@ type Quote = {
   clients: { name: string; id: string; avatar_url?: string } | null
 }
 
+type ScheduleEvent = {
+  id: string
+  type: 'quote' | 'job'
+  title: string
+  clientName: string
+  date: string
+  time: string | null
+}
+
+function toLocalDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function startOfWeek(date: Date) {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  result.setDate(result.getDate() - result.getDay())
+  return result
+}
+
+function addDays(date: Date, days: number) {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+function displayEventTime(time: string | null) {
+  if (!time) return 'Time not set'
+  const [hours, minutes] = time.slice(0, 5).split(':').map(Number)
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export default function QuoteListPage() {
   const nav = useNavigate()
   const { companyId } = useAccess()
@@ -307,6 +344,9 @@ export default function QuoteListPage() {
 function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { companyId } = useAccess()
   const [clients, setClients] = useState<{ id: string; name: string }[]>([])
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([])
+  const [scheduleLoading, setScheduleLoading] = useState(true)
   const [formData, setFormData] = useState({
     client_id: '',
     title: '',
@@ -323,6 +363,65 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
       setClients((data as any) || [])
     })()
   }, [companyId])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!companyId) return
+      setScheduleLoading(true)
+      const weekEnd = addDays(weekStart, 6)
+      const startKey = toLocalDateKey(weekStart)
+      const endKey = toLocalDateKey(weekEnd)
+      const [quotesResult, jobsResult] = await Promise.all([
+        supabase
+          .from('quotes')
+          .select('id, title, scheduled_date, scheduled_time, clients(name)')
+          .eq('company_id', companyId)
+          .not('scheduled_date', 'is', null)
+          .gte('scheduled_date', startKey)
+          .lte('scheduled_date', endKey),
+        supabase
+          .from('jobs')
+          .select('id, title, date_scheduled, time_scheduled, clients(name)')
+          .eq('company_id', companyId)
+          .neq('status', 'cancelled')
+          .gte('date_scheduled', `${startKey}T00:00:00`)
+          .lte('date_scheduled', `${endKey}T23:59:59`),
+      ])
+      if (cancelled) return
+      const quoteEvents: ScheduleEvent[] = (quotesResult.data || []).map((item: any) => ({
+        id: item.id,
+        type: 'quote',
+        title: item.title,
+        clientName: item.clients?.name || 'Unknown client',
+        date: item.scheduled_date,
+        time: item.scheduled_time,
+      }))
+      const jobEvents: ScheduleEvent[] = (jobsResult.data || []).map((item: any) => {
+        const [datePart, embeddedTime] = String(item.date_scheduled).split('T')
+        return {
+          id: item.id,
+          type: 'job',
+          title: item.title,
+          clientName: item.clients?.name || 'Unknown client',
+          date: datePart,
+          time: item.time_scheduled || embeddedTime?.slice(0, 5) || null,
+        }
+      })
+      setScheduleEvents([...quoteEvents, ...jobEvents].sort((a, b) =>
+        `${a.date}${a.time || ''}`.localeCompare(`${b.date}${b.time || ''}`)
+      ))
+      setScheduleLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [companyId, weekStart])
+
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+  const selectedDate = formData.scheduled_date
+
+  function selectCalendarDay(date: Date) {
+    setFormData(previous => ({ ...previous, scheduled_date: toLocalDateKey(date) }))
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -344,6 +443,7 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
         status: 'draft',
         scheduled_date: formData.scheduled_date,
         scheduled_time: formData.scheduled_time,
+        notes: formData.notes.trim() || null,
         expiration_date: null
       })
 
@@ -359,13 +459,58 @@ function ScheduleQuoteModal({ onClose, onSuccess }: { onClose: () => void; onSuc
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold">Schedule Quote Appointment</h2>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">&times;</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <section className="rounded-xl border border-neutral-200 overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-3">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900">Company schedule</h3>
+                <p className="text-xs text-neutral-500">Quotes are blue. Jobs are green. Tap a day to select it.</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => setWeekStart(startOfWeek(new Date()))} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-medium hover:bg-neutral-100">Today</button>
+                <button type="button" aria-label="Previous week" onClick={() => setWeekStart(previous => addDays(previous, -7))} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm hover:bg-neutral-100">←</button>
+                <button type="button" aria-label="Next week" onClick={() => setWeekStart(previous => addDays(previous, 7))} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm hover:bg-neutral-100">→</button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+            <div className="grid min-w-[700px] grid-cols-7">
+              {weekDays.map(day => {
+                const dateKey = toLocalDateKey(day)
+                const dayEvents = scheduleEvents.filter(event => event.date === dateKey)
+                const isSelected = selectedDate === dateKey
+                const isToday = dateKey === toLocalDateKey(new Date())
+                return (
+                  <button
+                    type="button"
+                    key={dateKey}
+                    onClick={() => selectCalendarDay(day)}
+                    className={`min-h-40 border-r border-neutral-200 p-2 text-left last:border-r-0 transition ${isSelected ? 'bg-amber-50 ring-2 ring-inset ring-amber-500' : 'bg-white hover:bg-neutral-50'}`}
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase text-neutral-500">{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${isToday ? 'bg-neutral-900 text-white' : 'text-neutral-800'}`}>{day.getDate()}</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {scheduleLoading ? <span className="text-xs text-neutral-400">Loading…</span> : dayEvents.length === 0 ? <span className="text-xs text-neutral-400">Open</span> : dayEvents.map(event => (
+                        <div key={`${event.type}-${event.id}`} className={`rounded-md border-l-4 px-2 py-1.5 ${event.type === 'quote' ? 'border-blue-500 bg-blue-50' : 'border-emerald-500 bg-emerald-50'}`}>
+                          <div className="text-[11px] font-bold text-neutral-900">{displayEventTime(event.time)}</div>
+                          <div className="truncate text-[11px] font-medium text-neutral-800">{event.title}</div>
+                          <div className="truncate text-[10px] text-neutral-500">{event.clientName}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            </div>
+          </section>
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
             <select
